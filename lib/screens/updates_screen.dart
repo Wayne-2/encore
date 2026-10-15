@@ -172,6 +172,103 @@ class _UpdatesAppBar extends StatelessWidget {
   }
 }
 
+/// WhatsApp-style type hierarchy for the Updates page. Prominence is expressed
+/// through size, weight and opacity rather than colour alone, top → bottom:
+///
+/// | tier      | size | weight | opacity |
+/// |-----------|------|--------|---------|
+/// | glyph     | 20   | w700   | 70%     |
+/// | section   | 16   | w600   | 100%    |
+/// | name      | 15   | w700   | 100%    |
+/// | body      | 14   | w400   | 100%    |
+/// | subtitle  | 12   | w400   | 80%     |
+/// | meta/tag  | 11   | w600   | 60–100% |
+abstract final class _UpdatesType {
+  /// Section titles — the top of the hierarchy.
+  static TextStyle sectionTitle(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: s.onSurface,
+  );
+
+  /// The muted `#` glyph that prefixes a section title.
+  static TextStyle glyph(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    height: 1,
+    color: s.onSurfaceVariant.withValues(alpha: 0.7),
+  );
+
+  /// Names and card titles — primary emphasis.
+  static TextStyle name(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+    color: s.onSurface,
+  );
+
+  /// Message copy — secondary emphasis.
+  static TextStyle body(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 14,
+    height: 1.3,
+    fontWeight: FontWeight.w400,
+    color: s.onSurfaceVariant,
+  );
+
+  /// Supporting copy such as card subtitles and dates — tertiary emphasis.
+  static TextStyle subtitle(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: s.onSurfaceVariant.withValues(alpha: 0.8),
+  );
+
+  /// Timestamps — the faintest tier.
+  static TextStyle meta(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: s.onSurfaceVariant.withValues(alpha: 0.6),
+  );
+
+  /// Coloured priority tag.
+  static TextStyle tag(Color color) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: color,
+  );
+}
+
+/// Slack-style section title: a muted `#` glyph followed by the section name.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('#', style: _UpdatesType.glyph(scheme)),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _UpdatesType.sectionTitle(scheme),
+        ),
+      ],
+    );
+  }
+}
+
 /// Section header: `# Announcement` with a trailing "more" action.
 class _AnnouncementHeader extends StatelessWidget {
   const _AnnouncementHeader({required this.onMore});
@@ -186,26 +283,7 @@ class _AnnouncementHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 6, 4, 2),
       child: Row(
         children: [
-          Text(
-            '#',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Announcement',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: scheme.onSurface,
-            ),
-          ),
+          const _SectionTitle('Announcement'),
           const Spacer(),
           IconButton(
             onPressed: onMore,
@@ -423,23 +501,13 @@ class _AnnouncementTile extends StatelessWidget {
                             announcement.author,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurfaceVariant,
-                            ),
+                            style: _UpdatesType.name(scheme),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           announcement.time,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: scheme.onSurfaceVariant,
-                          ),
+                          style: _UpdatesType.meta(scheme),
                         ),
                         if (announcement.unread) ...[
                           const SizedBox(width: 6),
@@ -462,14 +530,9 @@ class _AnnouncementTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       announcement.body,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 13,
-                        height: 1.35,
-                        color: scheme.onSurfaceVariant,
-                      ),
+                      style: _UpdatesType.body(scheme),
                     ),
                   ],
                 ),
@@ -491,15 +554,7 @@ class _TagBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontFamily: AppTheme.fontFamily,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        color: color,
-      ),
-    );
+    return Text(label, style: _UpdatesType.tag(color));
   }
 }
 
@@ -545,8 +600,6 @@ class _TrendingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -554,15 +607,7 @@ class _TrendingSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 6, 8, 4),
           child: Row(
             children: [
-              Text(
-                'Trending',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
-                ),
-              ),
+              const _SectionTitle('Trending'),
               const Spacer(),
               GestureDetector(
                 key: const ValueKey('trending-show-more'),
@@ -642,24 +687,14 @@ class _TrendingCard extends StatelessWidget {
             item.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: scheme.onSurface,
-            ),
+            style: _UpdatesType.name(scheme),
           ),
           const SizedBox(height: 2),
           Text(
             item.subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 11,
-              fontWeight: FontWeight.w400,
-              color: scheme.onSurfaceVariant,
-            ),
+            style: _UpdatesType.subtitle(scheme),
           ),
         ],
       ),
@@ -683,22 +718,12 @@ class _UpcomingActivitiesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-          child: Text(
-            'Upcoming Activities',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: scheme.onSurface,
-            ),
-          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 6, 16, 12),
+          child: _SectionTitle('Upcoming Activities'),
         ),
         GridView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -761,24 +786,14 @@ class _ActivityCard extends StatelessWidget {
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface,
-                  ),
+                  style: _UpdatesType.name(scheme),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   item.date,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  style: _UpdatesType.subtitle(scheme),
                 ),
               ],
             ),

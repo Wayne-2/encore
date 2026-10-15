@@ -279,7 +279,7 @@ void main() {
     expect(find.text('Csc 200 level'), findsOneWidget);
 
     // Announcement section header and filter pills.
-    expect(find.text('#'), findsOneWidget);
+    expect(find.text('#'), findsAtLeastNWidgets(1));
     expect(find.text('Announcement'), findsOneWidget);
     for (final label in ['All', 'Unread', 'Urgent', 'Older']) {
       expect(find.text(label), findsOneWidget);
