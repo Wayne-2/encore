@@ -21,6 +21,16 @@ abstract final class SlackColors {
   /// Active/action green used for primary CTAs (matches the welcome button).
   static const Color accentGreen = Color(0xFF25A10C);
 
+  // ---- Announcement priority tags ----
+  /// Amber — "Highly prior" announcements.
+  static const Color tagUrgent = Color(0xFFE8A33D);
+
+  /// Blue — general announcements.
+  static const Color tagInfo = Color(0xFF6FA8DC);
+
+  /// Grey — low priority announcements.
+  static const Color tagMuted = Color(0xFF9AA0A6);
+
   // ---- Light appearance ----
   static const Color lightBackground = Color(0xFFFFFFFF);
   static const Color lightSurface = Color(0xFFF8F8F8);
@@ -38,6 +48,9 @@ abstract final class SlackColors {
   static const Color darkBackground = Color(0xFF1A1D21);
   static const Color darkSurface = Color(0xFF222529);
   static const Color darkSurfaceSecondary = Color(0xFF27242C);
+
+  /// Header / app-bar surface for the signed-in sections (e.g. Updates).
+  static const Color darkHeader = Color(0xFF22252A);
   static const Color darkBorder = Color(0xFF393B40);
   static const Color darkBorderStrong = Color(0xFF454548);
   static const Color darkTextPrimary = Color(0xFFD1D2D3);

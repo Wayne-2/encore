@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/slack_colors.dart';
+import 'updates_screen.dart';
 
 /// The app shell once the user is signed in: a Slack-style bottom navigation
-/// with five sections — Updates, Messages, Profile, Transactions and More.
+/// with five sections — Updates, Messages, Profile, Finance and More.
+///
+/// Sections can be reached by tapping a tab or by swiping the content left and
+/// right, the way WhatsApp switches between its top tabs. The tab highlight
+/// follows the swipe offset so it slides between sections.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -22,23 +28,53 @@ class _HomeShellState extends State<HomeShell> {
     _NavTab(label: 'More', icon: 'more'),
   ];
 
+  final _controller = PageController();
   int _index = 0;
+
+  /// Light status-bar icons over the dark header colour.
+  static const SystemUiOverlayStyle _overlayStyle = SystemUiOverlayStyle(
+    statusBarColor: SlackColors.darkHeader,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int page) {
+    _controller.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
-      body: SafeArea(
-        bottom: false,
-        child: IndexedStack(
-          index: _index,
-          children: [for (final tab in _tabs) _TabPlaceholder(tab: tab)],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _overlayStyle,
+      child: Scaffold(
+        backgroundColor: SlackColors.darkBackground,
+        body: PageView.builder(
+          controller: _controller,
+          itemCount: _tabs.length,
+          onPageChanged: (i) => setState(() => _index = i),
+          itemBuilder: (context, i) =>
+              i == 0 ? const UpdatesScreen() : _TabPlaceholder(tab: _tabs[i]),
         ),
-      ),
-      bottomNavigationBar: _BottomNavBar(
-        tabs: _tabs,
-        index: _index,
-        onTap: (i) => setState(() => _index = i),
+        // Rebuilds as the pages scroll so the highlight tracks the swipe.
+        bottomNavigationBar: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final page = _controller.hasClients
+                ? (_controller.page ?? _index.toDouble())
+                : _index.toDouble();
+            return _BottomNavBar(tabs: _tabs, page: page, onTap: _goTo);
+          },
+        ),
       ),
     );
   }
@@ -54,16 +90,17 @@ class _NavTab {
   final String icon;
 }
 
-/// Slack-style bottom bar: five labelled SVG tabs, the active one tinted green.
+/// Slack-style bottom bar: five labelled SVG tabs that highlight in green as
+/// the pages scroll under them.
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar({
     required this.tabs,
-    required this.index,
+    required this.page,
     required this.onTap,
   });
 
   final List<_NavTab> tabs;
-  final int index;
+  final double page;
   final ValueChanged<int> onTap;
 
   @override
@@ -84,7 +121,8 @@ class _BottomNavBar extends StatelessWidget {
                 child: _NavButton(
                   key: ValueKey('nav-${tabs[i].label}'),
                   tab: tabs[i],
-                  selected: i == index,
+                  page: page,
+                  index: i,
                   onTap: () => onTap(i),
                 ),
               ),
@@ -99,19 +137,29 @@ class _NavButton extends StatelessWidget {
   const _NavButton({
     super.key,
     required this.tab,
-    required this.selected,
+    required this.page,
+    required this.index,
     required this.onTap,
   });
 
   final _NavTab tab;
-  final bool selected;
+  final double page;
+  final int index;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected
-        ? SlackColors.accentGreen
-        : Theme.of(context).colorScheme.onSurfaceVariant;
+    final scheme = Theme.of(context).colorScheme;
+
+    /// How "selected" this tab is, driven straight from the scroll offset so
+    /// it eases between 0 and 1 while the pages swipe.
+    final t = (1 - (page - index).abs()).clamp(0.0, 1.0);
+
+    final color = Color.lerp(
+      scheme.onSurfaceVariant,
+      SlackColors.accentGreen,
+      t,
+    )!;
 
     return InkWell(
       onTap: onTap,
@@ -120,11 +168,31 @@ class _NavButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SvgPicture.asset(
-              'assets/icons/${tab.icon}.svg',
-              width: 24,
-              height: 24,
-              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // Material-style indicator that grows in behind the icon.
+                Opacity(
+                  opacity: t,
+                  child: Transform.scale(
+                    scale: 0.75 + 0.25 * t,
+                    child: Container(
+                      width: 44,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: SlackColors.accentGreen.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                SvgPicture.asset(
+                  'assets/icons/${tab.icon}.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -132,7 +200,11 @@ class _NavButton extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 11,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                fontWeight: FontWeight.lerp(
+                  FontWeight.w500,
+                  FontWeight.w600,
+                  t,
+                ),
                 color: color,
               ),
             ),

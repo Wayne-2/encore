@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:encore/main.dart';
+import 'package:encore/screens/announcement_detail_screen.dart';
 import 'package:encore/screens/auth/create_account_screen.dart';
 import 'package:encore/screens/auth/login_screen.dart';
 import 'package:encore/screens/home_shell.dart';
+import 'package:encore/screens/trending_more_screen.dart';
+import 'package:encore/screens/updates_screen.dart';
 import 'package:encore/screens/welcome_screen.dart';
 
 void main() {
@@ -258,14 +261,110 @@ void main() {
       expect(find.text(label), findsWidgets);
     }
 
-    // Updates is selected first: its label shows in the bar and the body.
-    expect(find.text('Updates'), findsNWidgets(2));
+    // Updates is selected first: the workspace bar shows its heading/level.
+    expect(find.text('Update'), findsOneWidget);
+    expect(find.text('Csc 200 level'), findsOneWidget);
 
     // Tap the Messages tab in the bar (not the body placeholder).
     await tester.tap(find.byKey(const ValueKey('nav-Messages')));
     await tester.pumpAndSettle();
 
     expect(find.text('Messages'), findsNWidgets(2));
-    expect(find.text('Updates'), findsOneWidget);
+    expect(find.text('Csc 200 level'), findsNothing);
+  });
+
+  testWidgets('Updates tab shows the workspace bar, pills and announcements', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    // Workspace bar.
+    expect(find.text('Update'), findsOneWidget);
+    expect(find.text('Csc 200 level'), findsOneWidget);
+
+    // Announcement section header and filter pills.
+    expect(find.text('#'), findsOneWidget);
+    expect(find.text('Announcement'), findsOneWidget);
+    for (final label in ['All', 'Unread', 'Urgent', 'Older']) {
+      expect(find.text(label), findsOneWidget);
+    }
+
+    // Three announcement tiles plus the workspace logo (and trending art).
+    expect(find.byKey(const ValueKey('announcement-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('announcement-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('announcement-2')), findsOneWidget);
+    expect(find.byType(Image), findsAtLeastNWidgets(4));
+
+    // Priority subtitles under each sender.
+    expect(find.text('Highly prior'), findsOneWidget);
+    expect(find.text('General announcement'), findsOneWidget);
+    expect(find.text('Less prior'), findsOneWidget);
+
+    // Switching pills swaps the feed for the empty state.
+    await tester.tap(find.byKey(const ValueKey('filter-Unread')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.byKey(const ValueKey('announcement-0')), findsNothing);
+  });
+
+  testWidgets('Updates shows Trending and opens Show more', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    expect(find.text('Trending'), findsOneWidget);
+    expect(find.byKey(const ValueKey('trending-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('trending-show-more')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('trending-show-more')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrendingMoreScreen), findsOneWidget);
+  });
+
+  testWidgets('Tapping an announcement opens its detail page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    await tester.tap(find.byKey(const ValueKey('announcement-0')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AnnouncementDetailScreen), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AnnouncementDetailScreen),
+        matching: find.text('Dr. Mensah'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AnnouncementDetailScreen),
+        matching: find.text('Highly prior'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Home shell supports swiping between sections', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: HomeShell()));
+    final pages = find.byType(PageView);
+
+    // Swipe right to move from Updates to Messages.
+    await tester.fling(pages, const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Messages'), findsNWidgets(2));
+    expect(find.text('Csc 200 level'), findsNothing);
+
+    // Swipe back to Updates.
+    await tester.fling(pages, const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Csc 200 level'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
   });
 }

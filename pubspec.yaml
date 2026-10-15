@@ -72,6 +72,8 @@ flutter:
   # Bundled image assets.
   assets:
     - assets/Encore.png
+    - assets/launch_icon_foreground.png
+    - assets/notification_icon.png
     - assets/background.jpeg
     - assets/background-2.jpeg
     - assets/background-3.jpeg
@@ -159,27 +161,27 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 # ---------------------------------------------------------------------------
-# Launcher / app icons — generated from assets/launcher_icon.png
+# Launcher / app icons — generated from assets/launch_icon_foreground.png
 # ---------------------------------------------------------------------------
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/launcher_icon.png
+  image_path: assets/launch_icon_foreground.png
   remove_alpha_ios: true
 
-  # Android 8+ adaptive icon (foreground is centered within the safe zone)
+  # Android 8+ adaptive icon (transparent foreground is centered within the safe zone)
   adaptive_icon_background: "#1A1D21"
-  adaptive_icon_foreground: assets/launch_icon_foreground.png
+  adaptive_icon_foreground: assets/notification_icon.png
 
   # Desktop / web
   web:
     generate: true
-    image_path: assets/launcher_icon.png
+    image_path: assets/launch_icon_foreground.png
     background_color: "#1A1D21"
   windows:
     generate: true
-    image_path: assets/launcher_icon.png
+    image_path: assets/launch_icon_foreground.png
     background_color: "#1A1D21"
   macos:
     generate: true
-    image_path: assets/launcher_icon.png
+    image_path: assets/launch_icon_foreground.png
