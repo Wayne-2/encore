@@ -11,7 +11,8 @@ import 'trending_more_screen.dart';
 /// The Updates section — the first tab of [HomeShell].
 ///
 /// Opens with a Slack-style workspace bar, an Announcement feed that can be
-/// filtered with All / Unread / Urgent / Older pills, and a Trending row.
+/// filtered with All / Unread / Urgent / Older pills, a Trending row, and an
+/// Upcoming Activities grid.
 class UpdatesScreen extends StatefulWidget {
   const UpdatesScreen({super.key});
 
@@ -50,6 +51,8 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
                 const SizedBox(height: 160, child: _EmptyFeed()),
               const SizedBox(height: 4),
               _TrendingSection(onShowMore: () => _openTrending(context)),
+              const SizedBox(height: 16),
+              const _UpcomingActivitiesSection(),
               const SizedBox(height: 16),
             ],
           ),
@@ -658,6 +661,129 @@ class _TrendingCard extends StatelessWidget {
               color: scheme.onSurfaceVariant,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The Upcoming Activities section: a heading over a Spotify-style two-column
+/// grid of compact activity cards.
+class _UpcomingActivitiesSection extends StatelessWidget {
+  const _UpcomingActivitiesSection();
+
+  static const List<_ActivityItem> _items = [
+    _ActivityItem('Matriculation', 'Mon, 20 Oct'),
+    _ActivityItem('Sports Week', 'Tue, 21 Oct'),
+    _ActivityItem('Career Fair', 'Wed, 22 Oct'),
+    _ActivityItem('Hostel Ballot', 'Thu, 23 Oct'),
+    _ActivityItem('Library Tour', 'Fri, 24 Oct'),
+    _ActivityItem('Exam Timetable', 'Sat, 25 Oct'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+          child: Text(
+            'Upcoming Activities',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: scheme.onSurface,
+            ),
+          ),
+        ),
+        GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _items.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: 56,
+          ),
+          itemBuilder: (context, i) =>
+              _ActivityCard(key: ValueKey('activity-$i'), item: _items[i]),
+        ),
+      ],
+    );
+  }
+}
+
+/// A single upcoming activity: a title and its date.
+class _ActivityItem {
+  const _ActivityItem(this.title, this.date);
+
+  final String title;
+  final String date;
+}
+
+/// Compact activity card with a leading theme-coloured sidebar, mirroring the
+/// colour of the workspace app bar.
+class _ActivityCard extends StatelessWidget {
+  const _ActivityCard({super.key, required this.item});
+
+  final _ActivityItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: SlackColors.darkHeader,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(
+            width: 2,
+            child: ColoredBox(color: SlackColors.accentGreen),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
     );

@@ -231,7 +231,9 @@ void main() {
     expect(find.byType(CreateAccountScreen), findsOneWidget);
   });
 
-  testWidgets('Logging in leads to the home shell', (WidgetTester tester) async {
+  testWidgets('Logging in leads to the home shell', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
     final fields = find.byType(TextFormField);
@@ -251,13 +253,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomeShell()));
 
     // All five sections are labelled in the bar.
-    for (final label in [
-      'Updates',
-      'Messages',
-      'Profile',
-      'Finance',
-      'More',
-    ]) {
+    for (final label in ['Updates', 'Messages', 'Profile', 'Finance', 'More']) {
       expect(find.text(label), findsWidgets);
     }
 
@@ -320,6 +316,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TrendingMoreScreen), findsOneWidget);
+  });
+
+  testWidgets('Updates shows the Upcoming Activities grid', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    await tester.drag(
+      find.byKey(const ValueKey('updates-scroll')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Upcoming Activities'), findsOneWidget);
+    for (var i = 0; i < 6; i++) {
+      expect(find.byKey(ValueKey('activity-$i')), findsOneWidget);
+    }
   });
 
   testWidgets('Tapping an announcement opens its detail page', (
