@@ -7,10 +7,20 @@ import 'slack_colors.dart';
 ///
 /// Use [AppTheme.light] / [AppTheme.dark] with `MaterialApp.theme` and
 /// `MaterialApp.darkTheme`. Component themes (AppBar, buttons, chips,
-/// navigation, etc.) are tuned to Slack's aubergine chrome and Lato type.
+/// navigation, etc.) are tuned to Slack's aubergine chrome and Montserrat type.
+/// The type scale follows WhatsApp mobile's compact sizes.
 abstract final class AppTheme {
-  /// Slack's brand typeface, bundled from `assets/fonts`.
-  static const String fontFamily = 'Lato';
+  /// Brand typeface, bundled from `assets/fonts`.
+  static const String fontFamily = 'Montserrat';
+
+  /// Wordmark style for the launch/splash screen.
+  static TextStyle get splashWordmarkStyle => const TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0,
+    color: Colors.white,
+  );
 
   static TextTheme _textTheme(Color primary, Color secondary) {
     TextStyle style(double size, FontWeight weight, {double? height}) =>
@@ -23,40 +33,40 @@ abstract final class AppTheme {
         );
 
     return TextTheme(
-      displayLarge: style(57, FontWeight.w400, height: 64 / 57),
-      displayMedium: style(45, FontWeight.w400, height: 52 / 45),
-      displaySmall: style(36, FontWeight.w400, height: 44 / 36),
-      headlineLarge: style(32, FontWeight.w700, height: 40 / 32),
-      headlineMedium: style(28, FontWeight.w700, height: 36 / 28),
-      headlineSmall: style(24, FontWeight.w700, height: 32 / 24),
-      titleLarge: style(22, FontWeight.w700, height: 28 / 22),
+      displayLarge: style(24, FontWeight.w400, height: 30 / 24),
+      displayMedium: style(22, FontWeight.w400, height: 28 / 22),
+      displaySmall: style(20, FontWeight.w500, height: 26 / 20),
+      headlineLarge: style(20, FontWeight.w600, height: 26 / 20),
+      headlineMedium: style(18, FontWeight.w600, height: 24 / 18),
+      headlineSmall: style(17, FontWeight.w500, height: 22 / 17),
+      titleLarge: style(16, FontWeight.w500, height: 21 / 16),
       titleMedium: style(
-        16,
-        FontWeight.w700,
-        height: 24 / 16,
+        15,
+        FontWeight.w600,
+        height: 20 / 15,
       ).copyWith(color: secondary),
       titleSmall: style(
         14,
-        FontWeight.w700,
-        height: 20 / 14,
-      ).copyWith(color: secondary),
-      bodyLarge: style(16, FontWeight.w400, height: 24 / 16),
-      bodyMedium: style(14, FontWeight.w400, height: 20 / 14),
-      bodySmall: style(
-        12,
         FontWeight.w400,
-        height: 16 / 12,
+        height: 19 / 14,
       ).copyWith(color: secondary),
-      labelLarge: style(14, FontWeight.w700, height: 20 / 14),
+      bodyLarge: style(15, FontWeight.w400, height: 20 / 15),
+      bodyMedium: style(15, FontWeight.w400, height: 20 / 15),
+      bodySmall: style(
+        13,
+        FontWeight.w400,
+        height: 18 / 13,
+      ).copyWith(color: secondary),
+      labelLarge: style(15, FontWeight.w600, height: 20 / 15),
       labelMedium: style(
-        12,
-        FontWeight.w700,
-        height: 16 / 12,
+        13,
+        FontWeight.w500,
+        height: 16 / 13,
       ).copyWith(color: secondary),
       labelSmall: style(
         11,
-        FontWeight.w700,
-        height: 16 / 11,
+        FontWeight.w500,
+        height: 14 / 11,
       ).copyWith(color: secondary),
     ).apply(bodyColor: primary, displayColor: primary);
   }
@@ -68,7 +78,7 @@ abstract final class AppTheme {
     brightness: Brightness.light,
     scheme: const ColorScheme(
       brightness: Brightness.light,
-      primary: SlackColors.blue,
+      primary: SlackColors.accentGreen,
       onPrimary: Colors.white,
       primaryContainer: SlackColors.blueLight,
       onPrimaryContainer: Colors.white,
@@ -111,7 +121,7 @@ abstract final class AppTheme {
     brightness: Brightness.dark,
     scheme: const ColorScheme(
       brightness: Brightness.dark,
-      primary: SlackColors.blueLight,
+      primary: SlackColors.accentGreen,
       onPrimary: Colors.white,
       primaryContainer: SlackColors.blue,
       onPrimaryContainer: Colors.white,
@@ -159,6 +169,10 @@ abstract final class AppTheme {
     final disabled = isLight
         ? const Color(0xFF9B9A97)
         : const Color(0xFF6B6C70);
+
+    // Focused inputs use a brighter take on their resting border rather than
+    // the loud accent color.
+    final focusBorder = Color.lerp(scheme.outlineVariant, scheme.onSurface, 0.5)!;
 
     return ThemeData(
       useMaterial3: true,
@@ -253,7 +267,7 @@ abstract final class AppTheme {
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: SlackColors.greenDark,
+          backgroundColor: SlackColors.accentGreen,
           foregroundColor: Colors.white,
           disabledBackgroundColor: disabled,
           elevation: 0,
@@ -327,27 +341,31 @@ abstract final class AppTheme {
         filled: true,
         fillColor: isLight ? Colors.white : SlackColors.darkSurface,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
+          horizontal: 14,
+          vertical: 16,
         ),
-        hintStyle: textTheme.bodyMedium?.copyWith(
-          color: scheme.onSurfaceVariant,
+        hintStyle: textTheme.bodyLarge?.copyWith(
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: SlackColors.blue, width: 1.5),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: focusBorder, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: SlackColors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: SlackColors.red, width: 1.5),
         ),
       ),
 
@@ -424,7 +442,7 @@ abstract final class AppTheme {
           return isLight ? const Color(0xFF616061) : const Color(0xFF9B9A97);
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return SlackColors.greenDark;
+          if (states.contains(WidgetState.selected)) return SlackColors.accentGreen;
           return isLight ? const Color(0xFFDDDDDD) : const Color(0xFF454548);
         }),
       ),
@@ -442,9 +460,9 @@ abstract final class AppTheme {
       ),
 
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: SlackColors.blue,
-        selectionColor: SlackColors.blueLight.withValues(alpha: 0.3),
-        selectionHandleColor: SlackColors.blue,
+        cursorColor: scheme.onSurface,
+        selectionColor: scheme.onSurface.withValues(alpha: 0.25),
+        selectionHandleColor: scheme.onSurface,
       ),
 
       pageTransitionsTheme: const PageTransitionsTheme(

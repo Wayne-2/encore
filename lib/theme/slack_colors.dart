@@ -18,6 +18,9 @@ abstract final class SlackColors {
   /// Slack brand purple (badges, accents).
   static const Color purple = Color(0xFF611F69);
 
+  /// Active/action green used for primary CTAs (matches the welcome button).
+  static const Color accentGreen = Color(0xFF25A10C);
+
   // ---- Light appearance ----
   static const Color lightBackground = Color(0xFFFFFFFF);
   static const Color lightSurface = Color(0xFFF8F8F8);

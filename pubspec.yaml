@@ -35,6 +35,15 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # Loading animations (SpinKitFadingCube used on the splash screen).
+  flutter_spinkit: ^5.2.1
+
+  # Material motion / pre-built transitions (shared axis, fade through, etc.).
+  animations: ^3.0.0
+
+  # Renders the bundled SVG field icons.
+  flutter_svg: ^2.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,6 +54,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+  # Generates platform launcher/app icons from a single source image.
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -57,33 +69,61 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Slack's brand typeface (Lato), bundled locally.
+  # Bundled image assets.
+  assets:
+    - assets/Encore.png
+    - assets/background.jpeg
+    - assets/background-2.jpeg
+    - assets/background-3.jpeg
+    - assets/icons/
+
+  # Brand typeface (Montserrat), bundled locally.
   fonts:
-    - family: Lato
+    - family: Montserrat
       fonts:
-        - asset: assets/fonts/Lato-Thin.ttf
+        - asset: assets/fonts/Montserrat-Thin.ttf
           weight: 100
-        - asset: assets/fonts/Lato-ThinItalic.ttf
+        - asset: assets/fonts/Montserrat-ThinItalic.ttf
           weight: 100
           style: italic
-        - asset: assets/fonts/Lato-Light.ttf
+        - asset: assets/fonts/Montserrat-ExtraLight.ttf
+          weight: 200
+        - asset: assets/fonts/Montserrat-ExtraLightItalic.ttf
+          weight: 200
+          style: italic
+        - asset: assets/fonts/Montserrat-Light.ttf
           weight: 300
-        - asset: assets/fonts/Lato-LightItalic.ttf
+        - asset: assets/fonts/Montserrat-LightItalic.ttf
           weight: 300
           style: italic
-        - asset: assets/fonts/Lato-Regular.ttf
+        - asset: assets/fonts/Montserrat-Regular.ttf
           weight: 400
-        - asset: assets/fonts/Lato-Italic.ttf
+        - asset: assets/fonts/Montserrat-Italic.ttf
           weight: 400
           style: italic
-        - asset: assets/fonts/Lato-Bold.ttf
+        - asset: assets/fonts/Montserrat-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Montserrat-MediumItalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/Montserrat-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Montserrat-SemiBoldItalic.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/Montserrat-Bold.ttf
           weight: 700
-        - asset: assets/fonts/Lato-BoldItalic.ttf
+        - asset: assets/fonts/Montserrat-BoldItalic.ttf
           weight: 700
           style: italic
-        - asset: assets/fonts/Lato-Black.ttf
+        - asset: assets/fonts/Montserrat-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Montserrat-ExtraBoldItalic.ttf
+          weight: 800
+          style: italic
+        - asset: assets/fonts/Montserrat-Black.ttf
           weight: 900
-        - asset: assets/fonts/Lato-BlackItalic.ttf
+        - asset: assets/fonts/Montserrat-BlackItalic.ttf
           weight: 900
           style: italic
 
@@ -117,3 +157,29 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# ---------------------------------------------------------------------------
+# Launcher / app icons — generated from assets/launcher_icon.png
+# ---------------------------------------------------------------------------
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/launcher_icon.png
+  remove_alpha_ios: true
+
+  # Android 8+ adaptive icon (foreground is centered within the safe zone)
+  adaptive_icon_background: "#1A1D21"
+  adaptive_icon_foreground: assets/launch_icon_foreground.png
+
+  # Desktop / web
+  web:
+    generate: true
+    image_path: assets/launcher_icon.png
+    background_color: "#1A1D21"
+  windows:
+    generate: true
+    image_path: assets/launcher_icon.png
+    background_color: "#1A1D21"
+  macos:
+    generate: true
+    image_path: assets/launcher_icon.png
