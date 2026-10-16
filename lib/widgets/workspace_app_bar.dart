@@ -14,6 +14,8 @@ class WorkspaceAppBar extends StatelessWidget {
     required this.heading,
     this.title,
     this.trailing,
+    this.headingSize,
+    this.headingWeight,
   });
 
   final String heading;
@@ -21,6 +23,12 @@ class WorkspaceAppBar extends StatelessWidget {
 
   /// Widget shown at the far right. Defaults to the Encore logo.
   final Widget? trailing;
+
+  /// Custom font size for the heading. Defaults to 16.
+  final double? headingSize;
+
+  /// Custom font weight for the heading. Defaults to [FontWeight.w600].
+  final FontWeight? headingWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -49,8 +57,8 @@ class WorkspaceAppBar extends StatelessWidget {
                   heading,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: headingSize ?? 16,
+                    fontWeight: headingWeight ?? FontWeight.w600,
                     color: scheme.onSurface,
                   ),
                 ),

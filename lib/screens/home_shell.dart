@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/app_theme.dart';
 import '../theme/slack_colors.dart';
 import 'finance_screen.dart';
+import 'messages_screen.dart';
 import 'updates_screen.dart';
 
 /// The app shell once the user is signed in: a Slack-style bottom navigation
@@ -65,6 +66,7 @@ class _HomeShellState extends State<HomeShell> {
           onPageChanged: (i) => setState(() => _index = i),
           itemBuilder: (context, i) => switch (i) {
             0 => const UpdatesScreen(),
+            1 => const MessagesScreen(),
             2 => const FinanceScreen(),
             _ => _TabPlaceholder(tab: _tabs[i]),
           },
