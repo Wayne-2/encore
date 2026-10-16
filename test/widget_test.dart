@@ -7,6 +7,8 @@ import 'package:encore/screens/auth/create_account_screen.dart';
 import 'package:encore/screens/auth/login_screen.dart';
 import 'package:encore/screens/finance_screen.dart';
 import 'package:encore/screens/home_shell.dart';
+import 'package:encore/screens/more_screen.dart';
+import 'package:encore/screens/profile_screen.dart';
 import 'package:encore/screens/trending_more_screen.dart';
 import 'package:encore/screens/updates_screen.dart';
 import 'package:encore/screens/welcome_screen.dart';
@@ -297,11 +299,15 @@ void main() {
     expect(find.text('General announcement'), findsOneWidget);
     expect(find.text('Less prior'), findsOneWidget);
 
-    // Switching pills swaps the feed for the empty state.
+    // Switching pills swaps the feed for the empty state while keeping the
+    // section height fixed (the tiles stay mounted but hidden).
+    final section = find.byKey(const ValueKey('announcement-section'));
+    final heightBefore = tester.getSize(section).height;
     await tester.tap(find.byKey(const ValueKey('filter-Unread')));
     await tester.pumpAndSettle();
     expect(find.text('Nothing here yet'), findsOneWidget);
-    expect(find.byKey(const ValueKey('announcement-0')), findsNothing);
+    expect(find.byKey(const ValueKey('announcement-0')), findsOneWidget);
+    expect(tester.getSize(section).height, heightBefore);
   });
 
   testWidgets('Updates shows Trending and opens Show more', (
@@ -412,5 +418,143 @@ void main() {
 
     expect(find.text('Registration Dues'), findsOneWidget);
     expect(find.widgetWithText(MenuItemButton, 'Manuals'), findsNothing);
+  });
+
+  testWidgets('Finance due tile options follow the paid state', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: FinanceScreen())),
+    );
+    await tester.pumpAndSettle();
+
+    // Paid due (GST 212) offers receipt actions.
+    final paidOptions = find.byKey(
+      const ValueKey('due-options-GST 212 - Philosophy and Logic'),
+    );
+    await tester.ensureVisible(paidOptions);
+    await tester.tap(paidOptions);
+    await tester.pumpAndSettle();
+    expect(find.text('Save Details'), findsOneWidget);
+    expect(find.text('View Receipt'), findsOneWidget);
+    expect(find.text('Draft Invoice'), findsNothing);
+
+    // Dismiss, then open an unpaid due (MATH 202).
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    final unpaidOptions = find.byKey(
+      const ValueKey('due-options-MATH 202 - Differential Calculus'),
+    );
+    await tester.ensureVisible(unpaidOptions);
+    await tester.tap(unpaidOptions);
+    await tester.pumpAndSettle();
+    expect(find.text('Draft Invoice'), findsOneWidget);
+    expect(find.text('View Details'), findsOneWidget);
+    expect(find.text('View Receipt'), findsNothing);
+  });
+
+  testWidgets('Updates compose button reveals quick actions', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('New Announcement'), findsNothing);
+    expect(find.text('Post Trends'), findsNothing);
+    expect(find.text('Add Activity'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Announcement'), findsOneWidget);
+    expect(find.text('Post Trends'), findsOneWidget);
+    expect(find.text('Add Activity'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Announcement'), findsNothing);
+    expect(find.text('Post Trends'), findsNothing);
+    expect(find.text('Add Activity'), findsNothing);
+  });
+
+  testWidgets('Profile tab shows its workspace bar and the app logo', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ProfileScreen())),
+    );
+
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.byType(Image), findsNWidgets(2));
+    expect(find.text('Odeh Solomon'), findsOneWidget);
+    expect(find.text('_wayne'), findsOneWidget);
+    expect(find.text('sodeh138@gmail.com'), findsOneWidget);
+    expect(find.text('Student'), findsOneWidget);
+    expect(find.text('20241426282'), findsOneWidget);
+    expect(find.text('300 level'), findsOneWidget);
+    expect(find.text('Computer Science'), findsOneWidget);
+    expect(find.text('SICT'), findsOneWidget);
+    expect(find.text('Student Health bar'), findsOneWidget);
+    expect(find.text('70%'), findsOneWidget);
+    expect(find.text('Manage Health'), findsOneWidget);
+    expect(find.text('Performance is good so far'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(FilledButton), findsOneWidget);
+    expect(find.text('#'), findsOneWidget);
+    expect(find.text('My Academic Schedules'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    expect(find.text('In Progress'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.text('Finances'), findsNothing);
+  });
+
+  testWidgets('Profile schedule filter switches pills', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ProfileScreen())),
+    );
+
+    await tester.tap(find.text('In Progress'));
+    await tester.pump();
+
+    await tester.tap(find.text('Done'));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Profile lists at least five schedule tiles', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ProfileScreen())),
+    );
+
+    expect(find.byType(Checkbox), findsNWidgets(5));
+    expect(find.byIcon(Icons.timer_outlined), findsNWidgets(5));
+    expect(find.byIcon(Icons.bookmark_border), findsNWidgets(5));
+    expect(find.text('Go to Bookshop for Textbooks'), findsOneWidget);
+    expect(find.text('Prepare for project defense'), findsOneWidget);
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pump();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox).first).value, isTrue);
+  });
+
+  testWidgets('More tab shows its workspace bar', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: MoreScreen())),
+    );
+
+    expect(find.text('More'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.text('Profile'), findsNothing);
   });
 }

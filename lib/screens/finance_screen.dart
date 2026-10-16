@@ -42,7 +42,7 @@ class FinanceScreen extends StatelessWidget {
                       '2025/2026 FIRST SEMESTER',
                       style: AppType.name(scheme),
                     ),
-                    Text('History', style: AppType.subtitle(scheme)),
+                    Text('View History', style: AppType.subtitle(scheme)),
                   ],
                 ),
               ),
@@ -126,8 +126,10 @@ class FinanceScreen extends StatelessWidget {
                                 style: AppType.subtitle(scheme),
                                 cursorColor: scheme.primary,
                                 cursorHeight: 14,
+                                textAlignVertical: TextAlignVertical.center,
                                 decoration: InputDecoration(
                                   isDense: true,
+                                  contentPadding: EdgeInsets.zero,
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,
                                   focusedBorder: InputBorder.none,
@@ -146,6 +148,8 @@ class FinanceScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+              for (final due in _dues) _ExpenditureTile(due: due),
             ],
           ),
         ),
@@ -292,7 +296,7 @@ class _FundButton extends StatelessWidget {
               const Icon(Icons.add, size: 14, color: Colors.white),
               const SizedBox(width: 4),
               Text(
-                'Fund',
+                'Add Funds',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 12,
@@ -337,11 +341,11 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(8),
         padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(vertical: 6),
+          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(4),
             side: const BorderSide(color: SlackColors.darkBorder),
           ),
         ),
@@ -389,6 +393,218 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
                 child: Icon(Icons.arrow_drop_down, size: 18, color: labelColor),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Kinds of dues shown in the expenditure list.
+enum _DueKind { manual, functional, profile }
+
+/// A single expenditure due rendered by [_ExpenditureTile].
+class _Due {
+  const _Due({
+    required this.title,
+    required this.amount,
+    required this.kind,
+    required this.paid,
+  });
+
+  final String title;
+  final String amount;
+  final _DueKind kind;
+  final bool paid;
+
+  String get icon => switch (kind) {
+    _DueKind.manual => 'assets/icons/manual.svg',
+    _DueKind.functional => 'assets/icons/Functional.svg',
+    _DueKind.profile => 'assets/icons/Profiledues.svg',
+  };
+}
+
+const List<_Due> _dues = [
+  _Due(
+    title: 'GST 212 - Philosophy and Logic',
+    amount: '₦1,500.00',
+    kind: _DueKind.manual,
+    paid: true,
+  ),
+  _Due(
+    title: 'MATH 202 - Differential Calculus',
+    amount: '₦1,500.00',
+    kind: _DueKind.manual,
+    paid: false,
+  ),
+  _Due(
+    title: 'Departmental Due',
+    amount: '₦5,000.00',
+    kind: _DueKind.functional,
+    paid: false,
+  ),
+  _Due(
+    title: 'Workshop Levy',
+    amount: '₦2,500.00',
+    kind: _DueKind.functional,
+    paid: true,
+  ),
+  _Due(
+    title: 'Course Rep Dues',
+    amount: '₦1,000.00',
+    kind: _DueKind.profile,
+    paid: false,
+  ),
+  _Due(
+    title: 'Course Advisor Dues',
+    amount: '₦2,000.00',
+    kind: _DueKind.profile,
+    paid: false,
+  ),
+];
+
+/// A row in the expenditure list.
+class _ExpenditureTile extends StatelessWidget {
+  const _ExpenditureTile({required this.due});
+
+  final _Due due;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: SlackColors.darkSurface,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: SvgPicture.asset(
+              due.icon,
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                scheme.onSurfaceVariant,
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(due.title, style: AppType.name(scheme)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Text(due.amount, style: AppType.meta(scheme)),
+                    const SizedBox(width: 8),
+                    _PaidBadge(paid: due.paid),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _TileOptionsMenu(
+            key: ValueKey('due-options-${due.title}'),
+            paid: due.paid,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small paid/unpaid pill shown in [_ExpenditureTile].
+class _PaidBadge extends StatelessWidget {
+  const _PaidBadge({required this.paid});
+
+  final bool paid;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = paid
+        ? Theme.of(context).colorScheme.primary
+        : SlackColors.tagUrgent;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(paid ? 'Paid' : 'Unpaid', style: AppType.tag(color)),
+    );
+  }
+}
+
+/// Overflow menu opened from a due tile's `option.svg`.
+///
+/// The actions depend on whether the due has been paid.
+class _TileOptionsMenu extends StatelessWidget {
+  const _TileOptionsMenu({super.key, required this.paid});
+
+  final bool paid;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final options = paid
+        ? const ['Save Details', 'View Receipt']
+        : const ['Draft Invoice', 'View Details'];
+
+    return MenuAnchor(
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(SlackColors.darkSurface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: const BorderSide(color: SlackColors.darkBorder),
+          ),
+        ),
+      ),
+      menuChildren: [
+        for (final option in options)
+          MenuItemButton(
+            onPressed: () {},
+            style: ButtonStyle(
+              foregroundColor: WidgetStatePropertyAll(
+                scheme.onSurfaceVariant.withValues(alpha: 0.8),
+              ),
+              overlayColor: WidgetStatePropertyAll(
+                scheme.primary.withValues(alpha: 0.12),
+              ),
+              textStyle: WidgetStatePropertyAll(AppType.subtitle(scheme)),
+            ),
+            child: Text(option),
+          ),
+      ],
+      builder: (context, controller, _) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => controller.isOpen ? controller.close() : controller.open(),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: SvgPicture.asset(
+            'assets/icons/option.svg',
+            width: 18,
+            height: 18,
+            colorFilter: ColorFilter.mode(
+              scheme.onSurfaceVariant,
+              BlendMode.srcIn,
+            ),
           ),
         ),
       ),

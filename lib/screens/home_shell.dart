@@ -6,6 +6,8 @@ import '../theme/app_theme.dart';
 import '../theme/slack_colors.dart';
 import 'finance_screen.dart';
 import 'messages_screen.dart';
+import 'more_screen.dart';
+import 'profile_screen.dart';
 import 'updates_screen.dart';
 
 /// The app shell once the user is signed in: a Slack-style bottom navigation
@@ -68,6 +70,8 @@ class _HomeShellState extends State<HomeShell> {
             0 => const UpdatesScreen(),
             1 => const MessagesScreen(),
             2 => const FinanceScreen(),
+            3 => const ProfileScreen(),
+            4 => const MoreScreen(),
             _ => _TabPlaceholder(tab: _tabs[i]),
           },
         ),
