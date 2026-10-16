@@ -5,6 +5,7 @@ import 'package:encore/main.dart';
 import 'package:encore/screens/announcement_detail_screen.dart';
 import 'package:encore/screens/auth/create_account_screen.dart';
 import 'package:encore/screens/auth/login_screen.dart';
+import 'package:encore/screens/finance_screen.dart';
 import 'package:encore/screens/home_shell.dart';
 import 'package:encore/screens/trending_more_screen.dart';
 import 'package:encore/screens/updates_screen.dart';
@@ -379,5 +380,37 @@ void main() {
 
     expect(find.text('Csc 200 level'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
+  });
+
+  testWidgets('Finance expenditure filter opens and selects', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: FinanceScreen())),
+    );
+    await tester.pumpAndSettle();
+
+    // The pill starts on the default option.
+    expect(find.text('All Expenditures'), findsOneWidget);
+
+    // Tapping it opens the dropdown with every option.
+    await tester.tap(find.text('All Expenditures'));
+    await tester.pumpAndSettle();
+
+    for (final option in [
+      'All Expenditures',
+      'Manuals',
+      'Registration Dues',
+      'Other Expenses',
+    ]) {
+      expect(find.widgetWithText(MenuItemButton, option), findsOneWidget);
+    }
+
+    // Selecting an option closes the menu and updates the pill label.
+    await tester.tap(find.widgetWithText(MenuItemButton, 'Registration Dues'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Registration Dues'), findsOneWidget);
+    expect(find.widgetWithText(MenuItemButton, 'Manuals'), findsNothing);
   });
 }

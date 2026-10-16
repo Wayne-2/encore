@@ -4,10 +4,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/slack_colors.dart';
+import 'finance_screen.dart';
 import 'updates_screen.dart';
 
 /// The app shell once the user is signed in: a Slack-style bottom navigation
-/// with five sections — Updates, Messages, Profile, Finance and More.
+/// with five sections — Updates, Messages, Finance, Profile and More.
 ///
 /// Sections can be reached by tapping a tab or by swiping the content left and
 /// right, the way WhatsApp switches between its top tabs. The tab highlight
@@ -23,8 +24,8 @@ class _HomeShellState extends State<HomeShell> {
   static const List<_NavTab> _tabs = [
     _NavTab(label: 'Updates', icon: 'updates'),
     _NavTab(label: 'Messages', icon: 'messages'),
-    _NavTab(label: 'Profile', icon: 'profile'),
     _NavTab(label: 'Finance', icon: 'transactions'),
+    _NavTab(label: 'Profile', icon: 'profile'),
     _NavTab(label: 'More', icon: 'more'),
   ];
 
@@ -62,8 +63,11 @@ class _HomeShellState extends State<HomeShell> {
           controller: _controller,
           itemCount: _tabs.length,
           onPageChanged: (i) => setState(() => _index = i),
-          itemBuilder: (context, i) =>
-              i == 0 ? const UpdatesScreen() : _TabPlaceholder(tab: _tabs[i]),
+          itemBuilder: (context, i) => switch (i) {
+            0 => const UpdatesScreen(),
+            2 => const FinanceScreen(),
+            _ => _TabPlaceholder(tab: _tabs[i]),
+          },
         ),
         // Rebuilds as the pages scroll so the highlight tracks the swipe.
         bottomNavigationBar: AnimatedBuilder(

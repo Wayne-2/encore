@@ -1,0 +1,83 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../theme/app_theme.dart';
+import '../theme/slack_colors.dart';
+
+/// Slack-style workspace bar shared by the sections of [HomeShell].
+///
+/// Shows an anchor glyph, a section [heading], an optional [title] underneath,
+/// and a trailing widget (the Encore logo by default).
+class WorkspaceAppBar extends StatelessWidget {
+  const WorkspaceAppBar({
+    super.key,
+    required this.heading,
+    this.title,
+    this.trailing,
+  });
+
+  final String heading;
+  final String? title;
+
+  /// Widget shown at the far right. Defaults to the Encore logo.
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final topInset = MediaQuery.of(context).padding.top;
+
+    return Container(
+      height: 64 + topInset,
+      color: SlackColors.darkHeader,
+      padding: EdgeInsets.only(top: topInset, left: 16, right: 16),
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            'assets/icons/anchor.svg',
+            width: 22,
+            height: 22,
+            colorFilter: ColorFilter.mode(scheme.onSurface, BlendMode.srcIn),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  heading,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                if (title != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    title!,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          trailing ??
+              Image.asset(
+                'assets/Encore.png',
+                width: 38,
+                height: 38,
+                filterQuality: FilterQuality.medium,
+              ),
+        ],
+      ),
+    );
+  }
+}

@@ -7,20 +7,15 @@ import 'slack_colors.dart';
 ///
 /// Use [AppTheme.light] / [AppTheme.dark] with `MaterialApp.theme` and
 /// `MaterialApp.darkTheme`. Component themes (AppBar, buttons, chips,
-/// navigation, etc.) are tuned to Slack's aubergine chrome and system type.
+/// navigation, etc.) are tuned to Slack's aubergine chrome and Montserrat type.
 /// The type scale follows WhatsApp mobile's compact sizes.
 abstract final class AppTheme {
-  /// Default typeface for the whole app. `null` lets Flutter fall back to the
-  /// platform's system font family (Roboto on Android, SF on iOS, etc.).
-  static const String? fontFamily = null;
+  /// Brand typeface, bundled from `assets/fonts`.
+  static const String fontFamily = 'Montserrat';
 
-  /// Brand typeface, bundled from `assets/fonts`. Used only for the app name /
-  /// wordmark on the splash, loading and login screens.
-  static const String brandFontFamily = 'Montserrat';
-
-  /// Wordmark style for the launch/splash and loading screens.
+  /// Wordmark style for the launch/splash screen.
   static TextStyle get splashWordmarkStyle => const TextStyle(
-    fontFamily: brandFontFamily,
+    fontFamily: fontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w600,
     letterSpacing: 0,

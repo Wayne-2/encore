@@ -4,9 +4,15 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../models/announcement.dart';
 import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/slack_colors.dart';
+import '../widgets/section_heading.dart';
+import '../widgets/workspace_app_bar.dart';
 import 'announcement_detail_screen.dart';
 import 'trending_more_screen.dart';
+
+/// Vertical gap between the Updates page sections.
+const double _sectionGap = 28;
 
 /// The Updates section — the first tab of [HomeShell].
 ///
@@ -33,7 +39,7 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const _UpdatesAppBar(heading: 'Update', title: 'Csc 200 level'),
+        const WorkspaceAppBar(heading: 'Update', title: 'Csc 200 level'),
         Expanded(
           child: ListView(
             key: const ValueKey('updates-scroll'),
@@ -49,11 +55,11 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
                 _AnnouncementList(onTap: (a) => _openAnnouncement(context, a))
               else
                 const SizedBox(height: 160, child: _EmptyFeed()),
-              const SizedBox(height: 4),
+              const SizedBox(height: _sectionGap),
               _TrendingSection(onShowMore: () => _openTrending(context)),
-              const SizedBox(height: 16),
+              const SizedBox(height: _sectionGap),
               const _UpcomingActivitiesSection(),
-              const SizedBox(height: 16),
+              const SizedBox(height: _sectionGap),
             ],
           ),
         ),
@@ -105,170 +111,6 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
   }
 }
 
-/// Slack-style workspace bar for the Updates section.
-class _UpdatesAppBar extends StatelessWidget {
-  const _UpdatesAppBar({required this.heading, required this.title});
-
-  final String heading;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Container(
-      height: 64 + MediaQuery.of(context).padding.top,
-      color: SlackColors.darkHeader,
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top,
-        left: 16,
-        right: 16,
-      ),
-      child: Row(
-        children: [
-          SvgPicture.asset(
-            'assets/icons/anchor.svg',
-            width: 22,
-            height: 22,
-            colorFilter: ColorFilter.mode(scheme.onSurface, BlendMode.srcIn),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  heading,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Image.asset(
-            'assets/Encore.png',
-            width: 38,
-            height: 38,
-            filterQuality: FilterQuality.medium,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// WhatsApp-style type hierarchy for the Updates page. Prominence is expressed
-/// through size, weight and opacity rather than colour alone, top → bottom:
-///
-/// | tier      | size | weight | opacity |
-/// |-----------|------|--------|---------|
-/// | glyph     | 20   | w700   | 70%     |
-/// | section   | 16   | w600   | 100%    |
-/// | name      | 15   | w700   | 100%    |
-/// | body      | 14   | w400   | 100%    |
-/// | subtitle  | 12   | w400   | 80%     |
-/// | meta/tag  | 11   | w600   | 60–100% |
-abstract final class _UpdatesType {
-  /// Section titles — the top of the hierarchy.
-  static TextStyle sectionTitle(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: s.onSurface,
-  );
-
-  /// The muted `#` glyph that prefixes a section title.
-  static TextStyle glyph(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 20,
-    fontWeight: FontWeight.w700,
-    height: 1,
-    color: s.onSurfaceVariant.withValues(alpha: 0.7),
-  );
-
-  /// Names and card titles — primary emphasis.
-  static TextStyle name(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 15,
-    fontWeight: FontWeight.w700,
-    color: s.onSurface,
-  );
-
-  /// Message copy — secondary emphasis.
-  static TextStyle body(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 14,
-    height: 1.3,
-    fontWeight: FontWeight.w400,
-    color: s.onSurfaceVariant,
-  );
-
-  /// Supporting copy such as card subtitles and dates — tertiary emphasis.
-  static TextStyle subtitle(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    color: s.onSurfaceVariant.withValues(alpha: 0.8),
-  );
-
-  /// Timestamps — the faintest tier.
-  static TextStyle meta(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    color: s.onSurfaceVariant.withValues(alpha: 0.6),
-  );
-
-  /// Coloured priority tag.
-  static TextStyle tag(Color color) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 11,
-    fontWeight: FontWeight.w600,
-    color: color,
-  );
-}
-
-/// Slack-style section title: a muted `#` glyph followed by the section name.
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('#', style: _UpdatesType.glyph(scheme)),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _UpdatesType.sectionTitle(scheme),
-        ),
-      ],
-    );
-  }
-}
-
 /// Section header: `# Announcement` with a trailing "more" action.
 class _AnnouncementHeader extends StatelessWidget {
   const _AnnouncementHeader({required this.onMore});
@@ -283,7 +125,7 @@ class _AnnouncementHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 6, 4, 2),
       child: Row(
         children: [
-          const _SectionTitle('Announcement'),
+          const SectionHeading('Announcement'),
           const Spacer(),
           IconButton(
             onPressed: onMore,
@@ -501,14 +343,11 @@ class _AnnouncementTile extends StatelessWidget {
                             announcement.author,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: _UpdatesType.name(scheme),
+                            style: AppType.name(scheme),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          announcement.time,
-                          style: _UpdatesType.meta(scheme),
-                        ),
+                        Text(announcement.time, style: AppType.meta(scheme)),
                         if (announcement.unread) ...[
                           const SizedBox(width: 6),
                           Container(
@@ -532,7 +371,7 @@ class _AnnouncementTile extends StatelessWidget {
                       announcement.body,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _UpdatesType.body(scheme),
+                      style: AppType.body(scheme),
                     ),
                   ],
                 ),
@@ -554,7 +393,7 @@ class _TagBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(label, style: _UpdatesType.tag(color));
+    return Text(label, style: AppType.tag(color));
   }
 }
 
@@ -607,7 +446,7 @@ class _TrendingSection extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 6, 8, 4),
           child: Row(
             children: [
-              const _SectionTitle('Trending'),
+              const SectionHeading('Trending'),
               const Spacer(),
               GestureDetector(
                 key: const ValueKey('trending-show-more'),
@@ -687,14 +526,14 @@ class _TrendingCard extends StatelessWidget {
             item.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _UpdatesType.name(scheme),
+            style: AppType.name(scheme),
           ),
           const SizedBox(height: 2),
           Text(
             item.subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _UpdatesType.subtitle(scheme),
+            style: AppType.subtitle(scheme),
           ),
         ],
       ),
@@ -723,7 +562,7 @@ class _UpcomingActivitiesSection extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 6, 16, 12),
-          child: _SectionTitle('Upcoming Activities'),
+          child: SectionHeading('Upcoming Activities'),
         ),
         GridView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -786,14 +625,14 @@ class _ActivityCard extends StatelessWidget {
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _UpdatesType.name(scheme),
+                  style: AppType.name(scheme),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   item.date,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _UpdatesType.subtitle(scheme),
+                  style: AppType.subtitle(scheme),
                 ),
               ],
             ),

@@ -18,7 +18,7 @@ class AuthTopBar extends StatelessWidget {
         Text(
           title ?? 'Encore',
           style: TextStyle(
-            fontFamily: AppTheme.brandFontFamily,
+            fontFamily: AppTheme.fontFamily,
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.white,
