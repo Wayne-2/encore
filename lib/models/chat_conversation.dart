@@ -102,6 +102,8 @@ class ChatConversation {
     this.unreadCount = 1,
     this.membersDescription = '',
     this.initialMessages = const [],
+    this.followersCount,
+    this.joinedDate,
   });
 
   final String id;
@@ -119,6 +121,8 @@ class ChatConversation {
   final int unreadCount;
   final String membersDescription;
   final List<ChatMessage> initialMessages;
+  final int? followersCount;
+  final String? joinedDate;
 }
 
 /// Mock data replicating the exact items shown in the user's design screenshot.
@@ -356,24 +360,45 @@ abstract final class MockChatData {
       title: '_wayne',
       isGroup: false,
       avatarAsset: 'assets/launch_icon_foreground.png',
-      lastMessage:
-          'I dey come chop rice for your side tomorrow bro, abeg add chicken and beef, make e go well...',
-      time: '23mins',
-      hasUnread: true,
+      lastMessage: 'Yes sir 🫡',
+      time: '5:47 pm',
+      hasUnread: false,
+      unreadCount: 0,
       membersDescription: 'Online',
+      followersCount: 16,
+      joinedDate: 'Joined 11 August 2023',
       initialMessages: [
         const ChatMessage(
           id: 'way-1',
-          senderName: '_wayne',
-          text: 'Boss man, wetin you cook today?',
-          time: '10:19 AM',
+          isMe: true,
+          text: 'Good evening chief',
+          time: '5:43 pm',
         ),
         const ChatMessage(
           id: 'way-2',
           senderName: '_wayne',
+          text: 'Nice one 😀',
+          time: '5:44 pm',
+        ),
+        const ChatMessage(
+          id: 'way-3',
+          senderName: '_wayne',
           text:
-              'I dey come chop rice for your side tomorrow bro, abeg add chicken and beef, make e go well...',
-          time: '10:23 AM',
+              'The wey the add option dey for left, then the send but8just dey minimal... Exactly',
+          time: '5:45 pm',
+        ),
+        const ChatMessage(
+          id: 'way-4',
+          senderName: '_wayne',
+          text:
+              'In fact, if you wan copy and paste exactly.. 😂 do so, but use theme',
+          time: '5:46 pm',
+        ),
+        const ChatMessage(
+          id: 'way-5',
+          isMe: true,
+          text: 'Yes sir 🫡',
+          time: '5:47 pm',
         ),
       ],
     ),

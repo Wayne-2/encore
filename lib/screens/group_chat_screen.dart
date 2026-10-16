@@ -33,6 +33,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   /// Whether the user (as admin) has entered Anonymous Mode via the paperclip icon.
   bool _isAnonymousMode = false;
+  bool _isAttachmentMenuOpen = false;
 
   @override
   void initState() {
@@ -129,118 +130,116 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  /// Opens the WhatsApp attachment tray when tapping the paperclip icon.
-  void _openAttachmentMenu() {
-    showModalBottomSheet<void>(
+  /// Opens the floating vertical plus menu anchored above the plus button.
+  void _openAttachmentMenu() async {
+    if (_isAttachmentMenuOpen) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+
+    setState(() {
+      _isAttachmentMenuOpen = true;
+    });
+
+    await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      elevation: 0,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF1F2C34),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              child: SafeArea(
-                top: false,
+        return Align(
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 12,
+              bottom: 64 + MediaQuery.of(context).padding.bottom,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 180,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF202C33),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 6,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Pull handle
-                    Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                    _FloatingMenuItem(
+                      key: const ValueKey('clip-attachment-item'),
+                      icon: Icons.insert_drive_file_outlined,
+                      label: 'Document',
+                      onTap: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Document picker opened'),
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 18),
-
-                    // WhatsApp Standard Attachment Grid
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _AttachmentItem(
-                          icon: Icons.insert_drive_file_rounded,
-                          color: const Color(0xFF7F66FF),
-                          label: 'Document',
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        _AttachmentItem(
-                          icon: Icons.camera_alt_rounded,
-                          color: const Color(0xFFD3396D),
-                          label: 'Camera',
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        _AttachmentItem(
-                          icon: Icons.image_rounded,
-                          color: const Color(0xFFAC44CF),
-                          label: 'Gallery',
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        _AttachmentItem(
-                          icon: Icons.headphones_rounded,
-                          color: const Color(0xFFE07138),
-                          label: 'Audio',
-                          onTap: () => Navigator.pop(context),
-                        ),
-                      ],
+                    const SizedBox(height: 4),
+                    _FloatingMenuItem(
+                      icon: Icons.camera_alt_outlined,
+                      label: 'Camera',
+                      onTap: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                'Camera opened (with Gallery access)'),
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _AttachmentItem(
-                          icon: Icons.location_on_rounded,
-                          color: const Color(0xFF1FA855),
-                          label: 'Location',
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        _AttachmentItem(
-                          icon: Icons.person_rounded,
-                          color: const Color(0xFF0298DB),
-                          label: 'Contact',
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        _AttachmentItem(
-                          icon: Icons.bar_chart_rounded,
-                          color: const Color(0xFF00A884),
-                          label: 'Poll',
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        _AttachmentItem(
-                          key: const ValueKey('anon-grid-button'),
-                          icon: Icons.visibility_off_rounded,
-                          color: _isAnonymousMode
-                              ? SlackColors.accentGreen
-                              : const Color(0xFF4A5568),
-                          label: _isAnonymousMode ? 'Anon ON' : 'Anon OFF',
-                          onTap: () {
-                            setModalState(() {
-                              _isAnonymousMode = !_isAnonymousMode;
-                            });
-                            _toggleAnonymousMode(_isAnonymousMode);
-                          },
-                        ),
-                      ],
+                    const SizedBox(height: 4),
+                    _FloatingMenuItem(
+                      icon: Icons.headphones_outlined,
+                      label: 'Audio',
+                      onTap: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Audio picker opened'),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );
+
+    if (mounted) {
+      setState(() {
+        _isAttachmentMenuOpen = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       backgroundColor: SlackColors.darkBackground,
       appBar: AppBar(
@@ -249,7 +248,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          color: scheme.onSurface,
+          color: Colors.white,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: InkWell(
@@ -275,11 +274,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         widget.conversation.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -289,10 +288,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             : 'tap here for group info',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 12,
-                          color: scheme.onSurfaceVariant,
+                          color: Color(0xFF8696A0),
                         ),
                       ),
                     ],
@@ -303,40 +302,88 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.videocam_outlined),
-            color: scheme.onSurface,
-            tooltip: 'Video call',
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.phone_outlined, size: 22),
-            color: scheme.onSurface,
-            tooltip: 'Voice call',
-            onPressed: () {},
-          ),
           PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: scheme.onSurface),
+            key: const ValueKey('chat-three-dots-menu'),
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
             color: SlackColors.darkSurface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             onSelected: (val) {
-              if (val == 'anon') {
+              if (val == 'call') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Starting voice call with ${widget.conversation.title}...')),
+                );
+              } else if (val == 'video_call') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Starting video call with ${widget.conversation.title}...')),
+                );
+              } else if (val == 'anon') {
                 _toggleAnonymousMode();
               } else if (val == 'info') {
                 _showGroupInfo(context);
+              } else if (val == 'media') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Group media & docs')),
+                );
+              } else if (val == 'search') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Search in conversation')),
+                );
+              } else if (val == 'mute') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Notifications muted')),
+                );
+              } else if (val == 'clear') {
+                setState(() {
+                  _messages.clear();
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Chat cleared')),
+                );
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'info', child: Text('Group info')),
               const PopupMenuItem(
-                value: 'media',
-                child: Text('Group media, links, and docs'),
+                value: 'call',
+                child: Row(
+                  children: [
+                    Icon(Icons.phone_outlined, size: 20, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Voice Call',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const PopupMenuItem(value: 'search', child: Text('Search')),
               const PopupMenuItem(
-                value: 'mute',
-                child: Text('Mute notifications'),
+                value: 'video_call',
+                child: Row(
+                  children: [
+                    Icon(Icons.videocam_outlined, size: 20, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Video Call',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               PopupMenuItem(
+                key: const ValueKey('anon-menu-item'),
                 value: 'anon',
                 child: Row(
                   children: [
@@ -344,14 +391,123 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       _isAnonymousMode
                           ? Icons.visibility_rounded
                           : Icons.visibility_off_rounded,
-                      size: 18,
+                      size: 20,
                       color: SlackColors.accentGreen,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isAnonymousMode
-                          ? 'Disable Anonymous Mode'
-                          : 'Enter Anonymous Mode',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _isAnonymousMode
+                            ? 'Disable Anonymous Mode'
+                            : 'Enter Anonymous Mode',
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: SlackColors.accentGreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'info',
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 20, color: Color(0xFF8696A0)),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Group info',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'media',
+                child: Row(
+                  children: [
+                    Icon(Icons.perm_media_outlined, size: 20, color: Color(0xFF8696A0)),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Group media, links, and docs',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'search',
+                child: Row(
+                  children: [
+                    Icon(Icons.search_rounded, size: 20, color: Color(0xFF8696A0)),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Search',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'mute',
+                child: Row(
+                  children: [
+                    Icon(Icons.notifications_off_outlined, size: 20, color: Color(0xFF8696A0)),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Mute notifications',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'clear',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFFF6B6B)),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Clear chat',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFFF6B6B),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -387,6 +543,54 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   if (index == 0) {
                     return Column(
                       children: [
+                        const SizedBox(height: 14),
+                        ChatAvatar(
+                          avatarAsset: widget.conversation.avatarAsset,
+                          avatarColor: widget.conversation.avatarColor,
+                          avatarInitials: widget.conversation.avatarInitials,
+                          size: 72,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          widget.conversation.title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Group • ${widget.conversation.membersDescription.isNotEmpty ? widget.conversation.membersDescription : '5 participants'}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12,
+                            color: Color(0xFF8696A0),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed: () => _showGroupInfo(context),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: const Color(0xFF202C33),
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                          ),
+                          child: const Text(
+                            'Group info',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFE9EDEF),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
                         // Encryption disclaimer
                         Container(
                           margin: const EdgeInsets.symmetric(
@@ -458,17 +662,57 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     return Container(
       color: SlackColors.darkBackground,
       padding: EdgeInsets.only(
-        left: 8,
-        right: 8,
-        top: 6,
-        bottom: 6 + MediaQuery.of(context).padding.bottom,
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: 8 + MediaQuery.of(context).padding.bottom,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Input pill
+          // Plus button on the left (circle)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('plus-button'),
+              borderRadius: BorderRadius.circular(22),
+              onTap: _openAttachmentMenu,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                key: const ValueKey('paperclip-icon'),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _isAttachmentMenuOpen
+                      ? const Color(0xFF2C363C)
+                      : const Color(0xFF202C33),
+                  shape: BoxShape.circle,
+                  border: _isAnonymousMode
+                      ? Border.all(
+                          color: SlackColors.accentGreen.withValues(alpha: 0.6),
+                          width: 1.2,
+                        )
+                      : null,
+                ),
+                child: AnimatedRotation(
+                  turns: _isAttachmentMenuOpen ? 0.125 : 0.0,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOut,
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Input pill on the right with internal microphone / send button
           Expanded(
             child: Container(
+              constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
                 color: const Color(0xFF202C33),
                 borderRadius: BorderRadius.circular(24),
@@ -479,17 +723,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       )
                     : null,
               ),
+              padding: const EdgeInsets.only(left: 16, right: 6),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.emoji_emotions_outlined,
-                      color: Color(0xFF8696A0),
-                      size: 24,
-                    ),
-                    onPressed: () {},
-                  ),
                   Expanded(
                     child: TextField(
                       controller: _textController,
@@ -522,76 +759,40 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         focusedErrorBorder: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: 10,
-                          horizontal: 4,
                         ),
                       ),
                     ),
                   ),
-                  // The WhatsApp paperclip icon: enters anonymous mode
-                  Stack(
-                    children: [
-                      IconButton(
-                        key: const ValueKey('paperclip-icon'),
-                        icon: Transform.rotate(
-                          angle: -0.6,
-                          child: Icon(
-                            Icons.attach_file_rounded,
-                            color: _isAnonymousMode
-                                ? SlackColors.accentGreen
-                                : const Color(0xFF8696A0),
-                            size: 24,
-                          ),
-                        ),
-                        tooltip: 'Attachment & Anonymous Mode',
-                        onPressed: _openAttachmentMenu,
+                  if (_textController.text.trim().isEmpty)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.mic_none_rounded,
+                        color: Color(0xFF8696A0),
+                        size: 22,
                       ),
-                      if (_isAnonymousMode)
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: SlackColors.accentGreen,
-                              shape: BoxShape.circle,
-                            ),
+                      tooltip: 'Voice message',
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Hold to record voice message'),
+                            duration: Duration(seconds: 1),
                           ),
-                        ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.camera_alt_rounded,
-                      color: Color(0xFF8696A0),
-                      size: 22,
+                        );
+                      },
+                    )
+                  else
+                    IconButton(
+                      key: const ValueKey('send-button'),
+                      icon: const Icon(
+                        Icons.arrow_upward_rounded,
+                        color: SlackColors.accentGreen,
+                        size: 22,
+                      ),
+                      tooltip: 'Send message',
+                      onPressed: _sendMessage,
                     ),
-                    onPressed: () {},
-                  ),
                 ],
               ),
-            ),
-          ),
-          const SizedBox(width: 6),
-
-          // Send or Voice Record circular button
-          Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
-              color: SlackColors.accentGreen,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              key: const ValueKey('send-button'),
-              icon: Icon(
-                _textController.text.trim().isEmpty
-                    ? Icons.mic_rounded
-                    : Icons.send_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-              onPressed: _textController.text.trim().isEmpty ? null : _sendMessage,
             ),
           ),
         ],
@@ -663,18 +864,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 }
 
-/// WhatsApp Attachment Menu item.
-class _AttachmentItem extends StatelessWidget {
-  const _AttachmentItem({
+class _FloatingMenuItem extends StatelessWidget {
+  const _FloatingMenuItem({
     super.key,
     required this.icon,
-    required this.color,
     required this.label,
     required this.onTap,
   });
 
   final IconData icon;
-  final Color color;
   final String label;
   final VoidCallback onTap;
 
@@ -683,33 +881,38 @@ class _AttachmentItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C363C),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
             ),
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFFD1D2D3),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
+
 
 /// A WhatsApp-style group message bubble.
 class _GroupMessageBubble extends StatelessWidget {
