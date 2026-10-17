@@ -20,7 +20,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   late final AnimationController _progressController;
   final TextEditingController _replyController = TextEditingController();
 
-  static const List<String> _quickReactions = ['❤️', '😂', '🔥', '👏', '😮', '🙏'];
+  static const List<String> _quickReactions = [
+    '❤️',
+    '😂',
+    '🔥',
+    '👏',
+    '😮',
+    '🙏',
+  ];
 
   @override
   void initState() {
@@ -74,10 +81,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
         children: [
           // Background story visual
           Positioned.fill(
-            child: Image.asset(
-              widget.story.storyImage,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset(widget.story.storyImage, fit: BoxFit.cover),
           ),
 
           // Gradient overlay for contrast
@@ -219,7 +223,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: SlackColors.darkSurface.withValues(alpha: 0.8),
+                              color: SlackColors.darkSurface.withValues(
+                                alpha: 0.8,
+                              ),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: Colors.white.withValues(alpha: 0.2),
@@ -244,7 +250,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                       child: Container(
                         height: 48,
                         decoration: BoxDecoration(
-                          color: SlackColors.darkSurface.withValues(alpha: 0.85),
+                          color: SlackColors.darkSurface.withValues(
+                            alpha: 0.85,
+                          ),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.25),
@@ -282,7 +290,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         onPressed: () => _sendReply(_replyController.text),
                       ),
                     ),

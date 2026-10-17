@@ -1,7 +1,9 @@
+import 'student_agent_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
+import '../navigation/app_route.dart';
 import '../theme/slack_colors.dart';
 import '../widgets/workspace_app_bar.dart';
 
@@ -42,18 +44,42 @@ class MoreScreen extends StatelessWidget {
 
 /// A single destination on the [MoreScreen] list.
 class _MoreItem {
-  const _MoreItem({required this.icon, required this.label});
+  const _MoreItem({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+  });
 
   /// SVG file name in `assets/icons` (without extension).
   final String icon;
   final String label;
+  final String subtitle;
 }
 
 const List<_MoreItem> _items = [
-  _MoreItem(icon: 'library', label: 'Library'),
-  _MoreItem(icon: 'results', label: 'CGPA Tracker'),
-  _MoreItem(icon: 'agents', label: 'Student Agents'),
-  _MoreItem(icon: 'settings', label: 'Settings'),
+  _MoreItem(
+    icon: 'library',
+    label: 'Library',
+    subtitle:
+        'Browse through for available course materials, pdf and question papers',
+  ),
+  _MoreItem(
+    icon: 'results',
+    label: 'CGPA Tracker',
+    subtitle: 'Monitor and manage your performance as a student',
+  ),
+  _MoreItem(
+    icon: 'agents',
+    label: 'Student Agents',
+    subtitle:
+        'Pay for available support and professional assistance in school '
+        'activities.',
+  ),
+  _MoreItem(
+    icon: 'settings',
+    label: 'Settings',
+    subtitle: 'Find setting and customize to preference',
+  ),
 ];
 
 class _MoreTile extends StatelessWidget {
@@ -66,7 +92,11 @@ class _MoreTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return InkWell(
-      onTap: () {},
+      onTap: () {
+        if (item.label == 'Student Agents') {
+          Navigator.of(context).push(fadeRoute(const StudentAgentScreen()));
+        }
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
@@ -82,9 +112,23 @@ class _MoreTile extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                item.label,
-                style: AppType.body(scheme).copyWith(color: scheme.onSurface),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.name(scheme),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.subtitle(scheme),
+                  ),
+                ],
               ),
             ),
           ],

@@ -172,7 +172,11 @@ abstract final class AppTheme {
 
     // Focused inputs use a brighter take on their resting border rather than
     // the loud accent color.
-    final focusBorder = Color.lerp(scheme.outlineVariant, scheme.onSurface, 0.5)!;
+    final focusBorder = Color.lerp(
+      scheme.outlineVariant,
+      scheme.onSurface,
+      0.5,
+    )!;
 
     return ThemeData(
       useMaterial3: true,
@@ -273,9 +277,7 @@ abstract final class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -288,9 +290,7 @@ abstract final class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -302,9 +302,7 @@ abstract final class AppTheme {
           side: BorderSide(color: scheme.outlineVariant),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -314,9 +312,7 @@ abstract final class AppTheme {
           foregroundColor: SlackColors.blue,
           disabledForegroundColor: disabled,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -332,9 +328,7 @@ abstract final class AppTheme {
         backgroundColor: SlackColors.greenDark,
         foregroundColor: Colors.white,
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
@@ -407,7 +401,9 @@ abstract final class AppTheme {
 
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: isLight ? SlackColors.lightTextPrimary : SlackColors.darkSurface,
+          color: isLight
+              ? SlackColors.lightTextPrimary
+              : SlackColors.darkSurface,
           borderRadius: BorderRadius.circular(4),
         ),
         textStyle: textTheme.bodySmall?.copyWith(color: Colors.white),
@@ -442,7 +438,9 @@ abstract final class AppTheme {
           return isLight ? const Color(0xFF616061) : const Color(0xFF9B9A97);
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return SlackColors.accentGreen;
+          if (states.contains(WidgetState.selected)) {
+            return SlackColors.accentGreen;
+          }
           return isLight ? const Color(0xFFDDDDDD) : const Color(0xFF454548);
         }),
       ),

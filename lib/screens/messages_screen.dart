@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../models/chat_conversation.dart';
 import '../navigation/app_route.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/slack_colors.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/compose_fab.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/workspace_app_bar.dart';
 import 'direct_chat_screen.dart';
 import 'group_chat_screen.dart';
 import 'story_viewer_screen.dart';
+
+/// Quick actions revealed by the Messages compose button.
+const List<ComposeAction> _messagesComposeActions = [
+  (label: 'Add Story', icon: Icons.auto_stories_outlined),
+  (label: 'New DM', icon: Icons.edit_outlined),
+  (label: 'New Group', icon: Icons.group_add_outlined),
+];
 
 /// The Messages section — the second tab of [HomeShell].
 ///
@@ -28,24 +36,31 @@ class MessagesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        const WorkspaceAppBar(
-          heading: 'Messages',
-          headingSize: 20,
-          headingWeight: FontWeight.w700,
+        Column(
+          children: [
+            const WorkspaceAppBar(
+              heading: 'Messages',
+              headingSize: 20,
+              headingWeight: FontWeight.w700,
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  const SizedBox(height: 12),
+                  const _StorySection(),
+                  const SizedBox(height: 18),
+                  const _ConversationsSection(),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              const SizedBox(height: 12),
-              const _StorySection(),
-              const SizedBox(height: 18),
-              const _ConversationsSection(),
-              const SizedBox(height: 24),
-            ],
-          ),
+        const Positioned.fill(
+          child: ComposeFab(actions: _messagesComposeActions),
         ),
       ],
     );
@@ -80,9 +95,9 @@ class _StorySection extends StatelessWidget {
               return _StoryTile(
                 story: story,
                 onTap: () {
-                  Navigator.of(context).push(
-                    fadeRoute(StoryViewerScreen(story: story)),
-                  );
+                  Navigator.of(
+                    context,
+                  ).push(fadeRoute(StoryViewerScreen(story: story)));
                 },
               );
             },
@@ -101,6 +116,8 @@ class _StoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -119,12 +136,7 @@ class _StoryTile extends StatelessWidget {
             story.username,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: SlackColors.darkTextPrimary,
-            ),
+            style: AppType.subtitle(scheme),
           ),
         ],
       ),
@@ -165,13 +177,13 @@ class _ConversationsSection extends StatelessWidget {
               item: item,
               onTap: () {
                 if (item.isGroup) {
-                  Navigator.of(context).push(
-                    sharedAxisRoute(GroupChatScreen(conversation: item)),
-                  );
+                  Navigator.of(
+                    context,
+                  ).push(sharedAxisRoute(GroupChatScreen(conversation: item)));
                 } else {
-                  Navigator.of(context).push(
-                    sharedAxisRoute(DirectChatScreen(conversation: item)),
-                  );
+                  Navigator.of(
+                    context,
+                  ).push(sharedAxisRoute(DirectChatScreen(conversation: item)));
                 }
               },
             );
@@ -221,23 +233,11 @@ class _ConversationTile extends StatelessWidget {
                           item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
+                          style: AppType.cardTitle(scheme),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        item.time,
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 12,
-                          color: SlackColors.darkTextSecondary,
-                        ),
-                      ),
+                      Text(item.time, style: AppType.meta(scheme)),
                       if (item.hasUnread) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -257,12 +257,7 @@ class _ConversationTile extends StatelessWidget {
                   if (item.isGroup && item.lastMessageSender != null)
                     Text.rich(
                       TextSpan(
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 13,
-                          height: 1.3,
-                          color: scheme.onSurfaceVariant,
-                        ),
+                        style: AppType.subtitle(scheme),
                         children: [
                           TextSpan(
                             text: '${item.lastMessageSender}: ',
@@ -282,12 +277,7 @@ class _ConversationTile extends StatelessWidget {
                       item.lastMessage,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 13,
-                        height: 1.3,
-                        color: scheme.onSurfaceVariant,
-                      ),
+                      style: AppType.subtitle(scheme),
                     ),
                 ],
               ),

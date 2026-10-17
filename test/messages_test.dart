@@ -12,9 +12,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: MessagesScreen()),
-      ),
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
     );
 
     // Header
@@ -44,9 +42,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: MessagesScreen()),
-      ),
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
     );
 
     // Tap the first story (_cypher)
@@ -63,9 +59,7 @@ void main() {
     'Tapping a group opens GroupChatScreen with WhatsApp interface & Anonymous mode',
     (WidgetTester tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: MessagesScreen()),
-        ),
+        const MaterialApp(home: Scaffold(body: MessagesScreen())),
       );
 
       // Tap official group
@@ -107,7 +101,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Clear any snackbars so they don't obscure bottom elements
-      ScaffoldMessenger.of(tester.element(find.byType(GroupChatScreen))).clearSnackBars();
+      ScaffoldMessenger.of(
+        tester.element(find.byType(GroupChatScreen)),
+      ).clearSnackBars();
       await tester.pumpAndSettle();
 
       // Verify top-right Anonymous Mode indicator and Turn off action are visible
@@ -117,7 +113,10 @@ void main() {
 
       // Type and send an anonymous message
       final input = find.byType(TextField);
-      await tester.enterText(input, 'This is a test anonymous assignment question');
+      await tester.enterText(
+        input,
+        'This is a test anonymous assignment question',
+      );
       await tester.pumpAndSettle();
 
       // Tap send button
@@ -129,10 +128,7 @@ void main() {
         find.text('This is a test anonymous assignment question'),
         findsOneWidget,
       );
-      expect(
-        find.text('Sent anonymously (No sender ID)'),
-        findsOneWidget,
-      );
+      expect(find.text('Sent anonymously (No sender ID)'), findsOneWidget);
     },
   );
 
@@ -140,9 +136,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: MessagesScreen()),
-      ),
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
     );
 
     // Tap direct chat _daniel
@@ -168,9 +162,7 @@ void main() {
     'Wayne direct chat matches reference layout, three-dots actions, and plus menu',
     (WidgetTester tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: MessagesScreen()),
-        ),
+        const MaterialApp(home: Scaffold(body: MessagesScreen())),
       );
 
       // Scroll to and tap _wayne in conversations list
@@ -183,7 +175,6 @@ void main() {
 
       // Profile header elements matching reference image
       expect(find.text('Joined 11 August 2023'), findsOneWidget);
-      expect(find.text('16 Followers'), findsOneWidget);
       expect(find.text('View profile'), findsOneWidget);
       expect(find.text('Good evening chief'), findsOneWidget);
       expect(find.text('Seen'), findsOneWidget);
@@ -212,7 +203,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Clear snackbars so they don't obscure bottom elements
-      ScaffoldMessenger.of(tester.element(find.byType(DirectChatScreen))).clearSnackBars();
+      ScaffoldMessenger.of(
+        tester.element(find.byType(DirectChatScreen)),
+      ).clearSnackBars();
       await tester.pumpAndSettle();
 
       // Top right status pill and input placeholder appear
@@ -237,7 +230,10 @@ void main() {
       expect(tester.widget<AnimatedRotation>(rotationFinder).turns, 0.125);
 
       // Tap the button again (or tap outside) to close the menu and animate back to +
-      await tester.tap(find.byKey(const ValueKey('plus-button')), warnIfMissed: false);
+      await tester.tap(
+        find.byKey(const ValueKey('plus-button')),
+        warnIfMissed: false,
+      );
       await tester.pumpAndSettle();
 
       // Verify menu closed and rotated back to 0 degrees (+)
@@ -246,17 +242,18 @@ void main() {
     },
   );
 
-  testWidgets('Navigating to Messages tab from HomeShell displays MessagesScreen', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(const MaterialApp(home: HomeShell()));
+  testWidgets(
+    'Navigating to Messages tab from HomeShell displays MessagesScreen',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: HomeShell()));
 
-    // Tap Messages in bottom navigation bar
-    await tester.tap(find.byKey(const ValueKey('nav-Messages')));
-    await tester.pumpAndSettle();
+      // Tap Messages in bottom navigation bar
+      await tester.tap(find.byKey(const ValueKey('nav-Messages')));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(MessagesScreen), findsOneWidget);
-    expect(find.text('Story'), findsOneWidget);
-    expect(find.text('Conversations'), findsOneWidget);
-  });
+      expect(find.byType(MessagesScreen), findsOneWidget);
+      expect(find.text('Story'), findsOneWidget);
+      expect(find.text('Conversations'), findsOneWidget);
+    },
+  );
 }

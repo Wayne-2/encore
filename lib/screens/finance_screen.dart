@@ -1,10 +1,13 @@
+import 'view_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_colors.dart';
 import '../widgets/section_heading.dart';
+import '../widgets/checkout_sheet.dart';
 import '../widgets/workspace_app_bar.dart';
 
 /// The Finance section — the third tab of [HomeShell].
@@ -42,7 +45,19 @@ class FinanceScreen extends StatelessWidget {
                       '2025/2026 FIRST SEMESTER',
                       style: AppType.name(scheme),
                     ),
-                    Text('View History', style: AppType.subtitle(scheme)),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ViewHistoryScreen(),
+                        ),
+                      ),
+                      child: Text(
+                        'View History',
+                        style: AppType.subtitle(
+                          scheme,
+                        ).copyWith(color: scheme.primary),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -62,10 +77,10 @@ class FinanceScreen extends StatelessWidget {
                     Expanded(
                       child: LinearProgressIndicator(
                         value: 0.33,
-                        minHeight: 5,
+                        minHeight: 3,
                         color: scheme.primary,
-                        backgroundColor: Colors.white.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(2.5),
+                        backgroundColor: SlackColors.darkHover,
+                        borderRadius: BorderRadius.circular(1.5),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -78,8 +93,15 @@ class FinanceScreen extends StatelessWidget {
                 child: FractionallySizedBox(
                   widthFactor: 0.8,
                   child: FilledButton(
-                    onPressed: () {},
-                    child: Text('Pay All (7 unpaid)'),
+                    onPressed: () => _showCheckout(context),
+                    child: const Text(
+                      'Pay All (4 unpaid)',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -156,6 +178,22 @@ class FinanceScreen extends StatelessWidget {
       ],
     );
   }
+
+  void _showCheckout(BuildContext context) {
+    final items = _dues
+        .where((d) => !d.paid)
+        .map(
+          (d) =>
+              CheckoutItem(title: d.title, amount: d.amount, iconAsset: d.icon),
+        )
+        .toList();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CheckoutSheet(items: items),
+    );
+  }
 }
 
 /// The account banner shown under the semester row.
@@ -198,7 +236,7 @@ class _BankBanner extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text('Odeh Solomon', style: AppType.name(scheme)),
+                        Text('Odeh Solomon', style: AppType.cardTitle(scheme)),
                         const SizedBox(width: 6),
                         Icon(
                           Icons.copy,
@@ -500,7 +538,7 @@ class _ExpenditureTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(due.title, style: AppType.name(scheme)),
+                Text(due.title, style: AppType.cardTitle(scheme)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -608,6 +646,22 @@ class _TileOptionsMenu extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showCheckout(BuildContext context) {
+    final items = _dues
+        .where((d) => !d.paid)
+        .map(
+          (d) =>
+              CheckoutItem(title: d.title, amount: d.amount, iconAsset: d.icon),
+        )
+        .toList();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CheckoutSheet(items: items),
     );
   }
 }

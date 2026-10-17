@@ -100,8 +100,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               setState(() => _index = i);
               _restartAutoPlay();
             },
-            itemBuilder: (context, i) =>
-                _FrostedBackground(asset: _backgrounds[i % _backgrounds.length]),
+            itemBuilder: (context, i) => _FrostedBackground(
+              asset: _backgrounds[i % _backgrounds.length],
+            ),
           ),
 
           // Static foreground: welcome copy, page dots, call to action.
@@ -133,9 +134,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     width: double.infinity,
                     height: 48,
                     child: FilledButton(
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).push(sharedAxisRoute<void>(const CreateAccountScreen())),
+                      onPressed: () => Navigator.of(context).push(
+                        sharedAxisRoute<void>(const CreateAccountScreen()),
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: _buttonColor,
                         foregroundColor: Colors.white,

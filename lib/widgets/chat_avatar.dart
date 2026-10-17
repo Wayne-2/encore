@@ -141,10 +141,7 @@ class ChatAvatar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: SlackColors.accentGreen,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: SlackColors.darkBackground,
-                  width: 2,
-                ),
+                border: Border.all(color: SlackColors.darkBackground, width: 2),
               ),
             ),
           ),

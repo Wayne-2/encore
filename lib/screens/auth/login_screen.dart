@@ -55,7 +55,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               Text('Welcome back', style: AuthScaffold.titleStyle),
               const SizedBox(height: 8),
-              Text('Log in to continue to Encore.', style: AuthScaffold.subtitleStyle),
+              Text(
+                'Log in to continue to Encore.',
+                style: AuthScaffold.subtitleStyle,
+              ),
               const SizedBox(height: 32),
               AuthField(
                 label: 'Full Name',
@@ -64,8 +67,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.name],
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Enter your full name' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Enter your full name'
+                    : null,
               ),
               const SizedBox(height: 20),
               AuthField(
@@ -73,8 +77,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 icon: 'registration_number',
                 controller: _regNumber,
                 textInputAction: TextInputAction.next,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Enter your registration number' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Enter your registration number'
+                    : null,
               ),
               const SizedBox(height: 20),
               AuthField(
@@ -106,7 +111,10 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(
                 width: double.infinity,
                 height: 48,
-                child: FilledButton(onPressed: _submit, child: const Text('Log In')),
+                child: FilledButton(
+                  onPressed: _submit,
+                  child: const Text('Log In'),
+                ),
               ),
               const SizedBox(height: 24),
               Row(
@@ -114,10 +122,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   Text('New here? ', style: AuthScaffold.subtitleStyle),
                   GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      sharedAxisRoute<void>(const CreateAccountScreen()),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).push(sharedAxisRoute<void>(const CreateAccountScreen())),
+                    child: Text(
+                      'Create an account',
+                      style: AuthScaffold.linkStyle,
                     ),
-                    child: Text('Create an account', style: AuthScaffold.linkStyle),
                   ),
                 ],
               ),

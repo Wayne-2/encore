@@ -135,15 +135,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               key: _formKey,
               child: PageTransitionSwitcher(
                 duration: const Duration(milliseconds: 350),
-                transitionBuilder: (child, primaryAnimation, secondaryAnimation) {
-                  return SharedAxisTransition(
-                    animation: primaryAnimation,
-                    secondaryAnimation: secondaryAnimation,
-                    transitionType: SharedAxisTransitionType.vertical,
-                    fillColor: SlackColors.darkBackground,
-                    child: child,
-                  );
-                },
+                transitionBuilder:
+                    (child, primaryAnimation, secondaryAnimation) {
+                      return SharedAxisTransition(
+                        animation: primaryAnimation,
+                        secondaryAnimation: secondaryAnimation,
+                        transitionType: SharedAxisTransitionType.vertical,
+                        fillColor: SlackColors.darkBackground,
+                        child: child,
+                      );
+                    },
                 child: switch (_step) {
                   0 => _buildPersonalDetails(context),
                   1 => _buildSchoolDetails(context),
@@ -222,20 +223,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         SizedBox(
           width: double.infinity,
           height: 48,
-          child: FilledButton(
-            onPressed: _next,
-            child: const Text('Continue'),
-          ),
+          child: FilledButton(onPressed: _next, child: const Text('Continue')),
         ),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Already have an account? ', style: AuthScaffold.subtitleStyle),
+            Text(
+              'Already have an account? ',
+              style: AuthScaffold.subtitleStyle,
+            ),
             GestureDetector(
-              onTap: () => Navigator.of(context).pushReplacement(
-                sharedAxisRoute<void>(const LoginScreen()),
-              ),
+              onTap: () => Navigator.of(
+                context,
+              ).pushReplacement(sharedAxisRoute<void>(const LoginScreen())),
               child: Text('Log in', style: AuthScaffold.linkStyle),
             ),
           ],
@@ -324,7 +325,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 initialValue: _level,
                 onChanged: (value) => setState(() => _level = value),
                 isExpanded: true,
-                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                dropdownColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHigh,
                 style: Theme.of(context).textTheme.bodyLarge,
                 decoration: const InputDecoration(hintText: 'Level'),
                 items: [
@@ -411,10 +414,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         SizedBox(
           width: double.infinity,
           height: 48,
-          child: FilledButton(
-            onPressed: _next,
-            child: const Text('Continue'),
-          ),
+          child: FilledButton(onPressed: _next, child: const Text('Continue')),
         ),
       ],
     );
@@ -474,10 +474,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         SizedBox(
           width: double.infinity,
           height: 48,
-          child: FilledButton(
-            onPressed: _finish,
-            child: const Text('Finish'),
-          ),
+          child: FilledButton(onPressed: _finish, child: const Text('Finish')),
         ),
         const SizedBox(height: 12),
         Center(

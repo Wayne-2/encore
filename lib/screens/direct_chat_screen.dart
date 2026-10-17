@@ -60,8 +60,9 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
               : 'Anonymous Mode disabled: Normal chat restored',
         ),
         duration: const Duration(seconds: 2),
-        backgroundColor:
-            _isAnonymousMode ? SlackColors.accentGreen : const Color(0xFF333333),
+        backgroundColor: _isAnonymousMode
+            ? SlackColors.accentGreen
+            : SlackColors.darkSurface,
       ),
     );
   }
@@ -71,8 +72,9 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
     if (text.isEmpty) return;
 
     final now = DateTime.now();
-    final hour =
-        now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final hour = now.hour > 12
+        ? now.hour - 12
+        : (now.hour == 0 ? 12 : now.hour);
     final minute = now.minute.toString().padLeft(2, '0');
     final period = now.hour >= 12 ? 'pm' : 'am';
     final timeStr = '$hour:$minute $period';
@@ -122,12 +124,9 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
               child: Container(
                 width: 180,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF202C33),
+                  color: SlackColors.darkSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    width: 1,
-                  ),
+                  border: Border.all(color: SlackColors.darkBorder, width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.55),
@@ -137,10 +136,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                  horizontal: 6,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +163,8 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                                'Camera opened (with Gallery access)'),
+                              'Camera opened (with Gallery access)',
+                            ),
                           ),
                         );
                       },
@@ -179,9 +176,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                       onTap: () {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Audio picker opened'),
-                          ),
+                          const SnackBar(content: Text('Audio picker opened')),
                         );
                       },
                     ),
@@ -203,6 +198,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final isWayne = widget.conversation.title.toLowerCase().contains('wayne');
     final displayName = widget.conversation.title.contains('✨')
         ? widget.conversation.title
@@ -216,7 +212,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
         titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          color: Colors.white,
+          color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Row(
@@ -237,11 +233,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: scheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -254,11 +250,12 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 12,
-                      color: widget.conversation.membersDescription
+                      color:
+                          widget.conversation.membersDescription
                               .toLowerCase()
                               .contains('online')
                           ? SlackColors.accentGreen
-                          : const Color(0xFF8696A0),
+                          : scheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -270,7 +267,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
           // Three dots menu button ONLY (Voice Call, Video Call, Anonymous Mode, etc.)
           PopupMenuButton<String>(
             key: const ValueKey('chat-three-dots-menu'),
-            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
             color: SlackColors.darkSurface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -280,14 +277,16 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Starting voice call with ${widget.conversation.title}...'),
+                      'Starting voice call with ${widget.conversation.title}...',
+                    ),
                   ),
                 );
               } else if (val == 'video_call') {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Starting video call with ${widget.conversation.title}...'),
+                      'Starting video call with ${widget.conversation.title}...',
+                    ),
                   ),
                 );
               } else if (val == 'anon') {
@@ -296,7 +295,8 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Conversation info for ${widget.conversation.title}'),
+                      'Conversation info for ${widget.conversation.title}',
+                    ),
                   ),
                 );
               } else if (val == 'search') {
@@ -307,18 +307,22 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 setState(() {
                   _messages.clear();
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chat cleared')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Chat cleared')));
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'call',
                 child: Row(
                   children: [
-                    Icon(Icons.phone_outlined, size: 20, color: Colors.white),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.phone_outlined,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Voice Call',
@@ -326,20 +330,23 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'video_call',
                 child: Row(
                   children: [
-                    Icon(Icons.videocam_outlined,
-                        size: 20, color: Colors.white),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.videocam_outlined,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Video Call',
@@ -347,7 +354,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
@@ -384,13 +391,16 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'info',
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline_rounded,
-                        size: 20, color: Color(0xFF8696A0)),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Conversation info',
@@ -398,20 +408,23 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'search',
                 child: Row(
                   children: [
-                    Icon(Icons.search_rounded,
-                        size: 20, color: Color(0xFF8696A0)),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Search',
@@ -419,7 +432,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
@@ -430,8 +443,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline_rounded,
-                        size: 20, color: Color(0xFFFF6B6B)),
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      size: 20,
+                      color: SlackColors.red,
+                    ),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -440,7 +456,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFFFF6B6B),
+                          color: SlackColors.red,
                         ),
                       ),
                     ),
@@ -467,11 +483,13 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
 
           Expanded(
             child: Container(
-              color: const Color(0xFF0F1418),
+              color: SlackColors.darkBackground,
               child: ListView.builder(
                 controller: _scrollController,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 itemCount: _messages.length + 1,
                 itemBuilder: (context, index) {
                   // Index 0: Profile Header Card matching reference image
@@ -491,11 +509,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           children: [
                             Text(
                               widget.conversation.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: scheme.onSurface,
                               ),
                             ),
                             const SizedBox(width: 4),
@@ -506,19 +524,10 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         Text(
                           widget.conversation.joinedDate ??
                               'Joined 11 August 2023',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 13,
-                            color: Color(0xFF8696A0),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${widget.conversation.followersCount ?? 16} Followers',
-                          style: const TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 13,
-                            color: Color(0xFF8696A0),
+                            color: scheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -527,14 +536,16 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                    'Viewing profile for ${widget.conversation.title}'),
+                                  'Viewing profile for ${widget.conversation.title}',
+                                ),
                               ),
                             );
                           },
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: const Color(0xFF202C33),
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.12),
+                            backgroundColor: SlackColors.darkSurface,
+                            foregroundColor: scheme.onSurface,
+                            side: const BorderSide(
+                              color: SlackColors.darkBorder,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -550,7 +561,6 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFE9EDEF),
                             ),
                           ),
                         ),
@@ -561,11 +571,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           children: [
                             Text(
                               isWayne ? 'Today 5:43 pm' : 'TODAY',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF8696A0),
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -597,9 +607,18 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: isMe
-                                    ? const Color(0xFF0A84FF)
-                                    : const Color(0xFF202C33),
-                                borderRadius: BorderRadius.circular(18),
+                                    ? SlackColors.accentGreen
+                                    : SlackColors.darkSurface,
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(12),
+                                  topRight: const Radius.circular(12),
+                                  bottomLeft: isMe
+                                      ? const Radius.circular(12)
+                                      : Radius.zero,
+                                  bottomRight: isMe
+                                      ? Radius.zero
+                                      : const Radius.circular(12),
+                                ),
                               ),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
@@ -613,10 +632,14 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.visibility_off_rounded,
                                           size: 11,
-                                          color: Colors.white70,
+                                          color:
+                                              (isMe
+                                                      ? scheme.onPrimary
+                                                      : scheme.onSurface)
+                                                  .withValues(alpha: 0.85),
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
@@ -625,8 +648,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                                             fontFamily: AppTheme.fontFamily,
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.white
-                                                .withValues(alpha: 0.8),
+                                            color:
+                                                (isMe
+                                                        ? scheme.onPrimary
+                                                        : scheme.onSurface)
+                                                    .withValues(alpha: 0.85),
                                           ),
                                         ),
                                       ],
@@ -635,11 +661,13 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                                   ],
                                   Text(
                                     message.text,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: AppTheme.fontFamily,
                                       fontSize: 14.5,
                                       height: 1.3,
-                                      color: Colors.white,
+                                      color: isMe
+                                          ? scheme.onPrimary
+                                          : scheme.onSurface,
                                     ),
                                   ),
                                 ],
@@ -654,13 +682,13 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                             child: Text(
                               isWayne
                                   ? (message.text == 'Yes sir 🫡'
-                                      ? 'Sent'
-                                      : 'Seen')
+                                        ? 'Sent'
+                                        : 'Seen')
                                   : message.time,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 10.5,
-                                color: Color(0xFF8696A0),
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -680,6 +708,8 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
   }
 
   Widget _buildInputBar() {
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       color: SlackColors.darkBackground,
       padding: EdgeInsets.only(
@@ -705,8 +735,8 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: _isAttachmentMenuOpen
-                      ? const Color(0xFF2C363C)
-                      : const Color(0xFF202C33),
+                      ? SlackColors.darkHover
+                      : SlackColors.darkSurface,
                   shape: BoxShape.circle,
                   border: _isAnonymousMode
                       ? Border.all(
@@ -719,9 +749,9 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                   turns: _isAttachmentMenuOpen ? 0.125 : 0.0,
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeInOut,
-                  child: const Icon(
+                  child: Icon(
                     Icons.add_rounded,
-                    color: Colors.white,
+                    color: scheme.onSurface,
                     size: 24,
                   ),
                 ),
@@ -735,7 +765,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
             child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
-                color: const Color(0xFF202C33),
+                color: SlackColors.darkSurface,
                 borderRadius: BorderRadius.circular(24),
                 border: _isAnonymousMode
                     ? Border.all(
@@ -753,22 +783,21 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                       controller: _textController,
                       maxLines: 4,
                       minLines: 1,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        color: Colors.white,
+                        color: scheme.onSurface,
                         fontSize: 15,
                       ),
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         filled: false,
                         fillColor: Colors.transparent,
-                        hintText:
-                            _isAnonymousMode ? 'Anonymous...' : 'Message',
+                        hintText: _isAnonymousMode ? 'Anonymous...' : 'Message',
                         hintStyle: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: _isAnonymousMode
                               ? SlackColors.accentGreen.withValues(alpha: 0.8)
-                              : const Color(0xFF8696A0),
+                              : scheme.onSurfaceVariant,
                           fontSize: 15,
                         ),
                         border: InputBorder.none,
@@ -785,9 +814,9 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                   ),
                   if (_textController.text.trim().isEmpty)
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.mic_none_rounded,
-                        color: Color(0xFF8696A0),
+                        color: scheme.onSurfaceVariant,
                         size: 22,
                       ),
                       tooltip: 'Voice message',
@@ -835,6 +864,8 @@ class _FloatingMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -846,20 +877,20 @@ class _FloatingMenuItem extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF2C363C),
+                color: SlackColors.darkHover,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: Colors.white, size: 20),
+              child: Icon(icon, color: scheme.onSurface, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: scheme.onSurface,
                 ),
               ),
             ),
@@ -877,13 +908,11 @@ class _AnonymousStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF143024), Color(0xFF0C2219)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: SlackColors.darkSurface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: SlackColors.accentGreen.withValues(alpha: 0.5),
@@ -907,13 +936,13 @@ class _AnonymousStatusPill extends StatelessWidget {
             color: SlackColors.accentGreen,
           ),
           const SizedBox(width: 7),
-          const Text(
+          Text(
             'Anonymous',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: scheme.onSurface,
               letterSpacing: 0.2,
             ),
           ),
@@ -923,7 +952,7 @@ class _AnonymousStatusPill extends StatelessWidget {
           Container(
             width: 1,
             height: 14,
-            color: Colors.white.withValues(alpha: 0.18),
+            color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
           ),
           const SizedBox(width: 6),
 
@@ -937,10 +966,10 @@ class _AnonymousStatusPill extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF381519),
+                  color: SlackColors.red.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.35),
+                    color: SlackColors.red.withValues(alpha: 0.4),
                     width: 0.8,
                   ),
                 ),
@@ -950,7 +979,7 @@ class _AnonymousStatusPill extends StatelessWidget {
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFFF7272),
+                    color: SlackColors.red,
                     height: 1.0,
                   ),
                 ),

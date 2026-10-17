@@ -65,7 +65,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     if (text.isEmpty) return;
 
     final now = DateTime.now();
-    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final hour = now.hour > 12
+        ? now.hour - 12
+        : (now.hour == 0 ? 12 : now.hour);
     final minute = now.minute.toString().padLeft(2, '0');
     final period = now.hour >= 12 ? 'PM' : 'AM';
     final timeStr = '$hour:$minute $period';
@@ -95,8 +97,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor:
-            _isAnonymousMode ? const Color(0xFF0F392B) : SlackColors.darkSurface,
+        backgroundColor: _isAnonymousMode
+            ? SlackColors.accentGreen
+            : SlackColors.darkSurface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         content: Row(
@@ -105,9 +108,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               _isAnonymousMode
                   ? Icons.visibility_off_rounded
                   : Icons.visibility_rounded,
-              color: _isAnonymousMode
-                  ? SlackColors.accentGreen
-                  : Colors.white,
+              color: _isAnonymousMode ? Colors.white : SlackColors.accentGreen,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -159,12 +160,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               child: Container(
                 width: 180,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF202C33),
+                  color: SlackColors.darkSurface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    width: 1,
-                  ),
+                  border: Border.all(color: SlackColors.darkBorder, width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.55),
@@ -174,10 +172,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                  horizontal: 6,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +199,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                                'Camera opened (with Gallery access)'),
+                              'Camera opened (with Gallery access)',
+                            ),
                           ),
                         );
                       },
@@ -216,9 +212,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       onTap: () {
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Audio picker opened'),
-                          ),
+                          const SnackBar(content: Text('Audio picker opened')),
                         );
                       },
                     ),
@@ -240,6 +234,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       backgroundColor: SlackColors.darkBackground,
       appBar: AppBar(
@@ -248,7 +244,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          color: Colors.white,
+          color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: InkWell(
@@ -274,11 +270,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         widget.conversation.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -288,10 +284,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             : 'tap here for group info',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 12,
-                          color: Color(0xFF8696A0),
+                          color: scheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -304,17 +300,27 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         actions: [
           PopupMenuButton<String>(
             key: const ValueKey('chat-three-dots-menu'),
-            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
             color: SlackColors.darkSurface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
             onSelected: (val) {
               if (val == 'call') {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Starting voice call with ${widget.conversation.title}...')),
+                  SnackBar(
+                    content: Text(
+                      'Starting voice call with ${widget.conversation.title}...',
+                    ),
+                  ),
                 );
               } else if (val == 'video_call') {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Starting video call with ${widget.conversation.title}...')),
+                  SnackBar(
+                    content: Text(
+                      'Starting video call with ${widget.conversation.title}...',
+                    ),
+                  ),
                 );
               } else if (val == 'anon') {
                 _toggleAnonymousMode();
@@ -336,18 +342,22 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 setState(() {
                   _messages.clear();
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Chat cleared')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Chat cleared')));
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'call',
                 child: Row(
                   children: [
-                    Icon(Icons.phone_outlined, size: 20, color: Colors.white),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.phone_outlined,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Voice Call',
@@ -355,19 +365,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'video_call',
                 child: Row(
                   children: [
-                    Icon(Icons.videocam_outlined, size: 20, color: Colors.white),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.videocam_outlined,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Video Call',
@@ -375,7 +389,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
@@ -412,12 +426,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'info',
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline_rounded, size: 20, color: Color(0xFF8696A0)),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Group info',
@@ -425,19 +443,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'media',
                 child: Row(
                   children: [
-                    Icon(Icons.perm_media_outlined, size: 20, color: Color(0xFF8696A0)),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.perm_media_outlined,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Group media, links, and docs',
@@ -445,19 +467,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'search',
                 child: Row(
                   children: [
-                    Icon(Icons.search_rounded, size: 20, color: Color(0xFF8696A0)),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Search',
@@ -465,19 +491,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'mute',
                 child: Row(
                   children: [
-                    Icon(Icons.notifications_off_outlined, size: 20, color: Color(0xFF8696A0)),
-                    SizedBox(width: 12),
+                    Icon(
+                      Icons.notifications_off_outlined,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Mute notifications',
@@ -485,7 +515,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: scheme.onSurface,
                         ),
                       ),
                     ),
@@ -496,7 +526,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFFF6B6B)),
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      size: 20,
+                      color: SlackColors.red,
+                    ),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -505,7 +539,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFFFF6B6B),
+                          color: SlackColors.red,
                         ),
                       ),
                     ),
@@ -533,10 +567,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           // WhatsApp doodle/dark chat background with message stream
           Expanded(
             child: Container(
-              color: const Color(0xFF0F1418),
+              color: SlackColors.darkBackground,
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 itemCount: _messages.length + 1,
                 itemBuilder: (context, index) {
                   // Index 0: Header with encryption card & date badge
@@ -554,31 +591,39 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         Text(
                           widget.conversation.title,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: scheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Group • ${widget.conversation.membersDescription.isNotEmpty ? widget.conversation.membersDescription : '5 participants'}',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 12,
-                            color: Color(0xFF8696A0),
+                            color: scheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 10),
                         OutlinedButton(
                           onPressed: () => _showGroupInfo(context),
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: const Color(0xFF202C33),
-                            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                            backgroundColor: SlackColors.darkSurface,
+                            foregroundColor: scheme.onSurface,
+                            side: const BorderSide(
+                              color: SlackColors.darkBorder,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 6,
+                            ),
                           ),
                           child: const Text(
                             'Group info',
@@ -586,7 +631,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFE9EDEF),
                             ),
                           ),
                         ),
@@ -602,16 +646,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF182229),
+                            color: SlackColors.darkSurface,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
+                          child: Text(
                             '🔒 Messages and calls are end-to-end encrypted. No one outside of this chat, not even Encore, can read or listen to them.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 11,
-                              color: Color(0xFFECC272),
+                              color: scheme.onSurfaceVariant,
                               height: 1.35,
                             ),
                           ),
@@ -625,16 +669,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF182229),
+                              color: SlackColors.darkSurface,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
+                            child: Text(
                               'TODAY',
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF8696A0),
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -659,6 +703,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Widget _buildInputBar() {
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       color: SlackColors.darkBackground,
       padding: EdgeInsets.only(
@@ -684,8 +730,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: _isAttachmentMenuOpen
-                      ? const Color(0xFF2C363C)
-                      : const Color(0xFF202C33),
+                      ? SlackColors.darkHover
+                      : SlackColors.darkSurface,
                   shape: BoxShape.circle,
                   border: _isAnonymousMode
                       ? Border.all(
@@ -698,9 +744,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   turns: _isAttachmentMenuOpen ? 0.125 : 0.0,
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeInOut,
-                  child: const Icon(
+                  child: Icon(
                     Icons.add_rounded,
-                    color: Colors.white,
+                    color: scheme.onSurface,
                     size: 24,
                   ),
                 ),
@@ -714,7 +760,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
-                color: const Color(0xFF202C33),
+                color: SlackColors.darkSurface,
                 borderRadius: BorderRadius.circular(24),
                 border: _isAnonymousMode
                     ? Border.all(
@@ -732,23 +778,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       controller: _textController,
                       maxLines: 4,
                       minLines: 1,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        color: Colors.white,
+                        color: scheme.onSurface,
                         fontSize: 15,
                       ),
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         filled: false,
                         fillColor: Colors.transparent,
-                        hintText: _isAnonymousMode
-                            ? 'Anonymous...'
-                            : 'Message',
+                        hintText: _isAnonymousMode ? 'Anonymous...' : 'Message',
                         hintStyle: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: _isAnonymousMode
                               ? SlackColors.accentGreen.withValues(alpha: 0.8)
-                              : const Color(0xFF8696A0),
+                              : scheme.onSurfaceVariant,
                           fontSize: 15,
                         ),
                         border: InputBorder.none,
@@ -765,9 +809,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   ),
                   if (_textController.text.trim().isEmpty)
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.mic_none_rounded,
-                        color: Color(0xFF8696A0),
+                        color: scheme.onSurfaceVariant,
                         size: 22,
                       ),
                       tooltip: 'Voice message',
@@ -801,6 +845,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showGroupInfo(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: SlackColors.darkSurface,
@@ -823,11 +869,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               Text(
                 widget.conversation.title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: scheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -837,12 +883,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.group, color: SlackColors.accentGreen),
+                leading: const Icon(
+                  Icons.group,
+                  color: SlackColors.accentGreen,
+                ),
                 title: const Text('Group Members (48)'),
                 subtitle: const Text('View and manage group participants'),
                 onTap: () => Navigator.pop(context),
@@ -853,7 +902,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   color: SlackColors.accentGreen,
                 ),
                 title: const Text('Admin Settings'),
-                subtitle: const Text('Anonymous mode permissions & broadcast rules'),
+                subtitle: const Text(
+                  'Anonymous mode permissions & broadcast rules',
+                ),
                 onTap: () => Navigator.pop(context),
               ),
             ],
@@ -878,6 +929,8 @@ class _FloatingMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -889,20 +942,20 @@ class _FloatingMenuItem extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF2C363C),
+                color: SlackColors.darkHover,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: Colors.white, size: 20),
+              child: Icon(icon, color: scheme.onSurface, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: scheme.onSurface,
                 ),
               ),
             ),
@@ -913,7 +966,6 @@ class _FloatingMenuItem extends StatelessWidget {
   }
 }
 
-
 /// A WhatsApp-style group message bubble.
 class _GroupMessageBubble extends StatelessWidget {
   const _GroupMessageBubble({required this.message});
@@ -922,21 +974,23 @@ class _GroupMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     if (message.isNotice) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF182229),
+          color: SlackColors.darkSurface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           message.text,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 11.5,
-            color: Color(0xFFECC272),
+            color: scheme.onSurfaceVariant,
           ),
         ),
       );
@@ -955,7 +1009,7 @@ class _GroupMessageBubble extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               // WhatsApp dark green for outgoing, slate for incoming
-              color: isMe ? const Color(0xFF005C4B) : const Color(0xFF202C33),
+              color: isMe ? SlackColors.accentGreen : SlackColors.darkSurface,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(12),
                 topRight: const Radius.circular(12),
@@ -978,7 +1032,7 @@ class _GroupMessageBubble extends StatelessWidget {
                         const Icon(
                           Icons.visibility_off_rounded,
                           size: 13,
-                          color: Color(0xFFECC272),
+                          color: SlackColors.tagUrgent,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -987,7 +1041,9 @@ class _GroupMessageBubble extends StatelessWidget {
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFFECC272).withValues(alpha: 0.95),
+                            color: SlackColors.tagUrgent.withValues(
+                              alpha: 0.95,
+                            ),
                           ),
                         ),
                       ],
@@ -1004,7 +1060,8 @@ class _GroupMessageBubble extends StatelessWidget {
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: message.senderColor ?? SlackColors.accentGreen,
+                            color:
+                                message.senderColor ?? SlackColors.accentGreen,
                           ),
                         ),
                         if (message.isAdmin) ...[
@@ -1015,16 +1072,16 @@ class _GroupMessageBubble extends StatelessWidget {
                               vertical: 1,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
+                              color: scheme.onSurface.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Admin',
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF8696A0),
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -1038,10 +1095,10 @@ class _GroupMessageBubble extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.visibility_off_rounded,
                         size: 12,
-                        color: Colors.white70,
+                        color: scheme.onPrimary.withValues(alpha: 0.85),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -1050,7 +1107,7 @@ class _GroupMessageBubble extends StatelessWidget {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: scheme.onPrimary.withValues(alpha: 0.85),
                         ),
                       ),
                     ],
@@ -1061,11 +1118,11 @@ class _GroupMessageBubble extends StatelessWidget {
                 // Message Text
                 Text(
                   message.text,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 14.5,
                     height: 1.3,
-                    color: Color(0xFFE9EDEF),
+                    color: isMe ? scheme.onPrimary : scheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1082,16 +1139,16 @@ class _GroupMessageBubble extends StatelessWidget {
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 10.5,
                         color: isMe
-                            ? Colors.white.withValues(alpha: 0.7)
-                            : const Color(0xFF8696A0),
+                            ? scheme.onPrimary.withValues(alpha: 0.7)
+                            : scheme.onSurfaceVariant,
                       ),
                     ),
                     if (isMe) ...[
                       const SizedBox(width: 4),
-                      const Icon(
+                      Icon(
                         Icons.done_all_rounded,
-                        size: 15,
-                        color: Color(0xFF53BDEB),
+                        size: 16,
+                        color: scheme.onPrimary,
                       ),
                     ],
                   ],
@@ -1120,13 +1177,11 @@ class _AnonymousStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF143024), Color(0xFF0C2219)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: SlackColors.darkSurface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: SlackColors.accentGreen.withValues(alpha: 0.5),
@@ -1150,13 +1205,13 @@ class _AnonymousStatusPill extends StatelessWidget {
             color: SlackColors.accentGreen,
           ),
           const SizedBox(width: 7),
-          const Text(
+          Text(
             'Anonymous',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: scheme.onSurface,
               letterSpacing: 0.2,
             ),
           ),
@@ -1166,7 +1221,7 @@ class _AnonymousStatusPill extends StatelessWidget {
           Container(
             width: 1,
             height: 14,
-            color: Colors.white.withValues(alpha: 0.18),
+            color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
           ),
           const SizedBox(width: 6),
 
@@ -1180,10 +1235,10 @@ class _AnonymousStatusPill extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF381519),
+                  color: SlackColors.red.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.35),
+                    color: SlackColors.red.withValues(alpha: 0.4),
                     width: 0.8,
                   ),
                 ),
@@ -1193,7 +1248,7 @@ class _AnonymousStatusPill extends StatelessWidget {
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFFF7272),
+                    color: SlackColors.red,
                     height: 1.0,
                   ),
                 ),

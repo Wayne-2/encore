@@ -48,9 +48,9 @@ class _GettingReadyScreenState extends State<GettingReadyScreen>
         // Hold on the finished lockup + spinner before revealing the app.
         Future.delayed(const Duration(milliseconds: 1200), () {
           if (!mounted) return;
-          Navigator.of(context).pushReplacement(
-            fadeRoute<void>(const HomeShell()),
-          );
+          Navigator.of(
+            context,
+          ).pushReplacement(fadeRoute<void>(const HomeShell()));
         });
       }
     });
@@ -98,10 +98,7 @@ class _GettingReadyScreenState extends State<GettingReadyScreen>
             // Small FadingCube spinner — fades in and keeps spinning.
             FadeTransition(
               opacity: _spinnerIn,
-              child: SpinKitFadingCube(
-                color: Colors.white,
-                size: _spinnerSize,
-              ),
+              child: SpinKitFadingCube(color: Colors.white, size: _spinnerSize),
             ),
           ],
         ),

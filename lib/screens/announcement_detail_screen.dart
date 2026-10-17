@@ -1,15 +1,47 @@
 import 'package:flutter/material.dart';
 
 import '../models/announcement.dart';
+import '../models/comment.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/slack_colors.dart';
+import '../widgets/comment_thread.dart';
+import '../widgets/reaction_bar.dart';
 
 /// Full-page view of a single announcement: sender, time, priority and the
-/// complete message.
+/// complete message — followed by a Twitter-style comment thread.
 class AnnouncementDetailScreen extends StatelessWidget {
   const AnnouncementDetailScreen({super.key, required this.announcement});
 
   final Announcement announcement;
+
+  static const List<Comment> _comments = [
+    Comment(
+      name: 'Ama Boateng',
+      handle: '_ama_boateng',
+      time: '2h',
+      text:
+          'Thanks for the heads up! Will the lab report template be shared '
+          'too?',
+      initials: 'AB',
+      reactions: {'👍': 4, '🙌': 1},
+    ),
+    Comment(
+      name: 'Kwame Mensah',
+      handle: '_kwame_m',
+      time: '1h',
+      text: 'Noted, submitting mine tonight.',
+      initials: 'KM',
+      reactions: {'🎉': 2},
+    ),
+    Comment(
+      name: 'Efua Owusu',
+      handle: '_efua.o',
+      time: '45m',
+      text: 'Could we get a short extension? Some of us have labs that day.',
+      initials: 'EO',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +67,28 @@ class AnnouncementDetailScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: CommentThread(
+        header: _AnnouncementHeader(announcement: announcement),
+        initialComments: _comments,
+      ),
+    );
+  }
+}
+
+/// The announcement post shown above its comment thread.
+class _AnnouncementHeader extends StatelessWidget {
+  const _AnnouncementHeader({required this.announcement});
+
+  final Announcement announcement;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -54,49 +106,28 @@ class AnnouncementDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      announcement.author,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurface,
-                      ),
-                    ),
+                    Text(announcement.author, style: AppType.name(scheme)),
                     const SizedBox(height: 2),
-                    Text(
-                      announcement.time,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 13,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
+                    Text(announcement.time, style: AppType.meta(scheme)),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            announcement.tag,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: announcement.tagColor,
-            ),
-          ),
+          Text(announcement.tag, style: AppType.tag(announcement.tagColor)),
           const SizedBox(height: 12),
           Text(
             announcement.body,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 15,
-              height: 1.5,
+              fontSize: 13,
+              height: 1.35,
               color: scheme.onSurface,
             ),
           ),
+          const SizedBox(height: 12),
+          const ReactionBar(initial: {'👍': 8, '🎉': 2}),
         ],
       ),
     );

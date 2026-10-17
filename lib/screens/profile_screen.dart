@@ -10,8 +10,15 @@ import '../widgets/workspace_app_bar.dart';
 ///
 /// Reuses the workspace bar with a "Profile" heading (no subheading) and the
 /// Encore logo on the right, matching the Updates section.
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  int _scheduleFilter = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -92,12 +99,23 @@ class ProfileScreen extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(16, 28, 16, 0),
                 child: SectionHeading('My Academic Schedules'),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: _ScheduleFilter(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: _ScheduleFilter(
+                  selected: _scheduleFilter,
+                  onSelected: (v) => setState(() => _scheduleFilter = v),
+                ),
               ),
               const SizedBox(height: 8),
-              for (final item in _scheduleItems) _ScheduleTile(item: item),
+              ...(() {
+                final items = _scheduleItems;
+                final filtered = switch (_scheduleFilter) {
+                  1 => items.where((e) => e.status == 'in-progress').toList(),
+                  2 => items.where((e) => e.status == 'done').toList(),
+                  _ => List.of(items),
+                };
+                return filtered.map((e) => _ScheduleTile(item: e));
+              }()),
               const SizedBox(height: 24),
             ],
           ),
@@ -144,7 +162,12 @@ class _ProfileBanner extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Text('20241426282', style: AppType.name(scheme)),
+                      Text(
+                        '20241426282',
+                        style: AppType.body(
+                          scheme,
+                        ).copyWith(color: scheme.onSurface),
+                      ),
                       const SizedBox(width: 8),
                       Container(
                         width: 4,
@@ -155,7 +178,12 @@ class _ProfileBanner extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('300 level', style: AppType.name(scheme)),
+                      Text(
+                        '300 level',
+                        style: AppType.body(
+                          scheme,
+                        ).copyWith(color: scheme.onSurface),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -176,7 +204,13 @@ class _ProfileBanner extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Student Health bar', style: AppType.name(scheme)),
+                  Text(
+                    'Student Health bar',
+                    style: AppType.body(scheme).copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -203,7 +237,14 @@ class _ProfileBanner extends StatelessWidget {
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: () {},
-                    child: const Text('Manage Health'),
+                    child: const Text(
+                      'Manage Health',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -259,37 +300,6 @@ class _PulsingCircleState extends State<_PulsingCircle>
   }
 }
 
-/// The "All / In Progress / Done" filter for the academic schedules list.
-class _ScheduleFilter extends StatefulWidget {
-  const _ScheduleFilter();
-
-  @override
-  State<_ScheduleFilter> createState() => _ScheduleFilterState();
-}
-
-class _ScheduleFilterState extends State<_ScheduleFilter> {
-  static const List<String> _filters = ['All', 'In Progress', 'Done'];
-
-  int _selected = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _filters.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) => _SchedulePill(
-          label: _filters[i],
-          selected: i == _selected,
-          onTap: () => setState(() => _selected = i),
-        ),
-      ),
-    );
-  }
-}
-
 class _SchedulePill extends StatelessWidget {
   const _SchedulePill({
     required this.label,
@@ -310,7 +320,7 @@ class _SchedulePill extends StatelessWidget {
       onTap: onTap,
       child: Container(
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
           color: selected
               ? SlackColors.accentGreen.withValues(alpha: 0.16)
@@ -324,8 +334,8 @@ class _SchedulePill extends StatelessWidget {
           label,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
             color: color,
           ),
         ),
@@ -334,26 +344,72 @@ class _SchedulePill extends StatelessWidget {
   }
 }
 
+/// The "All / In Progress / Done" filter for the academic schedules list.
+class _ScheduleFilter extends StatelessWidget {
+  const _ScheduleFilter({required this.selected, required this.onSelected});
+
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  static const List<String> _filters = ['All', 'In Progress', 'Done'];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _filters.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) => _SchedulePill(
+          label: _filters[i],
+          selected: i == selected,
+          onTap: () => onSelected(i),
+        ),
+      ),
+    );
+  }
+}
+
 /// A single academic-schedule entry.
 class _ScheduleItem {
-  const _ScheduleItem({required this.title, required this.when});
+  const _ScheduleItem({
+    required this.title,
+    required this.when,
+    required this.status,
+  });
 
   final String title;
   final String when;
+  final String status; // 'all' | 'in-progress' | 'done'
 }
 
 const List<_ScheduleItem> _scheduleItems = [
   _ScheduleItem(
     title: 'Submit the GET course Manual',
     when: '11 Oct, 11:00 AM',
+    status: 'in-progress',
   ),
-  _ScheduleItem(title: 'Go to Bookshop for Textbooks', when: '12 Oct, 1:30 PM'),
   _ScheduleItem(
-    title: 'Submit Assignment for MATH 202  ',
-    when: '13 Oct, 10:15 AM',
+    title: 'Go to Bookshop for Textbooks',
+    when: '12 Oct, 1:30 PM',
+    status: 'in-progress',
   ),
-  _ScheduleItem(title: 'Prepare for project defense', when: '15 Oct, 2:45 PM'),
-  _ScheduleItem(title: 'Submit the GET course Manual', when: '18 Oct, 4:00 PM'),
+  _ScheduleItem(
+    title: 'Submit Assignment for MATH 202',
+    when: '13 Oct, 10:15 AM',
+    status: 'in-progress',
+  ),
+  _ScheduleItem(
+    title: 'Prepare for project defense',
+    when: '15 Oct, 2:45 PM',
+    status: 'in-progress',
+  ),
+  _ScheduleItem(
+    title: 'Submit the GET course Manual',
+    when: '18 Oct, 4:00 PM',
+    status: 'done',
+  ),
 ];
 
 /// A schedule row: a completion checkbox, the task + its time, and a bookmark.
@@ -377,22 +433,18 @@ class _ScheduleTileState extends State<_ScheduleTile> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Checkbox(
-            value: _done,
-            onChanged: (value) => setState(() => _done = value ?? false),
-            visualDensity: VisualDensity.compact,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   widget.item.title,
-                  style: AppType.name(scheme).copyWith(fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.cardTitle(scheme),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Icon(
@@ -401,19 +453,20 @@ class _ScheduleTileState extends State<_ScheduleTile> {
                       color: scheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      widget.item.when,
-                      style: AppType.meta(
-                        scheme,
-                      ).copyWith(fontSize: 10, fontWeight: FontWeight.w600),
-                    ),
+                    Text(widget.item.when, style: AppType.meta(scheme)),
                   ],
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.bookmark_border, size: 20, color: scheme.onSurfaceVariant),
+          Checkbox(
+            value: _done,
+            onChanged: (value) => setState(() => _done = value ?? false),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: const CircleBorder(),
+          ),
         ],
       ),
     );

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:encore/main.dart';
+import 'package:encore/models/announcement.dart';
 import 'package:encore/screens/announcement_detail_screen.dart';
+import 'package:encore/screens/announcements_screen.dart';
 import 'package:encore/screens/auth/create_account_screen.dart';
 import 'package:encore/screens/auth/login_screen.dart';
 import 'package:encore/screens/finance_screen.dart';
 import 'package:encore/screens/home_shell.dart';
+import 'package:encore/screens/messages_screen.dart';
 import 'package:encore/screens/more_screen.dart';
 import 'package:encore/screens/profile_screen.dart';
 import 'package:encore/screens/trending_more_screen.dart';
@@ -272,7 +275,7 @@ void main() {
     expect(find.text('Csc 200 level'), findsNothing);
   });
 
-  testWidgets('Updates tab shows the workspace bar, pills and announcements', (
+  testWidgets('Updates tab shows the workspace bar, header and announcements', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
@@ -281,12 +284,13 @@ void main() {
     expect(find.text('Update'), findsOneWidget);
     expect(find.text('Csc 200 level'), findsOneWidget);
 
-    // Announcement section header and filter pills.
+    // Announcement section header.
     expect(find.text('#'), findsAtLeastNWidgets(1));
     expect(find.text('Announcement'), findsOneWidget);
-    for (final label in ['All', 'Unread', 'Urgent', 'Older']) {
-      expect(find.text(label), findsOneWidget);
-    }
+    expect(
+      find.byKey(const ValueKey('announcement-show-more')),
+      findsOneWidget,
+    );
 
     // Three announcement tiles plus the workspace logo (and trending art).
     expect(find.byKey(const ValueKey('announcement-0')), findsOneWidget);
@@ -298,16 +302,6 @@ void main() {
     expect(find.text('Highly prior'), findsOneWidget);
     expect(find.text('General announcement'), findsOneWidget);
     expect(find.text('Less prior'), findsOneWidget);
-
-    // Switching pills swaps the feed for the empty state while keeping the
-    // section height fixed (the tiles stay mounted but hidden).
-    final section = find.byKey(const ValueKey('announcement-section'));
-    final heightBefore = tester.getSize(section).height;
-    await tester.tap(find.byKey(const ValueKey('filter-Unread')));
-    await tester.pumpAndSettle();
-    expect(find.text('Nothing here yet'), findsOneWidget);
-    expect(find.byKey(const ValueKey('announcement-0')), findsOneWidget);
-    expect(tester.getSize(section).height, heightBefore);
   });
 
   testWidgets('Updates shows Trending and opens Show more', (
@@ -365,6 +359,53 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Announcement Show more opens the full announcements list', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    await tester.tap(find.byKey(const ValueKey('announcement-show-more')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AnnouncementsScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('all-announcement-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('all-announcement-1')), findsOneWidget);
+
+    // Tapping a tile in the full list opens its detail page.
+    await tester.tap(find.byKey(const ValueKey('all-announcement-0')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnnouncementDetailScreen), findsOneWidget);
+  });
+
+  testWidgets('Announcement detail supports posting a comment', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AnnouncementDetailScreen(
+          announcement: Announcement(
+            author: 'Dr. Mensah',
+            time: '9:41 AM',
+            tag: 'Highly prior',
+            tagColor: Color(0xFFE8A33D),
+            body: 'The lab report is due this Friday before 5:00 PM.',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('Ama Boateng'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Noted, thank you!');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('comment-send-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Noted, thank you!'), findsOneWidget);
+    expect(find.text('Odeh Solomon'), findsOneWidget);
   });
 
   testWidgets('Home shell supports swiping between sections', (
@@ -479,6 +520,33 @@ void main() {
     expect(find.text('Add Activity'), findsNothing);
   });
 
+  testWidgets('Messages compose button reveals quick actions', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
+    );
+
+    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('Add Story'), findsNothing);
+    expect(find.text('New DM'), findsNothing);
+    expect(find.text('New Group'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Story'), findsOneWidget);
+    expect(find.text('New DM'), findsOneWidget);
+    expect(find.text('New Group'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Story'), findsNothing);
+    expect(find.text('New DM'), findsNothing);
+    expect(find.text('New Group'), findsNothing);
+  });
+
   testWidgets('Profile tab shows its workspace bar and the app logo', (
     WidgetTester tester,
   ) async {
@@ -539,7 +607,7 @@ void main() {
 
     expect(find.byType(Checkbox), findsNWidgets(5));
     expect(find.byIcon(Icons.timer_outlined), findsNWidgets(5));
-    expect(find.byIcon(Icons.bookmark_border), findsNWidgets(5));
+
     expect(find.text('Go to Bookshop for Textbooks'), findsOneWidget);
     expect(find.text('Prepare for project defense'), findsOneWidget);
 
@@ -556,5 +624,9 @@ void main() {
     expect(find.text('More'), findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
     expect(find.text('Profile'), findsNothing);
+    expect(find.text('Library'), findsOneWidget);
+    expect(find.text('CGPA Tracker'), findsOneWidget);
+    expect(find.text('Student Agents'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
   });
 }

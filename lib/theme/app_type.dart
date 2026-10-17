@@ -11,6 +11,7 @@ import 'app_theme.dart';
 /// |------------|------|--------|---------|
 /// | section    | 16   | w600   | 100%    |
 /// | name       | 15   | w700   | 100%    |
+/// | card title | 14   | w600   | muted   |
 /// | body       | 14   | w400   | 100%    |
 /// | subtitle   | 12   | w400   | 80%     |
 /// | meta / tag | 11   | w600   | 60–100% |
@@ -46,6 +47,15 @@ abstract final class AppType {
     fontSize: 14,
     height: 1.3,
     fontWeight: FontWeight.w400,
+    color: s.onSurfaceVariant,
+  );
+
+  /// Card and list-item titles — one step below [sectionTitle] in prominence:
+  /// smaller and muted, so headings stay dominant.
+  static TextStyle cardTitle(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
     color: s.onSurfaceVariant,
   );
 

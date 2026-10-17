@@ -97,10 +97,7 @@ class _SplashScreenState extends State<SplashScreen>
             // Small FadingCube spinner — fades in and keeps spinning.
             FadeTransition(
               opacity: _spinnerIn,
-              child: SpinKitFadingCube(
-                color: Colors.white,
-                size: _spinnerSize,
-              ),
+              child: SpinKitFadingCube(color: Colors.white, size: _spinnerSize),
             ),
           ],
         ),
