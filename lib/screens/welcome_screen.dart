@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
-import 'auth/create_account_screen.dart';
+import 'auth/login_screen.dart';
 
 /// First screen after the splash.
 ///
@@ -135,7 +135,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     height: 48,
                     child: FilledButton(
                       onPressed: () => Navigator.of(context).push(
-                        sharedAxisRoute<void>(const CreateAccountScreen()),
+                        sharedAxisRoute<void>(const LoginScreen()),
                       ),
                       style: FilledButton.styleFrom(
                         backgroundColor: _buttonColor,

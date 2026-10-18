@@ -1,8 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../config/app_config.dart';
 import '../../navigation/app_route.dart';
+import '../../services/media_storage.dart';
 import '../../theme/spotify_colors.dart';
 import '../getting_ready_screen.dart';
 import 'auth_field.dart';
@@ -51,6 +56,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   String? _role;
   String? _level;
 
+  // Step 4 — profile picture.
+  final _media = MediaStorage(workerUrl: AppConfig.r2WorkerUrl);
+  Uint8List? _avatarBytes;
+  String? _avatarUrl;
+  bool _uploading = false;
+  bool _uploadFailed = false;
+
   /// Selected roles.
   static const String _studentRole = 'Student';
   static const String _adminRole = 'Admin';
@@ -76,6 +88,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     _department.dispose();
     _faculty.dispose();
     _adminId.dispose();
+    _media.dispose();
     super.dispose();
   }
 
@@ -95,7 +108,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   void _finish() {
-    // TODO(auth): persist the account before continuing.
+    // TODO(auth): persist the account, including the uploaded photo URL.
     _continueToLoading();
   }
 
@@ -112,7 +125,68 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   void _pickPhoto() {
-    // TODO(auth): let the user choose an image (add an image picker).
+    _chooseSource().then((source) async {
+      if (source == null) return;
+
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1080,
+      );
+      if (picked == null) return;
+
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _avatarBytes = bytes;
+        _uploading = true;
+        _uploadFailed = false;
+      });
+
+      try {
+        final url = await _media.upload(
+          bytes: bytes,
+          filename: picked.name,
+          contentType: picked.mimeType,
+        );
+        if (!mounted) return;
+        setState(() {
+          _avatarUrl = url;
+          _uploading = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _uploading = false;
+          _uploadFailed = true;
+        });
+      }
+    });
+  }
+
+  /// Asks where the photo should come from.
+  Future<ImageSource?> _chooseSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _resendEmail() {
@@ -438,13 +512,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         Center(
           child: Stack(
             children: [
-              CircleAvatar(
-                radius: 52,
-                backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                child: Icon(
-                  Icons.person_outline,
-                  size: 52,
-                  color: theme.colorScheme.onSurfaceVariant,
+              ClipOval(
+                child: SizedBox(
+                  width: 104,
+                  height: 104,
+                  child: _buildAvatarImage(theme),
                 ),
               ),
               Positioned(
@@ -454,7 +526,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   color: SpotifyColors.accent,
                   shape: const CircleBorder(),
                   child: InkWell(
-                    onTap: _pickPhoto,
+                    onTap: _uploading ? null : _pickPhoto,
                     customBorder: const CircleBorder(),
                     child: const Padding(
                       padding: EdgeInsets.all(8),
@@ -467,9 +539,34 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                 ),
               ),
+              if (_uploading)
+                Positioned.fill(
+                  child: ClipOval(
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
+        if (_uploadFailed) ...[
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              'Couldn’t upload the photo. Tap the camera to try again.',
+              textAlign: TextAlign.center,
+              style: AuthScaffold.subtitleStyle,
+            ),
+          ),
+        ],
         const SizedBox(height: 40),
         SizedBox(
           width: double.infinity,
@@ -488,6 +585,38 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// The avatar preview: the uploaded image, the picked image, or a
+  /// placeholder person glyph.
+  Widget _buildAvatarImage(ThemeData theme) {
+    final bytes = _avatarBytes;
+    final url = _avatarUrl;
+    if (url != null) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => bytes != null
+            ? Image.memory(bytes, fit: BoxFit.cover)
+            : _avatarPlaceholder(theme),
+      );
+    }
+    if (bytes != null) {
+      return Image.memory(bytes, fit: BoxFit.cover);
+    }
+    return _avatarPlaceholder(theme);
+  }
+
+  Widget _avatarPlaceholder(ThemeData theme) {
+    return Container(
+      color: theme.colorScheme.surfaceContainerHigh,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.person_outline,
+        size: 52,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
     );
   }
 }

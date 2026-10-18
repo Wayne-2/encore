@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "667881024113",
+    "project_id": "encore-9bb7c",
+    "storage_bucket": "encore-9bb7c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:667881024113:android:5df2feb158a1d7a4d609d0",
+        "android_client_info": {
+          "package_name": "com.example.encore"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDshLIksZGH4k-q68wyODLdI9uXpDpnaFM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

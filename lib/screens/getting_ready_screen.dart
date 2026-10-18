@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/app_loader.dart';
 import 'home_shell.dart';
 
 /// Final loading screen shown after the profile-picture step.
@@ -38,7 +38,6 @@ class _GettingReadyScreenState extends State<GettingReadyScreen>
   );
 
   static const double _logoSize = 104;
-  static const double _spinnerSize = 22;
 
   @override
   void initState() {
@@ -95,10 +94,10 @@ class _GettingReadyScreenState extends State<GettingReadyScreen>
               ),
             ),
             const SizedBox(height: 28),
-            // Small FadingCube spinner — fades in and keeps spinning.
+            // Shared app loader — fades in and keeps spinning.
             FadeTransition(
               opacity: _spinnerIn,
-              child: SpinKitFadingCube(color: Colors.white, size: _spinnerSize),
+              child: const AppLoader(),
             ),
           ],
         ),

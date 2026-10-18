@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/app_loader.dart';
 import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -32,7 +32,6 @@ class _SplashScreenState extends State<SplashScreen>
   );
 
   static const double _logoSize = 104;
-  static const double _spinnerSize = 22;
 
   @override
   void initState() {
@@ -94,10 +93,10 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const SizedBox(height: 28),
-            // Small FadingCube spinner — fades in and keeps spinning.
+            // Shared app loader — fades in and keeps spinning.
             FadeTransition(
               opacity: _spinnerIn,
-              child: SpinKitFadingCube(color: Colors.white, size: _spinnerSize),
+              child: const AppLoader(),
             ),
           ],
         ),

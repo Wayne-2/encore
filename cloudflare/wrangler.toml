@@ -1,0 +1,20 @@
+name = "encore-media"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+# R2 bucket used to serve public media reads. Uploads use the presigned S3 API
+# (signed with the R2 access keys stored as Worker secrets).
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "encore"
+
+# Non-secret configuration.
+#
+# The API token is NOT stored here. Set the R2 S3 credentials once with:
+#   npx wrangler secret put R2_ACCESS_KEY_ID
+#   npx wrangler secret put R2_SECRET_ACCESS_KEY
+[vars]
+R2_ACCOUNT_ID = "7703ec04da7f6da0814381aa9da69f89"
+R2_BUCKET = "encore"
+UPLOAD_PREFIX = "uploads"
+ALLOWED_ORIGIN = "*"
