@@ -547,73 +547,30 @@ void main() {
     expect(find.text('New Group'), findsNothing);
   });
 
-  testWidgets('Profile tab shows its workspace bar and the app logo', (
+  testWidgets('Profile shows the hero, handle and details banner', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: ProfileScreen())),
     );
 
-    expect(find.text('Profile'), findsOneWidget);
-    expect(find.byType(Image), findsNWidgets(2));
-    expect(find.text('Odeh Solomon'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.text('Odeh\nSolomon'), findsOneWidget);
     expect(find.text('_wayne'), findsOneWidget);
     expect(find.text('sodeh138@gmail.com'), findsOneWidget);
+    expect(find.textContaining('user-centered'), findsOneWidget);
+    expect(find.text('Edit Profile'), findsOneWidget);
+    expect(find.text('See profile'), findsOneWidget);
     expect(find.text('Student'), findsOneWidget);
     expect(find.text('20241426282'), findsOneWidget);
-    expect(find.text('300 level'), findsOneWidget);
     expect(find.text('Computer Science'), findsOneWidget);
+    expect(find.text('300 Level'), findsOneWidget);
     expect(find.text('SICT'), findsOneWidget);
-    expect(find.text('Student Health bar'), findsOneWidget);
-    expect(find.text('70%'), findsOneWidget);
-    expect(find.text('Manage Health'), findsOneWidget);
-    expect(find.text('Performance is good so far'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(find.byType(FilledButton), findsOneWidget);
-    expect(find.text('#'), findsOneWidget);
-    expect(find.text('My Academic Schedules'), findsOneWidget);
-    expect(find.text('All'), findsOneWidget);
-    expect(find.text('In Progress'), findsOneWidget);
-    expect(find.text('Done'), findsOneWidget);
-    expect(find.text('Finances'), findsNothing);
-  });
+    expect(find.text('Privacy Mode'), findsOneWidget);
 
-  testWidgets('Profile schedule filter switches pills', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: ProfileScreen())),
-    );
-
-    await tester.tap(find.text('In Progress'));
+    await tester.tap(find.byKey(const ValueKey('profile-privacy-toggle')));
     await tester.pump();
-
-    await tester.tap(find.text('Done'));
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Profile lists at least five schedule tiles', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(1080, 2600);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: ProfileScreen())),
-    );
-
-    expect(find.byType(Checkbox), findsNWidgets(5));
-    expect(find.byIcon(Icons.timer_outlined), findsNWidgets(5));
-
-    expect(find.text('Go to Bookshop for Textbooks'), findsOneWidget);
-    expect(find.text('Prepare for project defense'), findsOneWidget);
-
-    await tester.tap(find.byType(Checkbox).first);
-    await tester.pump();
-    expect(tester.widget<Checkbox>(find.byType(Checkbox).first).value, isTrue);
+    expect(find.text('Profile is private'), findsOneWidget);
   });
 
   testWidgets('More tab shows its workspace bar', (WidgetTester tester) async {

@@ -1,4 +1,5 @@
 import 'library_screen.dart';
+import 'settings_screen.dart';
 import 'student_agent_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -98,6 +99,8 @@ class _MoreTile extends StatelessWidget {
           Navigator.of(context).push(sharedAxisRoute(const LibraryScreen()));
         } else if (item.label == 'Student Agents') {
           Navigator.of(context).push(fadeRoute(const StudentAgentScreen()));
+        } else if (item.label == 'Settings') {
+          Navigator.of(context).push(sharedAxisRoute(const SettingsScreen()));
         }
       },
       child: Padding(
