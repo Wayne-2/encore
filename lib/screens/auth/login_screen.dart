@@ -1,7 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../navigation/app_route.dart';
+import '../../services/auth_service.dart';
 import '../../theme/spotify_colors.dart';
+import '../../widgets/auth_dialog.dart';
+import '../../widgets/loading_overlay.dart';
 import '../home_shell.dart';
 import 'auth_field.dart';
 import 'auth_scaffold.dart';
@@ -18,121 +22,182 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _fullName = TextEditingController();
-  final _regNumber = TextEditingController();
+  final _email = TextEditingController();
   final _password = TextEditingController();
+  bool _submitting = false;
 
   @override
   void dispose() {
-    _fullName.dispose();
-    _regNumber.dispose();
+    _email.dispose();
     _password.dispose();
     super.dispose();
   }
 
-  void _submit() {
-    if (_formKey.currentState?.validate() ?? false) {
-      // TODO(auth): hook up authentication.
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    // Without Firebase (e.g. widget tests) keep the pre-auth behaviour.
+    if (!AuthService.isAvailable) {
       Navigator.of(context).pushReplacement(fadeRoute<void>(const HomeShell()));
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await AuthService.instance.signIn(
+        email: _email.text.trim(),
+        password: _password.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(fadeRoute<void>(const HomeShell()));
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      await showAuthDialog(
+        context,
+        title: 'Couldn’t log in',
+        message: AuthService.messageFor(error),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      await showAuthDialog(
+        context,
+        title: 'Something went wrong',
+        message: 'Please try again in a moment.',
+      );
     }
   }
 
-  void _forgotPassword() {
-    // TODO(auth): start the password reset flow.
+  Future<void> _forgotPassword() async {
+    final email = _email.text.trim();
+    if (email.isEmpty) {
+      await showAuthDialog(
+        context,
+        title: 'Enter your email',
+        message:
+            'Type your email above, then tap “Forgot password?” again and '
+            'we’ll send you a reset link.',
+      );
+      return;
+    }
+
+    // Without Firebase there is nothing to send.
+    if (!AuthService.isAvailable) return;
+
+    setState(() => _submitting = true);
+    try {
+      await AuthService.instance.sendPasswordReset(email);
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      await showAuthDialog(
+        context,
+        title: 'Check your inbox',
+        message: 'We sent a password reset link to $email.',
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      await showAuthDialog(
+        context,
+        title: 'Couldn’t send the link',
+        message: AuthService.messageFor(error),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AuthTopBar(title: 'Encore'),
-              const SizedBox(height: 24),
-              Text('Welcome back', style: AuthScaffold.titleStyle),
-              const SizedBox(height: 8),
-              Text(
-                'Log in to continue to Encore.',
-                style: AuthScaffold.subtitleStyle,
-              ),
-              const SizedBox(height: 32),
-              AuthField(
-                label: 'Full Name',
-                icon: 'name',
-                controller: _fullName,
-                textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.name],
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Enter your full name'
-                    : null,
-              ),
-              const SizedBox(height: 20),
-              AuthField(
-                label: 'Registration Number',
-                icon: 'registration_number',
-                controller: _regNumber,
-                textInputAction: TextInputAction.next,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Enter your registration number'
-                    : null,
-              ),
-              const SizedBox(height: 20),
-              AuthField(
-                label: 'Password',
-                icon: 'password',
-                controller: _password,
-                obscureText: true,
-                textInputAction: TextInputAction.done,
-                autofillHints: const [AutofillHints.password],
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Enter your password' : null,
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _forgotPassword,
-                  style: TextButton.styleFrom(
-                    foregroundColor: SpotifyColors.accent,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 0),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: AuthScaffold.linkStyle,
-                  ),
-                  child: const Text('Forgot password?'),
+      body: LoadingOverlay(
+        isLoading: _submitting,
+        message: 'Logging you in…',
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const AuthTopBar(title: 'Encore'),
+                const SizedBox(height: 24),
+                Text('Welcome back', style: AuthScaffold.titleStyle),
+                const SizedBox(height: 8),
+                Text(
+                  'Log in to continue to Encore.',
+                  style: AuthScaffold.subtitleStyle,
                 ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton(
-                  onPressed: _submit,
-                  child: const Text('Log In'),
+                const SizedBox(height: 32),
+                AuthField(
+                  label: 'Email',
+                  icon: 'email',
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Enter your email';
+                    }
+                    final ok = RegExp(
+                      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                    ).hasMatch(v.trim());
+                    return ok ? null : 'Enter a valid email';
+                  },
                 ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('New here? ', style: AuthScaffold.subtitleStyle),
-                  GestureDetector(
-                    onTap: () => Navigator.of(
-                      context,
-                    ).push(sharedAxisRoute<void>(const CreateAccountScreen())),
-                    child: Text(
-                      'Create an account',
-                      style: AuthScaffold.linkStyle,
+                const SizedBox(height: 20),
+                AuthField(
+                  label: 'Password',
+                  icon: 'password',
+                  controller: _password,
+                  obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'Enter your password' : null,
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _forgotPassword,
+                    style: TextButton.styleFrom(
+                      foregroundColor: SpotifyColors.accent,
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: AuthScaffold.linkStyle,
                     ),
+                    child: const Text('Forgot password?'),
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: _submit,
+                    child: const Text('Log In'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('New here? ', style: AuthScaffold.subtitleStyle),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        sharedAxisRoute<void>(const CreateAccountScreen()),
+                      ),
+                      child: Text(
+                        'Create an account',
+                        style: AuthScaffold.linkStyle,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

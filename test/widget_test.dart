@@ -149,7 +149,7 @@ void main() {
 
     // School details.
     final school = find.byType(TextFormField);
-    await tester.enterText(school.at(0), '21/12345');
+    await tester.enterText(school.at(0), '20211234567');
     await tester.enterText(school.at(1), 'Computer Science');
     await tester.enterText(school.at(2), 'Faculty of Science');
 
@@ -226,8 +226,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Full Name'), findsOneWidget);
-    expect(find.text('Registration Number'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
     expect(find.text('Log In'), findsOneWidget);
@@ -243,9 +242,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
     final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'John Doe');
-    await tester.enterText(fields.at(1), '21/12345');
-    await tester.enterText(fields.at(2), 'secret1');
+    await tester.enterText(fields.at(0), 'john@university.edu');
+    await tester.enterText(fields.at(1), 'secret1');
 
     await tester.tap(find.text('Log In'));
     await tester.pumpAndSettle();

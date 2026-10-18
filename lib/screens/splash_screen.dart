@@ -94,10 +94,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
             const SizedBox(height: 28),
             // Shared app loader — fades in and keeps spinning.
-            FadeTransition(
-              opacity: _spinnerIn,
-              child: const AppLoader(),
-            ),
+            FadeTransition(opacity: _spinnerIn, child: const AppLoader()),
           ],
         ),
       ),

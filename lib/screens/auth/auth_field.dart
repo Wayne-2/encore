@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 /// A text input for the auth forms.
@@ -21,6 +22,7 @@ class AuthField extends StatefulWidget {
     this.validator,
     this.autofillHints,
     this.textCapitalization = TextCapitalization.none,
+    this.inputFormatters,
   });
 
   final String label;
@@ -41,6 +43,7 @@ class AuthField extends StatefulWidget {
   final String? Function(String?)? validator;
   final Iterable<String>? autofillHints;
   final TextCapitalization textCapitalization;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   State<AuthField> createState() => _AuthFieldState();
@@ -70,6 +73,7 @@ class _AuthFieldState extends State<AuthField> {
       textCapitalization: widget.textCapitalization,
       autofillHints: widget.autofillHints,
       validator: widget.validator,
+      inputFormatters: widget.inputFormatters,
       style: theme.textTheme.bodyLarge,
       decoration: InputDecoration(
         hintText: widget.hint ?? widget.label,

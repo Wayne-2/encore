@@ -5,12 +5,17 @@ import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Wire push + local notifications (permission prompt happens here).
+  NotificationService.instance.registerBackgroundHandler();
+  await NotificationService.instance.initialize();
 
   // Forward uncaught errors to Crashlytics on the mobile platforms that
   // support it.

@@ -95,10 +95,7 @@ class _GettingReadyScreenState extends State<GettingReadyScreen>
             ),
             const SizedBox(height: 28),
             // Shared app loader — fades in and keeps spinning.
-            FadeTransition(
-              opacity: _spinnerIn,
-              child: const AppLoader(),
-            ),
+            FadeTransition(opacity: _spinnerIn, child: const AppLoader()),
           ],
         ),
       ),

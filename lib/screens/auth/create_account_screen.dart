@@ -1,14 +1,22 @@
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:animations/animations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../config/app_config.dart';
 import '../../navigation/app_route.dart';
+import '../../services/auth_service.dart';
 import '../../services/media_storage.dart';
+import '../../services/notification_service.dart';
 import '../../theme/spotify_colors.dart';
+import '../../widgets/app_loader.dart';
+import '../../widgets/auth_dialog.dart';
+import '../../widgets/loading_overlay.dart';
+import '../../widgets/shimmer.dart';
 import '../getting_ready_screen.dart';
 import 'auth_field.dart';
 import 'auth_scaffold.dart';
@@ -27,7 +35,8 @@ class CreateAccountScreen extends StatefulWidget {
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
-class _CreateAccountScreenState extends State<CreateAccountScreen> {
+class _CreateAccountScreenState extends State<CreateAccountScreen>
+    with WidgetsBindingObserver {
   /// Total number of steps, mirrored by the progress ribbons up top.
   static const int _stepCount = 4;
 
@@ -63,6 +72,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _uploading = false;
   bool _uploadFailed = false;
 
+  /// Blocks the flow with the shared [LoadingOverlay] while an auth/database
+  /// request is in flight.
+  bool _busy = false;
+  String? _busyLabel;
+
+  /// Whether the Firebase account has already been created, so stepping back
+  /// and forward again does not attempt to re-register the same email.
+  bool _registered = false;
+
+  /// Step 3 — email verification. Polled while the user is on that step.
+  bool _emailVerified = false;
+  Timer? _verifyTimer;
+
+  /// Whether the verification step may be left.
+  ///
+  /// Tests run without Firebase, so they fall back to the pre-auth behaviour.
+  bool get _verificationComplete => !AuthService.isAvailable || _emailVerified;
+
   /// Selected roles.
   static const String _studentRole = 'Student';
   static const String _adminRole = 'Admin';
@@ -79,7 +106,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _verifyTimer?.cancel();
     _username.dispose();
     _fullName.dispose();
     _email.dispose();
@@ -92,10 +127,31 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     super.dispose();
   }
 
-  void _next() {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _step++);
+  Future<void> _next() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    // Leaving the school-details step registers the account with Firebase
+    // (holding the entered details in state) before the verification step.
+    if (_step == 1) {
+      if (_registered) {
+        _enterVerificationStep();
+        return;
+      }
+      final registered = await _register();
+      if (registered && mounted) {
+        _registered = true;
+        _enterVerificationStep();
+      }
+      return;
     }
+
+    setState(() => _step++);
+  }
+
+  /// Moves to the verification step and starts watching for confirmation.
+  void _enterVerificationStep() {
+    setState(() => _step = 2);
+    _startVerificationWatch();
   }
 
   /// Returns to the previous step, or leaves the flow from the first step.
@@ -103,18 +159,190 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     if (_step == 0) {
       Navigator.of(context).maybePop();
     } else {
+      _verifyTimer?.cancel();
       setState(() => _step--);
     }
   }
 
-  void _finish() {
-    // TODO(auth): persist the account, including the uploaded photo URL.
+  /// Polls the signed-in user's `emailVerified` flag while the verification
+  /// step is open. On iOS/Android the user usually leaves for their mail app,
+  /// so [didChangeAppLifecycleState] also re-checks on resume.
+  void _startVerificationWatch() {
+    _verifyTimer?.cancel();
+    if (!AuthService.isAvailable) return;
+    _checkVerified();
+    _verifyTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _checkVerified(),
+    );
+  }
+
+  Future<void> _checkVerified() async {
+    final user = AuthService.instance.currentUser;
+    if (user == null) return;
+    try {
+      await user.reload();
+    } catch (_) {
+      return;
+    }
+    if (!mounted || _emailVerified) return;
+    if (user.emailVerified) {
+      _verifyTimer?.cancel();
+      setState(() => _emailVerified = true);
+      _showVerifiedSnackBar();
+    }
+  }
+
+  void _showVerifiedSnackBar() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('Email verified — you’re all set.')),
+      );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _step == 2) {
+      _checkVerified();
+    }
+  }
+
+  /// Creates the Firebase Auth account and sends the verification email.
+  ///
+  /// The remaining fields stay in this widget's state until the flow finishes;
+  /// nothing is written to Firestore here. Falls back to the pre-Firebase
+  /// behaviour when Firebase is unavailable (e.g. widget tests).
+  Future<bool> _register() async {
+    if (!AuthService.isAvailable) return true;
+
+    setState(() {
+      _busy = true;
+      _busyLabel = 'Creating your account…';
+    });
+    try {
+      await AuthService.instance.signUp(
+        email: _email.text.trim(),
+        password: _password.text,
+      );
+      await AuthService.instance.updateDisplayName(_fullName.text.trim());
+      await AuthService.instance.sendVerificationEmail();
+      return true;
+    } on FirebaseAuthException catch (error) {
+      if (mounted) {
+        await showAuthDialog(
+          context,
+          title: 'Couldn’t create account',
+          message: AuthService.messageFor(error),
+        );
+      }
+      return false;
+    } catch (_) {
+      if (mounted) {
+        await showAuthDialog(
+          context,
+          title: 'Something went wrong',
+          message: 'Please try again in a moment.',
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _busyLabel = null;
+        });
+      }
+    }
+  }
+
+  void _finish() => _complete();
+
+  void _skipPhoto() => _complete();
+
+  /// Persists the collected details to Firestore once auth is done, then
+  /// leaves for the final loading screen.
+  Future<void> _complete() async {
+    if (AuthService.isAvailable) {
+      final uid = AuthService.instance.currentUser?.uid;
+      if (uid != null) {
+        setState(() {
+          _busy = true;
+          _busyLabel = 'Saving your details…';
+        });
+        try {
+          if (_avatarUrl != null) {
+            await AuthService.instance.updatePhotoUrl(_avatarUrl!);
+          }
+          await AuthService.instance.saveUserDetails(
+            uid: uid,
+            fullName: _fullName.text.trim(),
+            username: '_${_username.text.trim().toLowerCase()}',
+            email: _email.text.trim(),
+            registrationNumber: _regNumber.text.trim(),
+            department: _department.text.trim(),
+            faculty: _faculty.text.trim(),
+            role: _role ?? '',
+            level: _level,
+            adminId: _role == _adminRole ? _adminId.text.trim() : null,
+            photoUrl: _avatarUrl,
+          );
+        } on FirebaseException catch (error) {
+          if (mounted) {
+            setState(() {
+              _busy = false;
+              _busyLabel = null;
+            });
+            await showAuthDialog(
+              context,
+              title: 'Couldn’t save your details',
+              message: error.message ?? 'Please try again in a moment.',
+            );
+          }
+          return;
+        } catch (_) {
+          if (mounted) {
+            setState(() {
+              _busy = false;
+              _busyLabel = null;
+            });
+            await showAuthDialog(
+              context,
+              title: 'Something went wrong',
+              message: 'Please try again in a moment.',
+            );
+          }
+          return;
+        }
+
+        // Best-effort: register the device for push and greet the new user.
+        await _sendWelcomeNotification(uid);
+
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _busyLabel = null;
+          });
+        }
+      }
+    }
     _continueToLoading();
   }
 
-  void _skipPhoto() {
-    // TODO(auth): continue into the app without a profile picture.
-    _continueToLoading();
+  /// Stores the FCM token and shows the welcome notification.
+  ///
+  /// Notifications are best-effort, so failures here never block the account.
+  Future<void> _sendWelcomeNotification(String uid) async {
+    try {
+      final token = await NotificationService.instance.getToken();
+      if (token != null) {
+        await AuthService.instance.saveFcmToken(uid, token);
+      }
+      await NotificationService.instance.showWelcome(_fullName.text.trim());
+    } catch (_) {
+      // Ignore — the account is already created and saved.
+    }
   }
 
   /// Leaves the sign-up flow for the final loading screen.
@@ -189,45 +417,81 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  void _resendEmail() {
-    // TODO(auth): resend the verification email.
+  Future<void> _resendEmail() async {
+    final email = _email.text.trim();
+    if (!AuthService.isAvailable) return;
+
+    setState(() {
+      _busy = true;
+      _busyLabel = 'Sending…';
+    });
+    try {
+      await AuthService.instance.sendVerificationEmail();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _busyLabel = null;
+      });
+      await showAuthDialog(
+        context,
+        title: 'Email sent',
+        message:
+            'We sent a fresh verification link to '
+            '${email.isEmpty ? 'your email' : email}.',
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _busyLabel = null;
+      });
+      await showAuthDialog(
+        context,
+        title: 'Couldn’t resend the link',
+        message: AuthService.messageFor(error),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _StepHeader(title: _stepTitles[_step], onBack: _goBack),
-            const SizedBox(height: 24),
-            _StepIndicator(step: _step, count: _stepCount),
-            const SizedBox(height: 20),
-            Form(
-              key: _formKey,
-              child: PageTransitionSwitcher(
-                duration: const Duration(milliseconds: 350),
-                transitionBuilder:
-                    (child, primaryAnimation, secondaryAnimation) {
-                      return SharedAxisTransition(
-                        animation: primaryAnimation,
-                        secondaryAnimation: secondaryAnimation,
-                        transitionType: SharedAxisTransitionType.vertical,
-                        fillColor: SpotifyColors.background,
-                        child: child,
-                      );
-                    },
-                child: switch (_step) {
-                  0 => _buildPersonalDetails(context),
-                  1 => _buildSchoolDetails(context),
-                  2 => _buildVerification(context),
-                  _ => _buildProfilePicture(context),
-                },
+      body: LoadingOverlay(
+        isLoading: _busy,
+        message: _busyLabel,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _StepHeader(title: _stepTitles[_step], onBack: _goBack),
+              const SizedBox(height: 24),
+              _StepIndicator(step: _step, count: _stepCount),
+              const SizedBox(height: 20),
+              Form(
+                key: _formKey,
+                child: PageTransitionSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  transitionBuilder:
+                      (child, primaryAnimation, secondaryAnimation) {
+                        return SharedAxisTransition(
+                          animation: primaryAnimation,
+                          secondaryAnimation: secondaryAnimation,
+                          transitionType: SharedAxisTransitionType.vertical,
+                          fillColor: SpotifyColors.background,
+                          child: child,
+                        );
+                      },
+                  child: switch (_step) {
+                    0 => _buildPersonalDetails(context),
+                    1 => _buildSchoolDetails(context),
+                    2 => _buildVerification(context),
+                    _ => _buildProfilePicture(context),
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -260,10 +524,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         AuthField(
           label: 'Username',
           controller: _username,
-          prefixText: '@',
+          prefixText: '_',
           textInputAction: TextInputAction.next,
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Choose a username' : null,
+          inputFormatters: [
+            _LowerCaseFormatter(),
+            FilteringTextInputFormatter.allow(RegExp(r'[a-z0-9_]')),
+          ],
+          validator: (v) {
+            final value = v?.trim() ?? '';
+            if (value.isEmpty) return 'Choose a username';
+            if (value.length < 3) return 'Use at least 3 characters';
+            return null;
+          },
         ),
         const SizedBox(height: 16),
         AuthField(
@@ -336,10 +608,23 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           label: 'Registration Number',
           icon: 'registration_number',
           controller: _regNumber,
+          keyboardType: TextInputType.number,
           textInputAction: TextInputAction.next,
-          validator: (v) => (v == null || v.trim().isEmpty)
-              ? 'Enter your registration number'
-              : null,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(11),
+          ],
+          validator: (v) {
+            final value = v?.trim() ?? '';
+            if (value.isEmpty) return 'Enter your registration number';
+            if (value.length != 11) {
+              return 'Registration number must be 11 digits';
+            }
+            if (!value.startsWith('202')) {
+              return 'Registration number must start with 202';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 16),
         AuthField(
@@ -375,44 +660,49 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ],
           validator: (v) => v == null ? 'Select a role' : null,
         ),
-        // Role-specific follow-up: admins prove their ID, students pick a level.
+        // Role follow-up: everyone picks a level (it groups users in the
+        // database); admins additionally prove their ID.
         AnimatedSize(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
-          child: switch (_role) {
-            _adminRole => Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: AuthField(
-                label: 'Admin ID',
-                icon: 'registration_number',
-                controller: _adminId,
-                textInputAction: TextInputAction.done,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Enter your admin ID'
-                    : null,
-              ),
-            ),
-            _studentRole => Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: DropdownButtonFormField<String>(
-                initialValue: _level,
-                onChanged: (value) => setState(() => _level = value),
-                isExpanded: true,
-                dropdownColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHigh,
-                style: Theme.of(context).textTheme.bodyLarge,
-                decoration: const InputDecoration(hintText: 'Level'),
-                items: [
-                  for (final level in _levels)
-                    DropdownMenuItem(value: level, child: Text(level)),
-                ],
-                validator: (v) => v == null ? 'Select your level' : null,
-              ),
-            ),
-            _ => const SizedBox(width: double.infinity),
-          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_role != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _level,
+                    onChanged: (value) => setState(() => _level = value),
+                    isExpanded: true,
+                    dropdownColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHigh,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    decoration: const InputDecoration(hintText: 'Level'),
+                    items: [
+                      for (final level in _levels)
+                        DropdownMenuItem(value: level, child: Text(level)),
+                    ],
+                    validator: (v) => v == null ? 'Select your level' : null,
+                  ),
+                ),
+              if (_role == _adminRole)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: AuthField(
+                    label: 'Admin ID',
+                    icon: 'registration_number',
+                    controller: _adminId,
+                    textInputAction: TextInputAction.done,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Enter your admin ID'
+                        : null,
+                  ),
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 28),
         SizedBox(
@@ -485,11 +775,27 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: FilledButton(onPressed: _next, child: const Text('Continue')),
-        ),
+        if (_verificationComplete)
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              onPressed: _next,
+              child: const Text('Continue'),
+            ),
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const AppLoader(size: 16),
+              const SizedBox(width: 12),
+              Text(
+                'Waiting for you to verify your email…',
+                style: AuthScaffold.subtitleStyle,
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -540,19 +846,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 ),
               ),
               if (_uploading)
-                Positioned.fill(
-                  child: ClipOval(
-                    child: ColoredBox(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    ),
-                  ),
+                const Positioned.fill(
+                  child: ClipOval(child: ShimmerBox(shape: BoxShape.circle)),
                 ),
             ],
           ),
@@ -679,5 +974,19 @@ class _StepIndicator extends StatelessWidget {
         ],
       ],
     );
+  }
+}
+
+/// Forces typed text to lower case as the user types (usernames are
+/// lower-case only).
+class _LowerCaseFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final lower = newValue.text.toLowerCase();
+    if (lower == newValue.text) return newValue;
+    return newValue.copyWith(text: lower);
   }
 }

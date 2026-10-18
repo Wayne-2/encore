@@ -108,10 +108,7 @@ abstract final class AppTheme {
       onInverseSurface: SpotifyColors.background,
       inversePrimary: SpotifyColors.accent,
     ),
-    textTheme: _textTheme(
-      SpotifyColors.textPrimary,
-      SpotifyColors.textSubdued,
-    ),
+    textTheme: _textTheme(SpotifyColors.textPrimary, SpotifyColors.textSubdued),
   );
 
   // -----------------------------------------------------------------------
@@ -157,18 +154,14 @@ abstract final class AppTheme {
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected
-                ? SpotifyColors.accent
-                : SpotifyColors.textSubdued,
+            color: selected ? SpotifyColors.accent : SpotifyColors.textSubdued,
             size: 24,
           );
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return textTheme.labelSmall?.copyWith(
-            color: selected
-                ? SpotifyColors.accent
-                : SpotifyColors.textSubdued,
+            color: selected ? SpotifyColors.accent : SpotifyColors.textSubdued,
           );
         }),
       ),
@@ -226,9 +219,7 @@ abstract final class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -241,9 +232,7 @@ abstract final class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -255,9 +244,7 @@ abstract final class AppTheme {
           side: const BorderSide(color: SpotifyColors.borderStrong),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -267,9 +254,7 @@ abstract final class AppTheme {
           foregroundColor: SpotifyColors.accent,
           disabledForegroundColor: SpotifyColors.textSubdued,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           textStyle: textTheme.labelLarge,
         ),
       ),
@@ -348,8 +333,12 @@ abstract final class AppTheme {
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: SpotifyColors.textPrimary,
         ),
+        actionTextColor: SpotifyColors.accent,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: SpotifyColors.border),
+        ),
       ),
 
       tooltipTheme: TooltipThemeData(

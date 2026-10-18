@@ -2,4 +2,6 @@
 <resources>
     <color name="ic_launcher_background">#1A1D21</color>
     <color name="splash_background">#1A1D21</color>
+    <!-- Brand green used to tint notification icons on Android 5+. -->
+    <color name="notification_accent">#25A10C</color>
 </resources>

@@ -134,9 +134,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     width: double.infinity,
                     height: 48,
                     child: FilledButton(
-                      onPressed: () => Navigator.of(context).push(
-                        sharedAxisRoute<void>(const LoginScreen()),
-                      ),
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).push(sharedAxisRoute<void>(const LoginScreen())),
                       style: FilledButton.styleFrom(
                         backgroundColor: _buttonColor,
                         foregroundColor: Colors.white,
