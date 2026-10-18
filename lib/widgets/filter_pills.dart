@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// A horizontal pill filter.
 class FilterPill extends StatelessWidget {
@@ -12,17 +12,21 @@ class FilterPill extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.icon,
+    this.fontSize = 13,
+    this.fontWeight = FontWeight.w700,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
   final String? icon;
+  final double fontSize;
+  final FontWeight fontWeight;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = selected ? SlackColors.accentGreen : scheme.onSurfaceVariant;
+    final color = selected ? SpotifyColors.accent : scheme.onSurfaceVariant;
 
     return GestureDetector(
       onTap: onTap,
@@ -31,10 +35,10 @@ class FilterPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: selected
-              ? SlackColors.accentGreen.withValues(alpha: 0.16)
+              ? SpotifyColors.accent.withValues(alpha: 0.16)
               : Colors.transparent,
           border: Border.all(
-            color: selected ? SlackColors.accentGreen : scheme.outline,
+            color: selected ? SpotifyColors.accent : scheme.outline,
           ),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -54,8 +58,8 @@ class FilterPill extends StatelessWidget {
               label,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontSize: fontSize,
+                fontWeight: fontWeight,
                 color: color,
               ),
             ),
@@ -73,11 +77,15 @@ class FilterPills extends StatelessWidget {
     required this.filters,
     required this.selected,
     required this.onSelected,
+    this.fontSize = 13,
+    this.fontWeight = FontWeight.w700,
   });
 
   final List<String> filters;
   final int selected;
   final ValueChanged<int> onSelected;
+  final double fontSize;
+  final FontWeight fontWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +101,8 @@ class FilterPills extends StatelessWidget {
           label: filters[i],
           selected: i == selected,
           onTap: () => onSelected(i),
+          fontSize: fontSize,
+          fontWeight: fontWeight,
         ),
       ),
     );

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// A single item in the checkout list.
 class CheckoutItem {
@@ -54,8 +54,8 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
       expand: false,
       builder: (context, scrollController) => Container(
         decoration: const BoxDecoration(
-          color: SlackColors.darkSurface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          color: SpotifyColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
         ),
         child: ListView(
           controller: scrollController,
@@ -89,7 +89,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
             const Divider(
               height: 1,
               thickness: 1,
-              color: SlackColors.darkBorder,
+              color: SpotifyColors.border,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -127,7 +127,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
             const Divider(
               height: 1,
               thickness: 1,
-              color: SlackColors.darkBorder,
+              color: SpotifyColors.border,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

@@ -18,8 +18,7 @@ void main() {
     // Header
     expect(find.text('Messages'), findsOneWidget);
 
-    // Section headings
-    expect(find.text('Story'), findsOneWidget);
+    // Section heading
     expect(find.text('Conversations'), findsOneWidget);
 
     // Story usernames
@@ -252,7 +251,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(MessagesScreen), findsOneWidget);
-      expect(find.text('Story'), findsOneWidget);
       expect(find.text('Conversations'), findsOneWidget);
     },
   );

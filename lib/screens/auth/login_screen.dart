@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../navigation/app_route.dart';
-import '../../theme/slack_colors.dart';
+import '../../theme/spotify_colors.dart';
 import '../home_shell.dart';
 import 'auth_field.dart';
 import 'auth_scaffold.dart';
@@ -98,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: TextButton(
                   onPressed: _forgotPassword,
                   style: TextButton.styleFrom(
-                    foregroundColor: SlackColors.accentGreen,
+                    foregroundColor: SpotifyColors.accent,
                     padding: EdgeInsets.zero,
                     minimumSize: const Size(0, 0),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,

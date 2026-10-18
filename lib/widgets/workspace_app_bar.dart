@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// Slack-style workspace bar shared by the sections of [HomeShell].
 ///
@@ -27,7 +27,7 @@ class WorkspaceAppBar extends StatelessWidget {
   /// Custom font size for the heading. Defaults to 16.
   final double? headingSize;
 
-  /// Custom font weight for the heading. Defaults to [FontWeight.w600].
+  /// Custom font weight for the heading. Defaults to [FontWeight.w700].
   final FontWeight? headingWeight;
 
   @override
@@ -37,7 +37,7 @@ class WorkspaceAppBar extends StatelessWidget {
 
     return Container(
       height: 64 + topInset,
-      color: SlackColors.darkHeader,
+      color: SpotifyColors.background,
       padding: EdgeInsets.only(top: topInset, left: 16, right: 16),
       child: Row(
         children: [
@@ -58,7 +58,7 @@ class WorkspaceAppBar extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: headingSize ?? 16,
-                    fontWeight: headingWeight ?? FontWeight.w600,
+                    fontWeight: headingWeight ?? FontWeight.w700,
                     color: scheme.onSurface,
                   ),
                 ),

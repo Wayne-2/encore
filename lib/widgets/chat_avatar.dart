@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// A squircle avatar widget matching the screenshot's rounded-corner style.
 ///
@@ -77,7 +77,7 @@ class ChatAvatar extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: SlackColors.darkSurfaceSecondary,
+            color: SpotifyColors.surface,
             borderRadius: radius,
           ),
           padding: EdgeInsets.all(size * 0.12),
@@ -104,7 +104,7 @@ class ChatAvatar extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: avatarColor ?? SlackColors.aubergine,
+          color: avatarColor ?? SpotifyColors.background,
           borderRadius: radius,
         ),
         child: Center(
@@ -139,9 +139,9 @@ class ChatAvatar extends StatelessWidget {
               width: dotSize,
               height: dotSize,
               decoration: BoxDecoration(
-                color: SlackColors.accentGreen,
+                color: SpotifyColors.accent,
                 shape: BoxShape.circle,
-                border: Border.all(color: SlackColors.darkBackground, width: 2),
+                border: Border.all(color: SpotifyColors.background, width: 2),
               ),
             ),
           ),

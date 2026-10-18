@@ -4,7 +4,7 @@ import '../data/announcements.dart';
 import '../models/announcement.dart';
 import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/announcement_tile.dart';
 import '../widgets/filter_pills.dart';
 import 'announcement_detail_screen.dart';
@@ -36,9 +36,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       appBar: AppBar(
-        backgroundColor: SlackColors.darkHeader,
+        backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -50,7 +50,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: scheme.onSurface,
           ),
         ),
@@ -73,7 +73,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     separatorBuilder: (_, _) => const Divider(
                       height: 1,
                       thickness: 1,
-                      color: SlackColors.darkBorder,
+                      color: SpotifyColors.border,
                     ),
                     itemBuilder: (context, i) => AnnouncementTile(
                       key: ValueKey('all-announcement-$i'),

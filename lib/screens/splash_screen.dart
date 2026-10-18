@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -64,7 +64,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

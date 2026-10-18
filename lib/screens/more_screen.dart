@@ -1,10 +1,11 @@
+import 'library_screen.dart';
 import 'student_agent_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
 import '../navigation/app_route.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/workspace_app_bar.dart';
 
 /// The More section — the fifth tab of [HomeShell].
@@ -29,7 +30,7 @@ class MoreScreen extends StatelessWidget {
                   const Divider(
                     height: 1,
                     thickness: 1,
-                    color: SlackColors.darkBorder,
+                    color: SpotifyColors.border,
                   ),
                 _MoreTile(item: _items[i]),
               ],
@@ -93,7 +94,9 @@ class _MoreTile extends StatelessWidget {
 
     return InkWell(
       onTap: () {
-        if (item.label == 'Student Agents') {
+        if (item.label == 'Library') {
+          Navigator.of(context).push(sharedAxisRoute(const LibraryScreen()));
+        } else if (item.label == 'Student Agents') {
           Navigator.of(context).push(fadeRoute(const StudentAgentScreen()));
         }
       },

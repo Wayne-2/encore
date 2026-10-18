@@ -1,5 +1,5 @@
 import '../models/announcement.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// Sample announcement feed shared by the Updates feed (first three) and the
 /// full [AnnouncementsScreen] list.
@@ -8,7 +8,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Dr. Mensah',
     time: '9:41 AM',
     tag: 'Highly prior',
-    tagColor: SlackColors.tagUrgent,
+    tagColor: SpotifyColors.tagUrgent,
     unread: true,
     body:
         'Good morning. The Csc 200 lab report is due this Friday — please '
@@ -18,7 +18,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Course Rep',
     time: '8:15 AM',
     tag: 'General announcement',
-    tagColor: SlackColors.tagInfo,
+    tagColor: SpotifyColors.tagInfo,
     unread: true,
     body:
         "Today's lecture has been moved to the main auditorium. We start at "
@@ -28,7 +28,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Prof. Adeyemi',
     time: 'Yesterday',
     tag: 'Less prior',
-    tagColor: SlackColors.tagMuted,
+    tagColor: SpotifyColors.tagMuted,
     body:
         'Continuous assessment scores are out. Check the department notice '
         'board for your marks and reach out if anything looks off.',
@@ -37,7 +37,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Exams Office',
     time: 'Yesterday',
     tag: 'General announcement',
-    tagColor: SlackColors.tagInfo,
+    tagColor: SpotifyColors.tagInfo,
     body:
         'The end-of-semester examination timetable has been published. Verify '
         'your course codes and report any clash to the office.',
@@ -46,7 +46,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Library Admin',
     time: 'Mon',
     tag: 'General announcement',
-    tagColor: SlackColors.tagInfo,
+    tagColor: SpotifyColors.tagInfo,
     body:
         'Library opening hours are extended to 10:00 PM through the exam '
         'period. Bring your student ID for after-hours access.',
@@ -55,7 +55,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Dr. Mensah',
     time: 'Mon',
     tag: 'Highly prior',
-    tagColor: SlackColors.tagUrgent,
+    tagColor: SpotifyColors.tagUrgent,
     body:
         'Reminder: the Csc 200 practical holds in Lab 3 this week. Come with '
         'your laptop and your completed pre-lab exercise.',
@@ -64,7 +64,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Housing Office',
     time: 'Sun',
     tag: 'Less prior',
-    tagColor: SlackColors.tagMuted,
+    tagColor: SpotifyColors.tagMuted,
     body:
         'Hostel room ballot closes this Friday at 6:00 PM. Rank your preferred '
         'halls on the portal before the deadline.',
@@ -73,7 +73,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Career Services',
     time: 'Sun',
     tag: 'General announcement',
-    tagColor: SlackColors.tagInfo,
+    tagColor: SpotifyColors.tagInfo,
     body:
         'The annual career fair holds next Wednesday. Bring copies of your CV '
         'and dress smart; doors open at 9:00 AM.',
@@ -82,7 +82,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Sports Council',
     time: 'Last week',
     tag: 'Less prior',
-    tagColor: SlackColors.tagMuted,
+    tagColor: SpotifyColors.tagMuted,
     body:
         'Inter-faculty sports week kicks off on Monday. Registration for track '
         'events closes Friday at the sports office.',
@@ -91,7 +91,7 @@ const List<Announcement> kAnnouncements = [
     author: 'Prof. Adeyemi',
     time: 'Last week',
     tag: 'General announcement',
-    tagColor: SlackColors.tagInfo,
+    tagColor: SpotifyColors.tagInfo,
     body:
         'Extra tutorial for Csc 200 holds on Thursday at 4:00 PM in the main '
         'auditorium. Attendance is strongly encouraged.',

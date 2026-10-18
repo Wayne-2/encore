@@ -3,7 +3,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import 'home_shell.dart';
 
 /// Final loading screen shown after the profile-picture step.
@@ -65,7 +65,7 @@ class _GettingReadyScreenState extends State<GettingReadyScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

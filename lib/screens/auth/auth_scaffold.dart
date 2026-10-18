@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
-import '../../theme/slack_colors.dart';
+import '../../theme/spotify_colors.dart';
 
 /// Dark scaffold used across the auth flow, matching the splash screen's
 /// `#1A1D21` background. Provides shared typography + a branded top bar.
@@ -37,13 +37,13 @@ class AuthScaffold extends StatelessWidget {
     fontFamily: AppTheme.fontFamily,
     fontSize: 14,
     fontWeight: FontWeight.w500,
-    color: SlackColors.accentGreen,
+    color: SpotifyColors.accent,
   );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       body: SafeArea(child: body),
     );
   }

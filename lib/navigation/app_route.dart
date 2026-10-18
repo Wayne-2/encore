@@ -1,7 +1,7 @@
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// A Material "shared axis" (horizontal) page route for screens that have a
 /// navigational relationship — e.g. welcome -> sign up, log in <-> sign up.
@@ -19,7 +19,7 @@ Route<T> sharedAxisRoute<T>(Widget page) {
         animation: animation,
         secondaryAnimation: secondaryAnimation,
         transitionType: SharedAxisTransitionType.horizontal,
-        fillColor: SlackColors.darkBackground,
+        fillColor: SpotifyColors.background,
         child: child,
       );
     },

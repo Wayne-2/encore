@@ -1,14 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'slack_colors.dart';
+import 'spotify_colors.dart';
 
-/// Application themes modeled after the Slack mobile app.
+/// Application themes modeled on Spotify's dark appearance.
 ///
-/// Use [AppTheme.light] / [AppTheme.dark] with `MaterialApp.theme` and
-/// `MaterialApp.darkTheme`. Component themes (AppBar, buttons, chips,
-/// navigation, etc.) are tuned to Slack's aubergine chrome and Montserrat type.
-/// The type scale follows WhatsApp mobile's compact sizes.
+/// Use [AppTheme.dark] with `MaterialApp.theme`; every page — including the
+/// light `theme` slot — renders the Spotify dark palette so the app never
+/// leaves dark mode. The accent stays the app's signature green with black
+/// on-accent text, matching Spotify's black-on-green buttons.
 abstract final class AppTheme {
   /// Brand typeface, bundled from `assets/fonts`.
   static const String fontFamily = 'Montserrat';
@@ -35,11 +35,11 @@ abstract final class AppTheme {
     return TextTheme(
       displayLarge: style(24, FontWeight.w400, height: 30 / 24),
       displayMedium: style(22, FontWeight.w400, height: 28 / 22),
-      displaySmall: style(20, FontWeight.w500, height: 26 / 20),
-      headlineLarge: style(20, FontWeight.w600, height: 26 / 20),
-      headlineMedium: style(18, FontWeight.w600, height: 24 / 18),
+      displaySmall: style(20, FontWeight.w700, height: 26 / 20),
+      headlineLarge: style(20, FontWeight.w700, height: 26 / 20),
+      headlineMedium: style(18, FontWeight.w700, height: 24 / 18),
       headlineSmall: style(17, FontWeight.w500, height: 22 / 17),
-      titleLarge: style(16, FontWeight.w500, height: 21 / 16),
+      titleLarge: style(16, FontWeight.w700, height: 21 / 16),
       titleMedium: style(
         15,
         FontWeight.w600,
@@ -57,7 +57,7 @@ abstract final class AppTheme {
         FontWeight.w400,
         height: 18 / 13,
       ).copyWith(color: secondary),
-      labelLarge: style(15, FontWeight.w600, height: 20 / 15),
+      labelLarge: style(15, FontWeight.w700, height: 20 / 15),
       labelMedium: style(
         13,
         FontWeight.w500,
@@ -71,89 +71,46 @@ abstract final class AppTheme {
     ).apply(bodyColor: primary, displayColor: primary);
   }
 
-  // -----------------------------------------------------------------------
-  // Light theme (default Slack mobile look)
-  // -----------------------------------------------------------------------
-  static ThemeData get light => _build(
-    brightness: Brightness.light,
-    scheme: const ColorScheme(
-      brightness: Brightness.light,
-      primary: SlackColors.accentGreen,
-      onPrimary: Colors.white,
-      primaryContainer: SlackColors.blueLight,
-      onPrimaryContainer: Colors.white,
-      secondary: SlackColors.aubergine,
-      onSecondary: Colors.white,
-      secondaryContainer: SlackColors.lightSurfaceSecondary,
-      onSecondaryContainer: SlackColors.purple,
-      tertiary: SlackColors.green,
-      onTertiary: Colors.white,
-      tertiaryContainer: SlackColors.green,
-      onTertiaryContainer: Colors.white,
-      error: SlackColors.red,
-      onError: Colors.white,
-      surface: SlackColors.lightBackground,
-      onSurface: SlackColors.lightTextPrimary,
-      onSurfaceVariant: SlackColors.lightTextSecondary,
-      surfaceContainerHighest: SlackColors.lightSurface,
-      surfaceContainerHigh: SlackColors.lightSurface,
-      surfaceContainer: SlackColors.lightSurface,
-      surfaceContainerLow: SlackColors.lightSurface,
-      surfaceContainerLowest: SlackColors.lightBackground,
-      outline: SlackColors.lightBorder,
-      outlineVariant: SlackColors.lightBorderStrong,
-      shadow: Colors.black,
-      scrim: Colors.black38,
-      inverseSurface: SlackColors.aubergine,
-      onInverseSurface: SlackColors.lightTextOnAubergine,
-      inversePrimary: SlackColors.aubergineDark,
-    ),
-    textTheme: _textTheme(
-      SlackColors.lightTextPrimary,
-      SlackColors.lightTextSecondary,
-    ),
-  );
+  /// Spotify dark scheme — also used for the light slot so the app stays in
+  /// dark mode regardless of the system setting.
+  static ThemeData get light => dark;
 
-  // -----------------------------------------------------------------------
-  // Dark theme
-  // -----------------------------------------------------------------------
   static ThemeData get dark => _build(
-    brightness: Brightness.dark,
     scheme: const ColorScheme(
       brightness: Brightness.dark,
-      primary: SlackColors.accentGreen,
-      onPrimary: Colors.white,
-      primaryContainer: SlackColors.blue,
-      onPrimaryContainer: Colors.white,
-      secondary: SlackColors.purple,
-      onSecondary: Colors.white,
-      secondaryContainer: SlackColors.darkSurfaceSecondary,
-      onSecondaryContainer: Color(0xFFE8D4E8),
-      tertiary: SlackColors.green,
-      onTertiary: Colors.white,
-      tertiaryContainer: SlackColors.greenDark,
-      onTertiaryContainer: Colors.white,
-      error: SlackColors.red,
+      primary: SpotifyColors.accent,
+      onPrimary: Colors.black,
+      primaryContainer: SpotifyColors.accent,
+      onPrimaryContainer: Colors.black,
+      secondary: SpotifyColors.surface,
+      onSecondary: SpotifyColors.textPrimary,
+      secondaryContainer: SpotifyColors.surface,
+      onSecondaryContainer: SpotifyColors.textSubdued,
+      tertiary: SpotifyColors.accent,
+      onTertiary: Colors.black,
+      tertiaryContainer: SpotifyColors.accent,
+      onTertiaryContainer: Colors.black,
+      error: SpotifyColors.danger,
       onError: Colors.white,
-      surface: SlackColors.darkBackground,
-      onSurface: SlackColors.darkTextPrimary,
-      onSurfaceVariant: SlackColors.darkTextSecondary,
-      surfaceContainerHighest: SlackColors.darkSurface,
-      surfaceContainerHigh: SlackColors.darkSurface,
-      surfaceContainer: SlackColors.darkSurface,
-      surfaceContainerLow: SlackColors.darkSurface,
-      surfaceContainerLowest: SlackColors.darkBackground,
-      outline: SlackColors.darkBorder,
-      outlineVariant: SlackColors.darkBorderStrong,
+      surface: SpotifyColors.background,
+      onSurface: SpotifyColors.textPrimary,
+      onSurfaceVariant: SpotifyColors.textSubdued,
+      surfaceContainerHighest: SpotifyColors.surface,
+      surfaceContainerHigh: SpotifyColors.surface,
+      surfaceContainer: SpotifyColors.surface,
+      surfaceContainerLow: SpotifyColors.surface,
+      surfaceContainerLowest: SpotifyColors.background,
+      outline: SpotifyColors.border,
+      outlineVariant: SpotifyColors.borderStrong,
       shadow: Colors.black,
       scrim: Colors.black54,
-      inverseSurface: SlackColors.darkTextPrimary,
-      onInverseSurface: SlackColors.darkBackground,
-      inversePrimary: SlackColors.aubergine,
+      inverseSurface: SpotifyColors.textPrimary,
+      onInverseSurface: SpotifyColors.background,
+      inversePrimary: SpotifyColors.accent,
     ),
     textTheme: _textTheme(
-      SlackColors.darkTextPrimary,
-      SlackColors.darkTextSecondary,
+      SpotifyColors.textPrimary,
+      SpotifyColors.textSubdued,
     ),
   );
 
@@ -161,15 +118,9 @@ abstract final class AppTheme {
   // Shared component styling
   // -----------------------------------------------------------------------
   static ThemeData _build({
-    required Brightness brightness,
     required ColorScheme scheme,
     required TextTheme textTheme,
   }) {
-    final isLight = brightness == Brightness.light;
-    final disabled = isLight
-        ? const Color(0xFF9B9A97)
-        : const Color(0xFF6B6C70);
-
     // Focused inputs use a brighter take on their resting border rather than
     // the loud accent color.
     final focusBorder = Color.lerp(
@@ -181,151 +132,157 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: fontFamily,
-      brightness: brightness,
+      brightness: Brightness.dark,
       colorScheme: scheme,
       textTheme: textTheme,
       scaffoldBackgroundColor: scheme.surface,
       splashFactory: InkSparkle.splashFactory,
 
       appBarTheme: AppBarTheme(
-        backgroundColor: SlackColors.aubergine,
-        foregroundColor: Colors.white,
+        backgroundColor: SpotifyColors.background,
+        foregroundColor: SpotifyColors.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: textTheme.titleLarge?.copyWith(color: Colors.white),
-        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: textTheme.titleLarge,
+        iconTheme: const IconThemeData(color: SpotifyColors.textPrimary),
         toolbarHeight: 56,
       ),
 
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isLight
-            ? SlackColors.lightBackground
-            : SlackColors.darkSurface,
+        backgroundColor: SpotifyColors.surface,
         elevation: 0,
         height: 64,
-        indicatorColor: isLight
-            ? const Color(0xFFE8F0FA)
-            : const Color(0xFF1D3A52),
+        indicatorColor: SpotifyColors.accent.withValues(alpha: 0.16),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected ? SlackColors.blue : scheme.onSurfaceVariant,
+            color: selected
+                ? SpotifyColors.accent
+                : SpotifyColors.textSubdued,
             size: 24,
           );
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return textTheme.labelSmall?.copyWith(
-            color: selected ? SlackColors.blue : scheme.onSurfaceVariant,
+            color: selected
+                ? SpotifyColors.accent
+                : SpotifyColors.textSubdued,
           );
         }),
       ),
 
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: SlackColors.aubergine,
-        indicatorColor: SlackColors.blue,
-        selectedIconTheme: const IconThemeData(color: Colors.white),
-        unselectedIconTheme: IconThemeData(
-          color: isLight
-              ? SlackColors.lightTextSidebarInactive
-              : const Color(0xFFC9B3CB),
+        backgroundColor: SpotifyColors.background,
+        indicatorColor: SpotifyColors.accent,
+        selectedIconTheme: const IconThemeData(
+          color: SpotifyColors.textPrimary,
+        ),
+        unselectedIconTheme: const IconThemeData(
+          color: SpotifyColors.textSubdued,
         ),
         selectedLabelTextStyle: textTheme.labelSmall?.copyWith(
-          color: Colors.white,
+          color: SpotifyColors.textPrimary,
         ),
         unselectedLabelTextStyle: textTheme.labelSmall?.copyWith(
-          color: isLight
-              ? SlackColors.lightTextSidebarInactive
-              : const Color(0xFFC9B3CB),
+          color: SpotifyColors.textSubdued,
         ),
       ),
 
       drawerTheme: DrawerThemeData(
-        backgroundColor: SlackColors.aubergine,
+        backgroundColor: SpotifyColors.background,
         elevation: 0,
         shape: const Border(),
       ),
 
       cardTheme: CardThemeData(
-        color: scheme.surface,
+        color: SpotifyColors.surface,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: scheme.outlineVariant),
+          side: const BorderSide(color: SpotifyColors.border),
         ),
       ),
 
       dividerTheme: DividerThemeData(
-        color: scheme.outline,
+        color: SpotifyColors.border,
         thickness: 1,
         space: 1,
       ),
 
       listTileTheme: ListTileThemeData(
-        iconColor: scheme.onSurfaceVariant,
+        iconColor: SpotifyColors.textSubdued,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: SlackColors.accentGreen,
+          backgroundColor: SpotifyColors.accent,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: disabled,
+          disabledBackgroundColor: SpotifyColors.borderStrong,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
           textStyle: textTheme.labelLarge,
         ),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: SlackColors.blue,
+          backgroundColor: SpotifyColors.accent,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: disabled,
+          disabledBackgroundColor: SpotifyColors.borderStrong,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
           textStyle: textTheme.labelLarge,
         ),
       ),
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: SlackColors.blue,
-          disabledForegroundColor: disabled,
-          side: BorderSide(color: scheme.outlineVariant),
+          foregroundColor: SpotifyColors.accent,
+          disabledForegroundColor: SpotifyColors.textSubdued,
+          side: const BorderSide(color: SpotifyColors.borderStrong),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           minimumSize: const Size(64, 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
           textStyle: textTheme.labelLarge,
         ),
       ),
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: SlackColors.blue,
-          disabledForegroundColor: disabled,
+          foregroundColor: SpotifyColors.accent,
+          disabledForegroundColor: SpotifyColors.textSubdued,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+          ),
           textStyle: textTheme.labelLarge,
         ),
       ),
 
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: scheme.onSurfaceVariant,
+          foregroundColor: SpotifyColors.textSubdued,
           padding: const EdgeInsets.all(8),
         ),
       ),
 
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: SlackColors.greenDark,
+        backgroundColor: SpotifyColors.accent,
         foregroundColor: Colors.white,
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -333,21 +290,21 @@ abstract final class AppTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isLight ? Colors.white : SlackColors.darkSurface,
+        fillColor: SpotifyColors.surface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 16,
         ),
         hintStyle: textTheme.bodyLarge?.copyWith(
-          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+          color: SpotifyColors.textSubdued.withValues(alpha: 0.6),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderSide: const BorderSide(color: SpotifyColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderSide: const BorderSide(color: SpotifyColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -355,45 +312,41 @@ abstract final class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: SlackColors.red),
+          borderSide: const BorderSide(color: SpotifyColors.danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: SlackColors.red, width: 1.5),
+          borderSide: const BorderSide(color: SpotifyColors.danger, width: 1.5),
         ),
       ),
 
       chipTheme: ChipThemeData(
-        backgroundColor: isLight
-            ? SlackColors.lightSurface
-            : SlackColors.darkSurface,
-        selectedColor: SlackColors.blue,
+        backgroundColor: SpotifyColors.surface,
+        selectedColor: SpotifyColors.accent,
         labelStyle: textTheme.labelMedium,
-        side: BorderSide(color: scheme.outlineVariant),
+        side: const BorderSide(color: SpotifyColors.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
 
-      badgeTheme: BadgeThemeData(
-        backgroundColor: SlackColors.red,
+      badgeTheme: const BadgeThemeData(
+        backgroundColor: SpotifyColors.danger,
         textColor: Colors.white,
       ),
 
       tabBarTheme: TabBarThemeData(
-        labelColor: Colors.white,
-        unselectedLabelColor: SlackColors.lightTextSidebarInactive,
-        indicatorColor: Colors.white,
+        labelColor: SpotifyColors.textPrimary,
+        unselectedLabelColor: SpotifyColors.textSubdued,
+        indicatorColor: SpotifyColors.textPrimary,
         indicatorSize: TabBarIndicatorSize.tab,
         labelStyle: textTheme.labelLarge,
         unselectedLabelStyle: textTheme.labelLarge,
       ),
 
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: isLight
-            ? SlackColors.lightTextPrimary
-            : SlackColors.darkSurface,
+        backgroundColor: SpotifyColors.surface,
         contentTextStyle: textTheme.bodyMedium?.copyWith(
-          color: isLight ? Colors.white : SlackColors.darkTextPrimary,
+          color: SpotifyColors.textPrimary,
         ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -401,16 +354,16 @@ abstract final class AppTheme {
 
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: isLight
-              ? SlackColors.lightTextPrimary
-              : SlackColors.darkSurface,
+          color: SpotifyColors.surface,
           borderRadius: BorderRadius.circular(4),
         ),
-        textStyle: textTheme.bodySmall?.copyWith(color: Colors.white),
+        textStyle: textTheme.bodySmall?.copyWith(
+          color: SpotifyColors.textPrimary,
+        ),
       ),
 
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: scheme.surface,
+        backgroundColor: SpotifyColors.surface,
         elevation: 0,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
@@ -418,7 +371,7 @@ abstract final class AppTheme {
       ),
 
       dialogTheme: DialogThemeData(
-        backgroundColor: scheme.surface,
+        backgroundColor: SpotifyColors.surface,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         titleTextStyle: textTheme.headlineSmall,
@@ -426,7 +379,7 @@ abstract final class AppTheme {
       ),
 
       popupMenuTheme: PopupMenuThemeData(
-        color: scheme.surface,
+        color: SpotifyColors.surface,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: textTheme.bodyMedium,
@@ -434,33 +387,33 @@ abstract final class AppTheme {
 
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return Colors.white;
-          return isLight ? const Color(0xFF616061) : const Color(0xFF9B9A97);
+          if (states.contains(WidgetState.selected)) return Colors.black;
+          return SpotifyColors.textSubdued;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return SlackColors.accentGreen;
+            return SpotifyColors.accent;
           }
-          return isLight ? const Color(0xFFDDDDDD) : const Color(0xFF454548);
+          return SpotifyColors.borderStrong;
         }),
       ),
 
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: SlackColors.blue,
-        linearTrackColor: SlackColors.lightBorder,
+        color: SpotifyColors.accent,
+        linearTrackColor: SpotifyColors.border,
       ),
 
       sliderTheme: const SliderThemeData(
-        activeTrackColor: SlackColors.blue,
-        thumbColor: SlackColors.blue,
-        inactiveTrackColor: SlackColors.lightBorder,
-        overlayColor: Color(0x331264A3),
+        activeTrackColor: SpotifyColors.accent,
+        thumbColor: SpotifyColors.accent,
+        inactiveTrackColor: SpotifyColors.border,
+        overlayColor: Color(0x3325A10C),
       ),
 
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: scheme.onSurface,
-        selectionColor: scheme.onSurface.withValues(alpha: 0.25),
-        selectionHandleColor: scheme.onSurface,
+        cursorColor: SpotifyColors.textPrimary,
+        selectionColor: SpotifyColors.textPrimary.withValues(alpha: 0.25),
+        selectionHandleColor: SpotifyColors.textPrimary,
       ),
 
       pageTransitionsTheme: const PageTransitionsTheme(

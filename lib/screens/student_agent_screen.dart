@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../theme/app_type.dart';
 
 class StudentAgentScreen extends StatelessWidget {
@@ -10,7 +10,7 @@ class StudentAgentScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       body: Stack(
         children: [
           Positioned.fill(
@@ -33,7 +33,7 @@ class StudentAgentScreen extends StatelessWidget {
                         child: Center(
                           child: Text(
                             'Student Agency',
-                            style: AppType.sectionTitle(scheme),
+                            style: AppType.name(scheme),
                           ),
                         ),
                       ),
@@ -63,8 +63,8 @@ class _GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const double gridSize = 20.0;
     const double gap = 1.0;
-    final bg = SlackColors.darkBackground;
-    final cell = SlackColors.darkHeader;
+    final bg = SpotifyColors.background;
+    final cell = SpotifyColors.background;
 
     final paintBg = Paint()..color = bg;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paintBg);

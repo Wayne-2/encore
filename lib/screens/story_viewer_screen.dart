@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/chat_avatar.dart';
 
 /// Full-screen WhatsApp-style story/status viewer for stories tapped in `# Story`.
@@ -56,7 +56,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     _replyController.clear();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: SlackColors.darkSurface,
+        backgroundColor: SpotifyColors.surface,
         content: Text(
           'Reply sent to ${widget.story.username}',
           style: const TextStyle(
@@ -71,6 +71,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final mediaQuery = MediaQuery.of(context);
     final topPadding = mediaQuery.padding.top;
     final bottomPadding = mediaQuery.padding.bottom;
@@ -121,7 +122,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                         value: _progressController.value,
                         backgroundColor: Colors.white.withValues(alpha: 0.3),
                         valueColor: const AlwaysStoppedAnimation<Color>(
-                          SlackColors.accentGreen,
+                          SpotifyColors.accent,
                         ),
                         minHeight: 3,
                       ),
@@ -223,7 +224,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: SlackColors.darkSurface.withValues(
+                              color: SpotifyColors.surface.withValues(
                                 alpha: 0.8,
                               ),
                               borderRadius: BorderRadius.circular(20),
@@ -243,59 +244,119 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                 ),
                 const SizedBox(height: 12),
 
-                // Reply input
+                // Reply bar mirroring the direct chat input section
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: SlackColors.darkSurface.withValues(
-                            alpha: 0.85,
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: TextField(
-                          controller: _replyController,
-                          style: const TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                          decoration: InputDecoration(
-                            filled: false,
-                            fillColor: Colors.transparent,
-                            hintText: 'Reply to ${widget.story.username}...',
-                            hintStyle: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 14,
+                    // Plus button on the left (circle)
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(22),
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Attachments are not available in stories',
+                              ),
+                              duration: Duration(seconds: 1),
                             ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
+                          );
+                        },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: SpotifyColors.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
+                            ),
                           ),
-                          onSubmitted: _sendReply,
+                          child: Icon(
+                            Icons.add_rounded,
+                            color: scheme.onSurface,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      decoration: const BoxDecoration(
-                        color: SlackColors.accentGreen,
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.send_rounded,
-                          color: Colors.white,
-                          size: 20,
+
+                    // Input pill with internal microphone / send button
+                    Expanded(
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        decoration: BoxDecoration(
+                          color: SpotifyColors.surface,
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                        onPressed: () => _sendReply(_replyController.text),
+                        padding: const EdgeInsets.only(left: 16, right: 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _replyController,
+                                maxLines: 4,
+                                minLines: 1,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: scheme.onSurface,
+                                  fontSize: 15,
+                                ),
+                                onChanged: (_) => setState(() {}),
+                                decoration: InputDecoration(
+                                  filled: false,
+                                  fillColor: Colors.transparent,
+                                  hintText:
+                                      'Reply to ${widget.story.username}...',
+                                  hintStyle: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 15,
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_replyController.text.trim().isEmpty)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.mic_none_rounded,
+                                  color: scheme.onSurfaceVariant,
+                                  size: 22,
+                                ),
+                                tooltip: 'Voice message',
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Hold to record voice message',
+                                      ),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                              )
+                            else
+                              IconButton(
+                                key: const ValueKey('story-send-button'),
+                                icon: const Icon(
+                                  Icons.arrow_upward_rounded,
+                                  color: SpotifyColors.accent,
+                                  size: 22,
+                                ),
+                                tooltip: 'Send reply',
+                                onPressed: () =>
+                                    _sendReply(_replyController.text),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

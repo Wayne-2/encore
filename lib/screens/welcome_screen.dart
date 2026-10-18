@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import 'auth/create_account_screen.dart';
 
 /// First screen after the splash.
@@ -89,7 +89,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       body: Stack(
         fit: StackFit.expand,
         children: [

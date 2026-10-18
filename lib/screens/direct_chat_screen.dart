@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/chat_bubble.dart';
 
 /// WhatsApp / Instagram modern direct chat interface.
 class DirectChatScreen extends StatefulWidget {
@@ -61,8 +62,8 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
         ),
         duration: const Duration(seconds: 2),
         backgroundColor: _isAnonymousMode
-            ? SlackColors.accentGreen
-            : SlackColors.darkSurface,
+            ? SpotifyColors.accent
+            : SpotifyColors.surface,
       ),
     );
   }
@@ -124,9 +125,9 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
               child: Container(
                 width: 180,
                 decoration: BoxDecoration(
-                  color: SlackColors.darkSurface,
+                  color: SpotifyColors.surface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: SlackColors.darkBorder, width: 1),
+                  border: Border.all(color: SpotifyColors.border, width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.55),
@@ -196,6 +197,72 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
     }
   }
 
+  /// Presents the contact's details in the same slide-up sheet used for group
+  /// info in the group chat screen.
+  void _showProfile(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: SpotifyColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ChatAvatar(
+                avatarAsset: widget.conversation.avatarAsset,
+                avatarColor: widget.conversation.avatarColor,
+                avatarInitials: widget.conversation.avatarInitials,
+                size: 64,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.conversation.title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Member • ${widget.conversation.membersDescription}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.person, color: SpotifyColors.accent),
+                title: const Text('View Profile'),
+                subtitle: const Text(
+                  'Open full profile, media and shared links',
+                ),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.block, color: SpotifyColors.accent),
+                title: const Text('Block or Report'),
+                subtitle: const Text('Block, report or restrict this contact'),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -205,9 +272,9 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
         : '${widget.conversation.title} ✨';
 
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       appBar: AppBar(
-        backgroundColor: SlackColors.darkHeader,
+        backgroundColor: SpotifyColors.background,
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
@@ -254,7 +321,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           widget.conversation.membersDescription
                               .toLowerCase()
                               .contains('online')
-                          ? SlackColors.accentGreen
+                          ? SpotifyColors.accent
                           : scheme.onSurfaceVariant,
                     ),
                   ),
@@ -268,7 +335,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
           PopupMenuButton<String>(
             key: const ValueKey('chat-three-dots-menu'),
             icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
-            color: SlackColors.darkSurface,
+            color: SpotifyColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -371,7 +438,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           ? Icons.visibility_rounded
                           : Icons.visibility_off_rounded,
                       size: 20,
-                      color: SlackColors.accentGreen,
+                      color: SpotifyColors.accent,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -383,7 +450,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
-                          color: SlackColors.accentGreen,
+                          color: SpotifyColors.accent,
                         ),
                       ),
                     ),
@@ -446,7 +513,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     Icon(
                       Icons.delete_outline_rounded,
                       size: 20,
-                      color: SlackColors.red,
+                      color: SpotifyColors.danger,
                     ),
                     SizedBox(width: 12),
                     Expanded(
@@ -456,7 +523,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: SlackColors.red,
+                          color: SpotifyColors.danger,
                         ),
                       ),
                     ),
@@ -483,7 +550,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
 
           Expanded(
             child: Container(
-              color: SlackColors.darkBackground,
+              color: SpotifyColors.background,
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(
@@ -532,21 +599,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         ),
                         const SizedBox(height: 14),
                         OutlinedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Viewing profile for ${widget.conversation.title}',
-                                ),
-                              ),
-                            );
-                          },
+                          onPressed: () => _showProfile(context),
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: SlackColors.darkSurface,
+                            backgroundColor: SpotifyColors.surface,
                             foregroundColor: scheme.onSurface,
-                            side: const BorderSide(
-                              color: SlackColors.darkBorder,
-                            ),
+                            side: const BorderSide(color: SpotifyColors.border),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -588,112 +645,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                   final message = _messages[index - 1];
                   final isMe = message.isMe;
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Column(
-                      crossAxisAlignment: isMe
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.start,
-                      children: [
-                        Align(
-                          alignment: isMe
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth:
-                                  MediaQuery.of(context).size.width * 0.76,
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: isMe
-                                    ? SlackColors.accentGreen
-                                    : SlackColors.darkSurface,
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(12),
-                                  topRight: const Radius.circular(12),
-                                  bottomLeft: isMe
-                                      ? const Radius.circular(12)
-                                      : Radius.zero,
-                                  bottomRight: isMe
-                                      ? Radius.zero
-                                      : const Radius.circular(12),
-                                ),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (message.isAnonymous) ...[
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.visibility_off_rounded,
-                                          size: 11,
-                                          color:
-                                              (isMe
-                                                      ? scheme.onPrimary
-                                                      : scheme.onSurface)
-                                                  .withValues(alpha: 0.85),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Sent anonymously',
-                                          style: TextStyle(
-                                            fontFamily: AppTheme.fontFamily,
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w600,
-                                            color:
-                                                (isMe
-                                                        ? scheme.onPrimary
-                                                        : scheme.onSurface)
-                                                    .withValues(alpha: 0.85),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                  ],
-                                  Text(
-                                    message.text,
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      fontSize: 14.5,
-                                      height: 1.3,
-                                      color: isMe
-                                          ? scheme.onPrimary
-                                          : scheme.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Status indicator underneath sent message matching reference
-                        if (isMe)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2, right: 4),
-                            child: Text(
-                              isWayne
-                                  ? (message.text == 'Yes sir 🫡'
-                                        ? 'Sent'
-                                        : 'Seen')
-                                  : message.time,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 10.5,
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                  return ChatBubble(
+                    message: message,
+                    trailingTime: isMe && isWayne
+                        ? (message.text == 'Yes sir 🫡' ? 'Sent' : 'Seen')
+                        : null,
                   );
                 },
               ),
@@ -711,7 +667,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
-      color: SlackColors.darkBackground,
+      color: SpotifyColors.background,
       padding: EdgeInsets.only(
         left: 12,
         right: 12,
@@ -735,12 +691,12 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: _isAttachmentMenuOpen
-                      ? SlackColors.darkHover
-                      : SlackColors.darkSurface,
+                      ? SpotifyColors.surfaceHover
+                      : SpotifyColors.surface,
                   shape: BoxShape.circle,
                   border: _isAnonymousMode
                       ? Border.all(
-                          color: SlackColors.accentGreen.withValues(alpha: 0.6),
+                          color: SpotifyColors.accent.withValues(alpha: 0.6),
                           width: 1.2,
                         )
                       : null,
@@ -765,11 +721,11 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
             child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
-                color: SlackColors.darkSurface,
+                color: SpotifyColors.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: _isAnonymousMode
                     ? Border.all(
-                        color: SlackColors.accentGreen.withValues(alpha: 0.8),
+                        color: SpotifyColors.accent.withValues(alpha: 0.8),
                         width: 1.2,
                       )
                     : null,
@@ -796,7 +752,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         hintStyle: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: _isAnonymousMode
-                              ? SlackColors.accentGreen.withValues(alpha: 0.8)
+                              ? SpotifyColors.accent.withValues(alpha: 0.8)
                               : scheme.onSurfaceVariant,
                           fontSize: 15,
                         ),
@@ -834,7 +790,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                       key: const ValueKey('direct-send-button'),
                       icon: const Icon(
                         Icons.arrow_upward_rounded,
-                        color: SlackColors.accentGreen,
+                        color: SpotifyColors.accent,
                         size: 22,
                       ),
                       tooltip: 'Send message',
@@ -877,7 +833,7 @@ class _FloatingMenuItem extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: SlackColors.darkHover,
+                color: SpotifyColors.surfaceHover,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: scheme.onSurface, size: 20),
@@ -912,10 +868,10 @@ class _AnonymousStatusPill extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: SlackColors.darkSurface,
+        color: SpotifyColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: SlackColors.accentGreen.withValues(alpha: 0.5),
+          color: SpotifyColors.accent.withValues(alpha: 0.5),
           width: 1,
         ),
         boxShadow: [
@@ -933,7 +889,7 @@ class _AnonymousStatusPill extends StatelessWidget {
           const Icon(
             Icons.visibility_off_rounded,
             size: 15,
-            color: SlackColors.accentGreen,
+            color: SpotifyColors.accent,
           ),
           const SizedBox(width: 7),
           Text(
@@ -966,10 +922,10 @@ class _AnonymousStatusPill extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: SlackColors.red.withValues(alpha: 0.15),
+                  color: SpotifyColors.danger.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: SlackColors.red.withValues(alpha: 0.4),
+                    color: SpotifyColors.danger.withValues(alpha: 0.4),
                     width: 0.8,
                   ),
                 ),
@@ -979,7 +935,7 @@ class _AnonymousStatusPill extends StatelessWidget {
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: SlackColors.red,
+                    color: SpotifyColors.danger,
                     height: 1.0,
                   ),
                 ),

@@ -4,9 +4,11 @@ import '../data/announcements.dart';
 import '../models/announcement.dart';
 import '../models/trend.dart';
 import '../navigation/app_route.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/slack_type.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/announcement_tile.dart';
 import '../widgets/compose_fab.dart';
 import '../widgets/section_heading.dart';
@@ -15,9 +17,6 @@ import 'announcement_detail_screen.dart';
 import 'announcements_screen.dart';
 import 'trending_detail_screen.dart';
 import 'trending_more_screen.dart';
-
-/// Vertical gap between the Updates page sections.
-const double _sectionGap = 18;
 
 /// Quick actions revealed by the Updates compose button.
 const List<ComposeAction> _updatesComposeActions = [
@@ -28,8 +27,8 @@ const List<ComposeAction> _updatesComposeActions = [
 
 /// The Updates section — the first tab of [HomeShell].
 ///
-/// Opens with a Slack-style workspace bar, an Announcement feed, a Trending
-/// row, and an Upcoming Activities grid.
+/// Opens with a workspace bar, a Slack-style Announcement feed, then
+/// Spotify-style Trending and Upcoming Activities carousels.
 class UpdatesScreen extends StatelessWidget {
   const UpdatesScreen({super.key});
 
@@ -51,11 +50,11 @@ class UpdatesScreen extends StatelessWidget {
                   _AnnouncementList(
                     onTap: (a) => _openAnnouncement(context, a),
                   ),
-                  const SizedBox(height: _sectionGap),
+                  const SizedBox(height: AppSpacing.section),
                   _TrendingSection(onShowMore: () => _openTrending(context)),
-                  const SizedBox(height: _sectionGap),
+                  const SizedBox(height: AppSpacing.section),
                   const _UpcomingActivitiesSection(),
-                  const SizedBox(height: _sectionGap),
+                  const SizedBox(height: AppSpacing.section),
                 ],
               ),
             ),
@@ -83,7 +82,8 @@ class UpdatesScreen extends StatelessWidget {
   }
 }
 
-/// Section header: `# Announcement` with a trailing "Show more" action.
+/// Section header: `# Announcement` in Slack's list-header style with a
+/// trailing "Show more" action.
 class _AnnouncementHeader extends StatelessWidget {
   const _AnnouncementHeader({required this.onMore});
 
@@ -91,11 +91,17 @@ class _AnnouncementHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.page, 16, 8, 0),
       child: Row(
         children: [
-          const SectionHeading('Announcement'),
+          SectionHeading(
+            'Announcement',
+            style: SlackType.sectionTitle(scheme),
+            glyphStyle: SlackType.glyph(scheme),
+          ),
           const Spacer(),
           GestureDetector(
             key: const ValueKey('announcement-show-more'),
@@ -108,7 +114,7 @@ class _AnnouncementHeader extends StatelessWidget {
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: SlackColors.accentGreen,
+                  color: SpotifyColors.accent,
                 ),
               ),
             ),
@@ -132,11 +138,7 @@ class _AnnouncementList extends StatelessWidget {
       children: [
         for (var i = 0; i < _items.length; i++) ...[
           if (i > 0)
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: SlackColors.darkBorder,
-            ),
+            const Divider(height: 1, thickness: 1, color: SpotifyColors.border),
           AnnouncementTile(
             key: ValueKey('announcement-$i'),
             announcement: _items[i],
@@ -219,30 +221,38 @@ class _TrendingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 8, 4),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            6,
+            8,
+            AppSpacing.heading,
+          ),
           child: Row(
             children: [
-              const SectionHeading('Trending'),
+              SectionHeading(
+                'Trending',
+                style: SlackType.sectionTitle(scheme),
+                glyphStyle: SlackType.glyph(scheme),
+              ),
               const Spacer(),
               GestureDetector(
                 key: const ValueKey('trending-show-more'),
                 onTap: onShowMore,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Text(
                     'Show more',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: SlackColors.accentGreen,
+                      color: SpotifyColors.accent,
                     ),
                   ),
                 ),
@@ -251,12 +261,13 @@ class _TrendingSection extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 150,
+          height: 200,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
             itemCount: _items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) =>
+                const SizedBox(width: AppSpacing.card),
             itemBuilder: (context, i) => _TrendingCard(
               key: ValueKey('trending-$i'),
               item: _items[i],
@@ -271,7 +282,7 @@ class _TrendingSection extends StatelessWidget {
   }
 }
 
-/// A single trending card: cover art over a title and short descriptor.
+/// A single trending card: square cover art over a title and descriptor.
 class _TrendingCard extends StatelessWidget {
   const _TrendingCard({super.key, required this.item, required this.onTap});
 
@@ -280,51 +291,25 @@ class _TrendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return _MediaTile(
+      art: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
+        child: Image.asset(
+          item.image,
           width: 150,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  item.image,
-                  width: 150,
-                  height: 96,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppType.cardTitle(scheme),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                item.subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppType.subtitle(scheme),
-              ),
-            ],
-          ),
+          height: 150,
+          fit: BoxFit.cover,
         ),
       ),
+      title: item.title,
+      subtitle: item.subtitle,
+      onTap: onTap,
     );
   }
 }
 
-/// The Upcoming Activities section: a heading over a Spotify-style two-column
-/// grid of compact activity cards.
+/// The Upcoming Activities section: a heading over a two-column grid of
+/// compact activity cards.
 class _UpcomingActivitiesSection extends StatelessWidget {
   const _UpcomingActivitiesSection();
 
@@ -339,12 +324,18 @@ class _UpcomingActivitiesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 6, 16, 12),
-          child: SectionHeading('Upcoming Activities'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+          child: SectionHeading(
+            'Upcoming Activities',
+            style: SlackType.sectionTitle(scheme),
+            glyphStyle: SlackType.glyph(scheme),
+          ),
         ),
         GridView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -387,7 +378,7 @@ class _ActivityCard extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: SlackColors.darkHeader,
+        color: SpotifyColors.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -395,7 +386,7 @@ class _ActivityCard extends StatelessWidget {
         children: [
           const SizedBox(
             width: 2,
-            child: ColoredBox(color: SlackColors.accentGreen),
+            child: ColoredBox(color: SpotifyColors.accent),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -421,6 +412,58 @@ class _ActivityCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
         ],
+      ),
+    );
+  }
+}
+
+/// A Spotify-style carousel tile: square art over a bold title and a muted
+/// subtitle, shared by the Trending and Upcoming Activities sections.
+class _MediaTile extends StatelessWidget {
+  const _MediaTile({
+    required this.art,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final Widget art;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 150,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              art,
+              const SizedBox(height: AppSpacing.artText),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.cardTitle(scheme),
+              ),
+              const SizedBox(height: AppSpacing.text),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.subtitle(scheme),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

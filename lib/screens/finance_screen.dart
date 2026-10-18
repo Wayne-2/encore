@@ -2,10 +2,10 @@ import 'view_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../navigation/app_route.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/slack_type.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/checkout_sheet.dart';
 import '../widgets/workspace_app_bar.dart';
@@ -43,7 +43,9 @@ class FinanceScreen extends StatelessWidget {
                   children: [
                     Text(
                       '2025/2026 FIRST SEMESTER',
-                      style: AppType.name(scheme),
+                      style: AppType.name(
+                        scheme,
+                      ).copyWith(fontWeight: FontWeight.w500),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.of(context).push(
@@ -79,7 +81,7 @@ class FinanceScreen extends StatelessWidget {
                         value: 0.33,
                         minHeight: 3,
                         color: scheme.primary,
-                        backgroundColor: SlackColors.darkHover,
+                        backgroundColor: SpotifyColors.surfaceHover,
                         borderRadius: BorderRadius.circular(1.5),
                       ),
                     ),
@@ -94,20 +96,17 @@ class FinanceScreen extends StatelessWidget {
                   widthFactor: 0.8,
                   child: FilledButton(
                     onPressed: () => _showCheckout(context),
-                    child: const Text(
-                      'Pay All (4 unpaid)',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('Pay All (4 unpaid)'),
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 28, 16, 0),
-                child: SectionHeading('Budgeted Semester Expenditure'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                child: SectionHeading(
+                  'Budgeted Semester Expenditure',
+                  style: SlackType.sectionTitle(scheme),
+                  glyphStyle: SlackType.glyph(scheme),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
@@ -127,9 +126,9 @@ class FinanceScreen extends StatelessWidget {
                         height: 40,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: SlackColors.darkSurface,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: SlackColors.darkBorder),
+                          color: SpotifyColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: SpotifyColors.border),
                         ),
                         child: Row(
                           children: [
@@ -209,9 +208,8 @@ class _BankBanner extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 125),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: SlackColors.darkSurface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: SlackColors.darkBorder),
+        color: SpotifyColors.surface,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -219,16 +217,6 @@ class _BankBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.asset(
-                  'assets/launch_icon_foreground.png',
-                  width: 44,
-                  height: 44,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,7 +224,12 @@ class _BankBanner extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text('Odeh Solomon', style: AppType.cardTitle(scheme)),
+                        Text(
+                          'Odeh Solomon',
+                          style: AppType.cardTitle(
+                            scheme,
+                          ).copyWith(fontSize: 16, fontWeight: FontWeight.w500),
+                        ),
                         const SizedBox(width: 6),
                         Icon(
                           Icons.copy,
@@ -248,7 +241,15 @@ class _BankBanner extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Text('4267438338', style: AppType.meta(scheme)),
+                        Text(
+                          '4267438338',
+                          style: AppType.meta(scheme).copyWith(
+                            fontSize: 14,
+                            color: scheme.onSurfaceVariant.withValues(
+                              alpha: 0.8,
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 6),
                         Container(
                           width: 3,
@@ -280,9 +281,18 @@ class _BankBanner extends StatelessWidget {
               const SizedBox(width: 4),
               _DashLine(width: 3, height: 3, color: lineColor),
               const SizedBox(width: 10),
-              Text('Available Points', style: AppType.meta(scheme)),
+              Text(
+                'Available Points',
+                style: AppType.meta(scheme).copyWith(
+                  fontSize: 13,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                ),
+              ),
               const SizedBox(width: 6),
-              Text('0.00', style: AppType.tag(scheme.primary)),
+              Text(
+                '0.00',
+                style: AppType.tag(scheme.primary).copyWith(fontSize: 16),
+              ),
             ],
           ),
         ],
@@ -375,7 +385,7 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
 
     return MenuAnchor(
       style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(SlackColors.darkSurface),
+        backgroundColor: const WidgetStatePropertyAll(SpotifyColors.surface),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(8),
         padding: const WidgetStatePropertyAll(
@@ -383,8 +393,8 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
         ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-            side: const BorderSide(color: SlackColors.darkBorder),
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: SpotifyColors.border),
           ),
         ),
       ),
@@ -408,9 +418,9 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: SlackColors.darkSurface,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: SlackColors.darkBorder),
+            color: SpotifyColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: SpotifyColors.border),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -520,8 +530,8 @@ class _ExpenditureTile extends StatelessWidget {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: SlackColors.darkSurface,
-              borderRadius: BorderRadius.circular(4),
+              color: SpotifyColors.surface,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: SvgPicture.asset(
               due.icon,
@@ -538,7 +548,12 @@ class _ExpenditureTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(due.title, style: AppType.cardTitle(scheme)),
+                Text(
+                  due.title,
+                  style: AppType.cardTitle(
+                    scheme,
+                  ).copyWith(fontWeight: FontWeight.w500),
+                ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -571,13 +586,13 @@ class _PaidBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = paid
         ? Theme.of(context).colorScheme.primary
-        : SlackColors.tagUrgent;
+        : SpotifyColors.tagUrgent;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(paid ? 'Paid' : 'Unpaid', style: AppType.tag(color)),
     );
@@ -601,7 +616,7 @@ class _TileOptionsMenu extends StatelessWidget {
 
     return MenuAnchor(
       style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(SlackColors.darkSurface),
+        backgroundColor: const WidgetStatePropertyAll(SpotifyColors.surface),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(8),
         padding: const WidgetStatePropertyAll(
@@ -609,8 +624,8 @@ class _TileOptionsMenu extends StatelessWidget {
         ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-            side: const BorderSide(color: SlackColors.darkBorder),
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: SpotifyColors.border),
           ),
         ),
       ),
@@ -646,22 +661,6 @@ class _TileOptionsMenu extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  void _showCheckout(BuildContext context) {
-    final items = _dues
-        .where((d) => !d.paid)
-        .map(
-          (d) =>
-              CheckoutItem(title: d.title, amount: d.amount, iconAsset: d.icon),
-        )
-        .toList();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CheckoutSheet(items: items),
     );
   }
 }

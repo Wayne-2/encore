@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/chat_avatar.dart';
+import '../widgets/chat_bubble.dart';
 
 /// WhatsApp-style group chat interface with Admin Anonymous Mode.
 ///
@@ -98,8 +99,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: _isAnonymousMode
-            ? SlackColors.accentGreen
-            : SlackColors.darkSurface,
+            ? SpotifyColors.accent
+            : SpotifyColors.surface,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         content: Row(
@@ -108,7 +109,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               _isAnonymousMode
                   ? Icons.visibility_off_rounded
                   : Icons.visibility_rounded,
-              color: _isAnonymousMode ? Colors.white : SlackColors.accentGreen,
+              color: _isAnonymousMode ? Colors.white : SpotifyColors.accent,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -160,9 +161,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               child: Container(
                 width: 180,
                 decoration: BoxDecoration(
-                  color: SlackColors.darkSurface,
+                  color: SpotifyColors.surface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: SlackColors.darkBorder, width: 1),
+                  border: Border.all(color: SpotifyColors.border, width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.55),
@@ -237,9 +238,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       appBar: AppBar(
-        backgroundColor: SlackColors.darkHeader,
+        backgroundColor: SpotifyColors.background,
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
@@ -301,7 +302,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           PopupMenuButton<String>(
             key: const ValueKey('chat-three-dots-menu'),
             icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
-            color: SlackColors.darkSurface,
+            color: SpotifyColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
@@ -406,7 +407,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           ? Icons.visibility_rounded
                           : Icons.visibility_off_rounded,
                       size: 20,
-                      color: SlackColors.accentGreen,
+                      color: SpotifyColors.accent,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -418,7 +419,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
-                          color: SlackColors.accentGreen,
+                          color: SpotifyColors.accent,
                         ),
                       ),
                     ),
@@ -529,7 +530,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     Icon(
                       Icons.delete_outline_rounded,
                       size: 20,
-                      color: SlackColors.red,
+                      color: SpotifyColors.danger,
                     ),
                     SizedBox(width: 12),
                     Expanded(
@@ -539,7 +540,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: SlackColors.red,
+                          color: SpotifyColors.danger,
                         ),
                       ),
                     ),
@@ -567,7 +568,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           // WhatsApp doodle/dark chat background with message stream
           Expanded(
             child: Container(
-              color: SlackColors.darkBackground,
+              color: SpotifyColors.background,
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(
@@ -612,11 +613,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         OutlinedButton(
                           onPressed: () => _showGroupInfo(context),
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: SlackColors.darkSurface,
+                            backgroundColor: SpotifyColors.surface,
                             foregroundColor: scheme.onSurface,
-                            side: const BorderSide(
-                              color: SlackColors.darkBorder,
-                            ),
+                            side: const BorderSide(color: SpotifyColors.border),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -646,7 +645,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: SlackColors.darkSurface,
+                            color: SpotifyColors.surface,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -669,7 +668,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: SlackColors.darkSurface,
+                              color: SpotifyColors.surface,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -689,7 +688,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   }
 
                   final message = _messages[index - 1];
-                  return _GroupMessageBubble(message: message);
+                  return ChatBubble(message: message, showSender: true);
                 },
               ),
             ),
@@ -706,7 +705,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
-      color: SlackColors.darkBackground,
+      color: SpotifyColors.background,
       padding: EdgeInsets.only(
         left: 12,
         right: 12,
@@ -730,12 +729,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: _isAttachmentMenuOpen
-                      ? SlackColors.darkHover
-                      : SlackColors.darkSurface,
+                      ? SpotifyColors.surfaceHover
+                      : SpotifyColors.surface,
                   shape: BoxShape.circle,
                   border: _isAnonymousMode
                       ? Border.all(
-                          color: SlackColors.accentGreen.withValues(alpha: 0.6),
+                          color: SpotifyColors.accent.withValues(alpha: 0.6),
                           width: 1.2,
                         )
                       : null,
@@ -760,11 +759,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
-                color: SlackColors.darkSurface,
+                color: SpotifyColors.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: _isAnonymousMode
                     ? Border.all(
-                        color: SlackColors.accentGreen.withValues(alpha: 0.8),
+                        color: SpotifyColors.accent.withValues(alpha: 0.8),
                         width: 1.2,
                       )
                     : null,
@@ -791,7 +790,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         hintStyle: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: _isAnonymousMode
-                              ? SlackColors.accentGreen.withValues(alpha: 0.8)
+                              ? SpotifyColors.accent.withValues(alpha: 0.8)
                               : scheme.onSurfaceVariant,
                           fontSize: 15,
                         ),
@@ -829,7 +828,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       key: const ValueKey('send-button'),
                       icon: const Icon(
                         Icons.arrow_upward_rounded,
-                        color: SlackColors.accentGreen,
+                        color: SpotifyColors.accent,
                         size: 22,
                       ),
                       tooltip: 'Send message',
@@ -849,7 +848,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: SlackColors.darkSurface,
+      backgroundColor: SpotifyColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -888,10 +887,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(
-                  Icons.group,
-                  color: SlackColors.accentGreen,
-                ),
+                leading: const Icon(Icons.group, color: SpotifyColors.accent),
                 title: const Text('Group Members (48)'),
                 subtitle: const Text('View and manage group participants'),
                 onTap: () => Navigator.pop(context),
@@ -899,7 +895,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               ListTile(
                 leading: const Icon(
                   Icons.admin_panel_settings,
-                  color: SlackColors.accentGreen,
+                  color: SpotifyColors.accent,
                 ),
                 title: const Text('Admin Settings'),
                 subtitle: const Text(
@@ -942,7 +938,7 @@ class _FloatingMenuItem extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: SlackColors.darkHover,
+                color: SpotifyColors.surfaceHover,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: scheme.onSurface, size: 20),
@@ -960,202 +956,6 @@ class _FloatingMenuItem extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A WhatsApp-style group message bubble.
-class _GroupMessageBubble extends StatelessWidget {
-  const _GroupMessageBubble({required this.message});
-
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    if (message.isNotice) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: SlackColors.darkSurface,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          message.text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 11.5,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      );
-    }
-
-    final isMe = message.isMe;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Align(
-        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.78,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              // WhatsApp dark green for outgoing, slate for incoming
-              color: isMe ? SlackColors.accentGreen : SlackColors.darkSurface,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(12),
-                topRight: const Radius.circular(12),
-                bottomLeft: isMe ? const Radius.circular(12) : Radius.zero,
-                bottomRight: isMe ? Radius.zero : const Radius.circular(12),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Sender Identification row
-                if (!isMe) ...[
-                  if (message.isAnonymous) ...[
-                    // Anonymous incoming message: no sender identity shown
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.visibility_off_rounded,
-                          size: 13,
-                          color: SlackColors.tagUrgent,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Anonymous Member',
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: SlackColors.tagUrgent.withValues(
-                              alpha: 0.95,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                  ] else if (message.senderName != null) ...[
-                    // Normal incoming group message: colorful sender name
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          message.senderName!,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color:
-                                message.senderColor ?? SlackColors.accentGreen,
-                          ),
-                        ),
-                        if (message.isAdmin) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.onSurface.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              'Admin',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                  ],
-                ] else if (message.isAnonymous) ...[
-                  // For outgoing anonymous message: private indicator that sender ID is concealed
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.visibility_off_rounded,
-                        size: 12,
-                        color: scheme.onPrimary.withValues(alpha: 0.85),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Sent anonymously (No sender ID)',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onPrimary.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                ],
-
-                // Message Text
-                Text(
-                  message.text,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 14.5,
-                    height: 1.3,
-                    color: isMe ? scheme.onPrimary : scheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 3),
-
-                // Timestamp & Checkmarks
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    const Spacer(),
-                    Text(
-                      message.time,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 10.5,
-                        color: isMe
-                            ? scheme.onPrimary.withValues(alpha: 0.7)
-                            : scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.done_all_rounded,
-                        size: 16,
-                        color: scheme.onPrimary,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -1181,10 +981,10 @@ class _AnonymousStatusPill extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: SlackColors.darkSurface,
+        color: SpotifyColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: SlackColors.accentGreen.withValues(alpha: 0.5),
+          color: SpotifyColors.accent.withValues(alpha: 0.5),
           width: 1,
         ),
         boxShadow: [
@@ -1202,7 +1002,7 @@ class _AnonymousStatusPill extends StatelessWidget {
           const Icon(
             Icons.visibility_off_rounded,
             size: 15,
-            color: SlackColors.accentGreen,
+            color: SpotifyColors.accent,
           ),
           const SizedBox(width: 7),
           Text(
@@ -1235,10 +1035,10 @@ class _AnonymousStatusPill extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: SlackColors.red.withValues(alpha: 0.15),
+                  color: SpotifyColors.danger.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: SlackColors.red.withValues(alpha: 0.4),
+                    color: SpotifyColors.danger.withValues(alpha: 0.4),
                     width: 0.8,
                   ),
                 ),
@@ -1248,7 +1048,7 @@ class _AnonymousStatusPill extends StatelessWidget {
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: SlackColors.red,
+                    color: SpotifyColors.danger,
                     height: 1.0,
                   ),
                 ),

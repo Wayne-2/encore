@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// A single story / status item shown in the horizontal `# Story` reel.
 class StoryItem {
@@ -200,7 +200,7 @@ abstract final class MockChatData {
         const ChatMessage(
           id: 'soc-3',
           senderName: '_cypher',
-          senderColor: SlackColors.accentGreen,
+          senderColor: SpotifyColors.accent,
           isAdmin: true,
           text:
               'Make una come collect una assignment, i don finish am and carry una money ooo. i don tire',
@@ -259,7 +259,7 @@ abstract final class MockChatData {
         const ChatMessage(
           id: 'grp-5',
           senderName: '_cypher',
-          senderColor: SlackColors.accentGreen,
+          senderColor: SpotifyColors.accent,
           isAdmin: true,
           text:
               'Make una come collect una assignment, i don finish am and carry una money ooo. i don tire',

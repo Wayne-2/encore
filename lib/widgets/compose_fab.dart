@@ -4,7 +4,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// A single quick action rendered by [ComposeFab].
 typedef ComposeAction = ({String label, IconData icon});
@@ -163,7 +163,7 @@ class _ComposeAction extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: SlackColors.darkSurface,
+                  color: SpotifyColors.surface,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(label, style: AppType.subtitle(scheme)),
@@ -174,9 +174,9 @@ class _ComposeAction extends StatelessWidget {
                 height: 44,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: SlackColors.darkSurface,
+                  color: SpotifyColors.surface,
                   shape: BoxShape.circle,
-                  border: Border.all(color: SlackColors.darkBorder),
+                  border: Border.all(color: SpotifyColors.border),
                 ),
                 child: Icon(icon, size: 20, color: scheme.onSurfaceVariant),
               ),

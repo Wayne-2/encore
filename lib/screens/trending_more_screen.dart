@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// Placeholder destination for the Updates "Show more" action.
 class TrendingMoreScreen extends StatelessWidget {
@@ -12,9 +12,9 @@ class TrendingMoreScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       appBar: AppBar(
-        backgroundColor: SlackColors.darkHeader,
+        backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -26,7 +26,7 @@ class TrendingMoreScreen extends StatelessWidget {
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: scheme.onSurface,
           ),
         ),

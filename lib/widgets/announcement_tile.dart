@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/announcement.dart';
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/slack_type.dart';
+import '../theme/spotify_colors.dart';
 
-/// A single announcement row: sender, time, priority tag and a two-line body.
+/// A single announcement row, matching Slack's message-list dimensions:
+/// a 36dp rounded-square avatar, a bold 15sp sender, a 12sp timestamp and
+/// Slack's 15sp body copy over 16/8 padding.
 class AnnouncementTile extends StatelessWidget {
   const AnnouncementTile({
     super.key,
@@ -24,20 +27,21 @@ class AnnouncementTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipOval(
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
                 child: Image.asset(
                   'assets/launch_icon_foreground.png',
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   fit: BoxFit.cover,
                   filterQuality: FilterQuality.medium,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,18 +53,21 @@ class AnnouncementTile extends StatelessWidget {
                             announcement.author,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: AppType.cardTitle(scheme),
+                            style: SlackType.sender(scheme),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(announcement.time, style: AppType.meta(scheme)),
+                        Text(
+                          announcement.time,
+                          style: SlackType.timestamp(scheme),
+                        ),
                         if (announcement.unread) ...[
                           const SizedBox(width: 6),
                           Container(
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(
-                              color: SlackColors.accentGreen,
+                              color: SpotifyColors.accent,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -77,7 +84,7 @@ class AnnouncementTile extends StatelessWidget {
                       announcement.body,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppType.subtitle(scheme),
+                      style: SlackType.body(scheme),
                     ),
                   ],
                 ),

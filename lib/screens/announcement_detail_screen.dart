@@ -4,7 +4,8 @@ import '../models/announcement.dart';
 import '../models/comment.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/slack_type.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/reaction_bar.dart';
 
@@ -48,9 +49,9 @@ class AnnouncementDetailScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       appBar: AppBar(
-        backgroundColor: SlackColors.darkHeader,
+        backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -62,7 +63,7 @@ class AnnouncementDetailScreen extends StatelessWidget {
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: scheme.onSurface,
           ),
         ),
@@ -93,39 +94,40 @@ class _AnnouncementHeader extends StatelessWidget {
           Row(
             children: [
               ClipOval(
-                child: Image.asset(
-                  'assets/launch_icon_foreground.png',
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.medium,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(announcement.author, style: AppType.name(scheme)),
-                    const SizedBox(height: 2),
-                    Text(announcement.time, style: AppType.meta(scheme)),
+                      child: Image.asset(
+                        'assets/launch_icon_foreground.png',
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.medium,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            announcement.author,
+                            style: SlackType.sender(scheme),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            announcement.time,
+                            style: SlackType.timestamp(scheme),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(announcement.tag, style: AppType.tag(announcement.tagColor)),
-          const SizedBox(height: 12),
-          Text(
-            announcement.body,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
-              height: 1.35,
-              color: scheme.onSurface,
-            ),
-          ),
+                const SizedBox(height: 16),
+                Text(announcement.tag, style: AppType.tag(announcement.tagColor)),
+                const SizedBox(height: 12),
+                Text(
+                  announcement.body,
+                  style: SlackType.body(scheme),
+                ),
           const SizedBox(height: 12),
           const ReactionBar(initial: {'👍': 8, '🎉': 2}),
         ],

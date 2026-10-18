@@ -4,7 +4,7 @@ import '../models/comment.dart';
 import '../models/trend.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/reaction_bar.dart';
 
@@ -39,9 +39,9 @@ class TrendingDetailScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: SlackColors.darkBackground,
+      backgroundColor: SpotifyColors.background,
       appBar: AppBar(
-        backgroundColor: SlackColors.darkHeader,
+        backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
@@ -53,7 +53,7 @@ class TrendingDetailScreen extends StatelessWidget {
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: scheme.onSurface,
           ),
         ),
@@ -110,15 +110,7 @@ class _TrendHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            trend.body,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
-              height: 1.35,
-              color: scheme.onSurface,
-            ),
-          ),
+          Text(trend.body, style: AppType.body(scheme)),
           const SizedBox(height: 12),
           const ReactionBar(initial: {'🔥': 5, '👏': 2}),
         ],

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/comment.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import 'chat_avatar.dart';
 import 'reaction_bar.dart';
 import 'section_heading.dart';
@@ -82,7 +82,7 @@ class _CommentThreadState extends State<CommentThread> {
               const Divider(
                 height: 1,
                 thickness: 1,
-                color: SlackColors.darkBorder,
+                color: SpotifyColors.border,
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
@@ -100,7 +100,7 @@ class _CommentThreadState extends State<CommentThread> {
                     height: 1,
                     thickness: 1,
                     indent: 68,
-                    color: SlackColors.darkBorder,
+                    color: SpotifyColors.border,
                   ),
                 _CommentTile(comment: _comments[i]),
               ],
@@ -119,7 +119,7 @@ class _CommentThreadState extends State<CommentThread> {
     final canSend = _commentController.text.trim().isNotEmpty;
 
     return Container(
-      color: SlackColors.darkBackground,
+      color: SpotifyColors.background,
       padding: EdgeInsets.only(
         left: 12,
         right: 12,
@@ -133,7 +133,7 @@ class _CommentThreadState extends State<CommentThread> {
             child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               decoration: BoxDecoration(
-                color: SlackColors.darkSurface,
+                color: SpotifyColors.surface,
                 borderRadius: BorderRadius.circular(24),
               ),
               padding: const EdgeInsets.only(left: 16, right: 6),
@@ -179,7 +179,7 @@ class _CommentThreadState extends State<CommentThread> {
                     icon: Icon(
                       Icons.arrow_upward_rounded,
                       color: canSend
-                          ? SlackColors.accentGreen
+                          ? SpotifyColors.accent
                           : scheme.onSurfaceVariant,
                       size: 22,
                     ),
@@ -213,7 +213,7 @@ class _CommentTile extends StatelessWidget {
         children: [
           ChatAvatar(
             avatarInitials: comment.initials,
-            avatarColor: SlackColors.darkHeader,
+            avatarColor: SpotifyColors.background,
             size: 40,
           ),
           const SizedBox(width: 12),

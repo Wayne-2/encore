@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../navigation/app_route.dart';
-import '../../theme/slack_colors.dart';
+import '../../theme/spotify_colors.dart';
 import '../getting_ready_screen.dart';
 import 'auth_field.dart';
 import 'auth_scaffold.dart';
@@ -141,7 +141,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         animation: primaryAnimation,
                         secondaryAnimation: secondaryAnimation,
                         transitionType: SharedAxisTransitionType.vertical,
-                        fillColor: SlackColors.darkBackground,
+                        fillColor: SpotifyColors.background,
                         child: child,
                       );
                     },
@@ -404,7 +404,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           child: TextButton(
             onPressed: _resendEmail,
             style: TextButton.styleFrom(
-              foregroundColor: SlackColors.accentGreen,
+              foregroundColor: SpotifyColors.accent,
               textStyle: AuthScaffold.linkStyle,
             ),
             child: const Text('Resend email'),
@@ -451,7 +451,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 right: 0,
                 bottom: 0,
                 child: Material(
-                  color: SlackColors.accentGreen,
+                  color: SpotifyColors.accent,
                   shape: const CircleBorder(),
                   child: InkWell(
                     onTap: _pickPhoto,
@@ -481,7 +481,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           child: TextButton(
             onPressed: _skipPhoto,
             style: TextButton.styleFrom(
-              foregroundColor: SlackColors.accentGreen,
+              foregroundColor: SpotifyColors.accent,
               textStyle: AuthScaffold.linkStyle,
             ),
             child: const Text('Skip for now'),
@@ -541,7 +541,7 @@ class _StepIndicator extends StatelessWidget {
               height: 4,
               decoration: BoxDecoration(
                 color: i <= step
-                    ? SlackColors.accentGreen
+                    ? SpotifyColors.accent
                     : Theme.of(context).colorScheme.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),

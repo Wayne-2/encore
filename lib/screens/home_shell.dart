@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_theme.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import 'finance_screen.dart';
 import 'messages_screen.dart';
 import 'more_screen.dart';
@@ -37,7 +37,7 @@ class _HomeShellState extends State<HomeShell> {
 
   /// Light status-bar icons over the dark header colour.
   static const SystemUiOverlayStyle _overlayStyle = SystemUiOverlayStyle(
-    statusBarColor: SlackColors.darkHeader,
+    statusBarColor: SpotifyColors.background,
     statusBarIconBrightness: Brightness.light,
     statusBarBrightness: Brightness.dark,
   );
@@ -61,7 +61,7 @@ class _HomeShellState extends State<HomeShell> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _overlayStyle,
       child: Scaffold(
-        backgroundColor: SlackColors.darkBackground,
+        backgroundColor: SpotifyColors.background,
         body: PageView.builder(
           controller: _controller,
           itemCount: _tabs.length,
@@ -119,7 +119,7 @@ class _BottomNavBar extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: SlackColors.darkSurface,
+        color: SpotifyColors.surface,
         border: Border(top: BorderSide(color: scheme.outline)),
       ),
       child: SafeArea(
@@ -167,7 +167,7 @@ class _NavButton extends StatelessWidget {
 
     final color = Color.lerp(
       scheme.onSurfaceVariant,
-      SlackColors.accentGreen,
+      SpotifyColors.accent,
       t,
     )!;
 
@@ -190,7 +190,7 @@ class _NavButton extends StatelessWidget {
                       width: 44,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: SlackColors.accentGreen.withValues(alpha: 0.16),
+                        color: SpotifyColors.accent.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),

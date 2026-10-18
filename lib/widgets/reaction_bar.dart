@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 
 /// Emoji offered by the reaction picker.
 const List<String> _emojiPalette = [
@@ -59,7 +59,7 @@ class _ReactionBarState extends State<ReactionBar> {
   Future<void> _openPicker() async {
     final emoji = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: SlackColors.darkSurface,
+      backgroundColor: SpotifyColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -108,9 +108,9 @@ class _ReactionBarState extends State<ReactionBar> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: SlackColors.darkHover,
+                color: SpotifyColors.surfaceHover,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: SlackColors.darkBorder),
+                border: Border.all(color: SpotifyColors.border),
               ),
               child: Icon(
                 Icons.add_reaction_outlined,
@@ -152,11 +152,11 @@ class _ReactionChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: active
-                ? SlackColors.accentGreen.withValues(alpha: 0.16)
-                : SlackColors.darkHover,
+                ? SpotifyColors.accent.withValues(alpha: 0.16)
+                : SpotifyColors.surfaceHover,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: active ? SlackColors.accentGreen : SlackColors.darkBorder,
+              color: active ? SpotifyColors.accent : SpotifyColors.border,
             ),
           ),
           child: Row(
@@ -169,7 +169,7 @@ class _ReactionChip extends StatelessWidget {
                 style: AppType.meta(scheme).copyWith(
                   fontSize: 11,
                   color: active
-                      ? SlackColors.accentGreen
+                      ? SpotifyColors.accent
                       : scheme.onSurfaceVariant,
                 ),
               ),

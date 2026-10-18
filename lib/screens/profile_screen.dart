@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
-import '../theme/slack_colors.dart';
+import '../theme/spotify_colors.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/workspace_app_bar.dart';
 
@@ -36,7 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Row(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                       child: Image.asset(
                         'assets/launch_icon_foreground.png',
                         width: 64,
@@ -92,11 +92,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 thickness: 1,
                 indent: 16,
                 endIndent: 16,
-                color: SlackColors.darkBorder,
+                color: SpotifyColors.border,
               ),
               const _ProfileBanner(),
               const Padding(
-                padding: EdgeInsets.fromLTRB(16, 28, 16, 0),
+                padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
                 child: SectionHeading('My Academic Schedules'),
               ),
               Padding(
@@ -140,9 +140,9 @@ class _ProfileBanner extends StatelessWidget {
         width: double.infinity,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: SlackColors.darkSurface,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: SlackColors.darkBorder),
+          color: SpotifyColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: SpotifyColors.border),
         ),
         child: Stack(
           clipBehavior: Clip.hardEdge,
@@ -221,7 +221,7 @@ class _ProfileBanner extends StatelessWidget {
                             value: 0.7,
                             minHeight: 2,
                             color: scheme.primary,
-                            backgroundColor: SlackColors.darkBorder,
+                            backgroundColor: SpotifyColors.border,
                           ),
                         ),
                       ),
@@ -237,14 +237,7 @@ class _ProfileBanner extends StatelessWidget {
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: () {},
-                    child: const Text(
-                      'Manage Health',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('Manage Health'),
                   ),
                 ],
               ),
@@ -314,7 +307,7 @@ class _SchedulePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = selected ? SlackColors.accentGreen : scheme.onSurfaceVariant;
+    final color = selected ? SpotifyColors.accent : scheme.onSurfaceVariant;
 
     return GestureDetector(
       onTap: onTap,
@@ -323,19 +316,19 @@ class _SchedulePill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
           color: selected
-              ? SlackColors.accentGreen.withValues(alpha: 0.16)
+              ? SpotifyColors.accent.withValues(alpha: 0.16)
               : Colors.transparent,
           border: Border.all(
-            color: selected ? SlackColors.accentGreen : scheme.outline,
+            color: selected ? SpotifyColors.accent : scheme.outline,
           ),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
             color: color,
           ),
         ),
