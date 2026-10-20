@@ -11,5 +11,46 @@ service cloud.firestore {
         && request.auth.uid == userId;
       allow delete: if false;
     }
+
+    // Announcements are scoped to a department + level group. Only users in
+    // that group may read a post; authors create and delete their own posts.
+    // Editing is not supported.
+    match /announcements/{announcementId} {
+      function profile() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      }
+      function departmentCode() {
+        let stored = profile().department is string
+          ? profile().department.trim()
+          : '';
+        let key = stored.lower();
+        return key == 'computer science' || key == 'csc' ? 'CSC'
+          : key == 'software engineering' || key == 'soe' ? 'SOE'
+          : key == 'cyber security' || key == 'cybersecurity' || key == 'cyb' ? 'CYB'
+          : key == 'information technology' || key == 'ift' ? 'IFT'
+          : stored;
+      }
+      function groupLevel() {
+        return profile().level is string ? profile().level.trim() : '';
+      }
+      function hasGroup() {
+        return departmentCode() != '' && groupLevel() != '';
+      }
+      allow read: if request.auth != null
+        && hasGroup()
+        && resource.data.department == departmentCode()
+        && resource.data.level == groupLevel();
+      allow create: if request.auth != null
+        && hasGroup()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.department == departmentCode()
+        && request.resource.data.level == groupLevel()
+        && request.resource.data.author is string
+        && request.resource.data.body is string
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+    }
   }
 }

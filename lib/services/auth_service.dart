@@ -1,6 +1,18 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:http/http.dart' as http;
+
+import '../config/app_config.dart';
+
+/// Thrown when the admin ID entered on login doesn't match the one saved on
+/// the account during sign-up.
+class AdminIdException implements Exception {
+  const AdminIdException();
+}
 
 /// Thin wrapper around Firebase Auth + Firestore for the auth screens.
 ///
@@ -25,6 +37,23 @@ class AuthService {
 
   User? get currentUser => isAvailable ? _auth.currentUser : null;
 
+  /// Resolves the user persisted from a previous launch.
+  ///
+  /// [currentUser] can still be null right after startup while Firebase
+  /// restores the saved session, so the splash waits on the auth stream.
+  Future<User?> restoreUser() async {
+    if (!isAvailable) return null;
+    final user = _auth.currentUser;
+    if (user != null) return user;
+    try {
+      return await _auth.authStateChanges().first.timeout(
+        const Duration(seconds: 5),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> signUp({required String email, required String password}) async {
     await _auth.createUserWithEmailAndPassword(
       email: email,
@@ -32,8 +61,33 @@ class AuthService {
     );
   }
 
-  Future<void> signIn({required String email, required String password}) async {
+  /// Signs in with email + password.
+  ///
+  /// [adminId] is optional: when provided it must match the `adminId` saved on
+  /// the user's document (set during sign-up). A mismatch signs the user back
+  /// out and throws [AdminIdException]. Leaving it empty signs the user in as
+  /// a normal (student) user.
+  Future<void> signIn({
+    required String email,
+    required String password,
+    String? adminId,
+  }) async {
     await _auth.signInWithEmailAndPassword(email: email, password: password);
+
+    final entered = adminId?.trim() ?? '';
+    if (entered.isEmpty) return;
+
+    final uid = _auth.currentUser?.uid;
+    final saved = uid == null
+        ? null
+        : (await _firestore.collection('users').doc(uid).get())
+                  .data()?['adminId']
+              as String?;
+
+    if (saved == null || saved != entered) {
+      await _auth.signOut();
+      throw const AdminIdException();
+    }
   }
 
   Future<void> signOut() => _auth.signOut();
@@ -47,8 +101,48 @@ class AuthService {
     await _auth.currentUser?.updatePhotoURL(url);
   }
 
+  /// Sends the verification email.
+  ///
+  /// Tries, in order: the Cloudflare Worker (Brevo HTTP API), the Firebase
+  /// `sendVerificationEmail` Cloud Function (Admin SDK + Brevo SMTP), then
+  /// Firebase's own verification email — so sign-up always gets an email.
   Future<void> sendVerificationEmail() async {
-    await _auth.currentUser?.sendEmailVerification();
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    if (await _sendVerificationViaWorker(user)) return;
+    if (await _sendVerificationViaFunction(user)) return;
+    await user.sendEmailVerification();
+  }
+
+  Future<bool> _sendVerificationViaWorker(User user) async {
+    final base = AppConfig.r2WorkerUrl;
+    if (base.isEmpty) return false;
+    try {
+      final token = await user.getIdToken();
+      final response = await http.post(
+        Uri.parse('$base/verify/send'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(<String, dynamic>{'email': user.email}),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _sendVerificationViaFunction(User user) async {
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('sendVerificationEmail')
+          .call(<String, dynamic>{'email': user.email});
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> sendPasswordReset(String email) {
@@ -107,6 +201,47 @@ class AuthService {
       'photoUrl': photoUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// The signed-in user's profile document, or null when unavailable.
+  Future<Map<String, dynamic>?> currentUserProfile() async {
+    final uid = currentUser?.uid;
+    if (uid == null) return null;
+    final snapshot = await _firestore.collection('users').doc(uid).get();
+    return snapshot.data();
+  }
+
+  /// Streams the signed-in user's profile document, so screens can react to
+  /// edits (photo, level, department, bio) without a reload.
+  Stream<Map<String, dynamic>?> currentUserProfileStream() {
+    final uid = currentUser?.uid;
+    if (uid == null) return Stream.value(null);
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((snapshot) => snapshot.data());
+  }
+
+  /// Updates the editable parts of the signed-in user's profile.
+  ///
+  /// Returns `false` when there is no signed-in user to update.
+  Future<bool> updateProfile({
+    required String username,
+    required String bio,
+    String? photoUrl,
+  }) async {
+    final user = currentUser;
+    if (user == null) return false;
+    await _firestore.collection('users').doc(user.uid).set({
+      'username': username,
+      'bio': bio,
+      'photoUrl': ?photoUrl,
+    }, SetOptions(merge: true));
+    if (photoUrl != null) {
+      await user.updatePhotoURL(photoUrl);
+    }
+    return true;
   }
 
   /// Maps a [FirebaseAuthException] to a friendly, user-facing message.

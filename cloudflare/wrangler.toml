@@ -13,8 +13,16 @@ bucket_name = "encore"
 # The API token is NOT stored here. Set the R2 S3 credentials once with:
 #   npx wrangler secret put R2_ACCESS_KEY_ID
 #   npx wrangler secret put R2_SECRET_ACCESS_KEY
+#
+# Email verification secrets (Firebase Admin + Brevo HTTP API):
+#   npx wrangler secret put FIREBASE_SERVICE_ACCOUNT   # service-account JSON
+#   npx wrangler secret put BREVO_API_KEY              # xkeysib-…
 [vars]
 R2_ACCOUNT_ID = "7703ec04da7f6da0814381aa9da69f89"
 R2_BUCKET = "encore"
 UPLOAD_PREFIX = "uploads"
 ALLOWED_ORIGIN = "*"
+FIREBASE_PROJECT_ID = "encore-9bb7c"
+MAIL_FROM = "encore.emailservice@gmail.com"
+MAIL_FROM_NAME = "Encore"
+APP_CONTINUE_URL = "https://encore-9bb7c.web.app"

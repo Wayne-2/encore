@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../navigation/app_route.dart';
 import '../../services/auth_service.dart';
+import '../../services/session_service.dart';
 import '../../theme/spotify_colors.dart';
 import '../../widgets/auth_dialog.dart';
 import '../../widgets/loading_overlay.dart';
@@ -24,12 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _adminId = TextEditingController();
   bool _submitting = false;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _adminId.dispose();
     super.dispose();
   }
 
@@ -47,9 +50,21 @@ class _LoginScreenState extends State<LoginScreen> {
       await AuthService.instance.signIn(
         email: _email.text.trim(),
         password: _password.text,
+        adminId: _adminId.text,
       );
+      await SessionService.instance.markLoggedIn();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(fadeRoute<void>(const HomeShell()));
+    } on AdminIdException {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      await showAuthDialog(
+        context,
+        title: 'Incorrect admin ID',
+        message:
+            'That admin ID doesn’t match this account. Leave it blank to log '
+            'in as a normal user.',
+      );
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -151,10 +166,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: 'password',
                   controller: _password,
                   obscureText: true,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.password],
                   validator: (v) =>
                       (v == null || v.isEmpty) ? 'Enter your password' : null,
+                ),
+                const SizedBox(height: 20),
+                AuthField(
+                  label: 'Admin ID',
+                  hint: 'Admin ID (optional)',
+                  icon: 'registration_number',
+                  controller: _adminId,
+                  textInputAction: TextInputAction.done,
                 ),
                 const SizedBox(height: 8),
                 Align(

@@ -1,5 +1,7 @@
 import { AwsClient } from 'aws4fetch';
 
+import { handleVerifySend } from './verify.js';
+
 // Signed-URL lifetime, in seconds.
 const EXPIRES = 900;
 
@@ -10,7 +12,7 @@ function cors(env) {
   return {
     'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
 
@@ -21,6 +23,7 @@ function json(data, status, env) {
 // - GET  /health      -> { ok: true }
 // - GET  /media/<key> -> streams the object from the R2 bucket
 // - POST /sign        -> { key, uploadUrl, publicUrl, expiresIn }
+// - POST /verify/send -> mints a Firebase verification link and emails it
 //
 // Uploads never pass through the Worker: the app gets a short-lived presigned
 // PUT URL, uploads straight to R2, and reads back through /media. The R2
@@ -36,6 +39,10 @@ export default {
 
     if (request.method === 'GET' && pathname === '/health') {
       return json({ ok: true }, 200, env);
+    }
+
+    if (request.method === 'POST' && pathname === '/verify/send') {
+      return handleVerifySend(request, env, json);
     }
 
     if (request.method === 'GET' && pathname.startsWith(MEDIA_PATH)) {

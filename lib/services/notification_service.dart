@@ -16,6 +16,8 @@ const String _channelDescription = 'General Encore notifications';
 const String _icon = '@drawable/ic_notification';
 const Color _accent = Color(0xFF25A10C);
 const int _welcomeNotificationId = 1001;
+const int _profileUpdatedNotificationId = 1002;
+const int _announcementNotificationId = 1003;
 
 /// FCM handler for messages that arrive while the app is in the background.
 ///
@@ -160,6 +162,44 @@ class NotificationService {
       body: name.isEmpty ? 'Your account is ready.' : 'Welcome, $name',
       notificationDetails: _details,
     );
+  }
+
+  /// Shows a confirmation after the user saves changes on the profile page.
+  Future<void> showProfileUpdated() async {
+    if (!_initialized) await initialize();
+    if (!_initialized) return;
+
+    await _local.show(
+      id: _profileUpdatedNotificationId,
+      title: 'Profile updated',
+      body: 'Your profile changes have been saved.',
+      notificationDetails: _details,
+    );
+  }
+
+  /// Notifies the feed that [author] published an announcement with
+  /// [priority] (e.g. "Highly prior").
+  ///
+  /// Best-effort: a platform that cannot show notifications must never break
+  /// the posting flow.
+  Future<void> showNewAnnouncement({
+    required String author,
+    required String priority,
+  }) async {
+    try {
+      if (!_initialized) await initialize();
+      if (!_initialized) return;
+
+      final name = author.trim().isEmpty ? 'A user' : author.trim();
+      await _local.show(
+        id: _announcementNotificationId,
+        title: 'New announcement from $name',
+        body: 'Priority: $priority',
+        notificationDetails: _details,
+      );
+    } catch (_) {
+      // Local notifications are unavailable in this environment.
+    }
   }
 
   Future<void> _onForegroundMessage(RemoteMessage message) async {

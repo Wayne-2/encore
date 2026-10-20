@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../theme/spotify_colors.dart';
+
 /// A text input for the auth forms.
 ///
 /// Uses a placeholder only (no floating label). A leading icon is shown from
@@ -16,6 +18,7 @@ class AuthField extends StatefulWidget {
     this.hint,
     this.initialValue,
     this.obscureText = false,
+    this.enabled = true,
     this.keyboardType,
     this.textInputAction,
     this.prefixText,
@@ -34,6 +37,10 @@ class AuthField extends StatefulWidget {
   final String? hint;
   final String? initialValue;
   final bool obscureText;
+
+  /// When false the field is read-only and uses a subdued palette.
+  final bool enabled;
+
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
 
@@ -55,7 +62,9 @@ class _AuthFieldState extends State<AuthField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tint = theme.colorScheme.onSurfaceVariant;
+    final tint = widget.enabled
+        ? theme.colorScheme.onSurfaceVariant
+        : SpotifyColors.textSubdued.withValues(alpha: 0.4);
 
     Widget svgIcon(String name) => SvgPicture.asset(
       'assets/icons/$name.svg',
@@ -67,6 +76,7 @@ class _AuthFieldState extends State<AuthField> {
     return TextFormField(
       controller: widget.controller,
       initialValue: widget.initialValue,
+      enabled: widget.enabled,
       obscureText: _obscured,
       keyboardType: widget.keyboardType,
       textInputAction: widget.textInputAction,
@@ -74,11 +84,24 @@ class _AuthFieldState extends State<AuthField> {
       autofillHints: widget.autofillHints,
       validator: widget.validator,
       inputFormatters: widget.inputFormatters,
-      style: theme.textTheme.bodyLarge,
+      style: widget.enabled
+          ? theme.textTheme.bodyLarge
+          : theme.textTheme.bodyLarge?.copyWith(
+              color: SpotifyColors.textSubdued.withValues(alpha: 0.5),
+            ),
       decoration: InputDecoration(
         hintText: widget.hint ?? widget.label,
         prefixIcon: _leadingIcon(theme, tint, svgIcon),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        fillColor: widget.enabled
+            ? null
+            : SpotifyColors.surface.withValues(alpha: 0.5),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: SpotifyColors.border.withValues(alpha: 0.5),
+          ),
+        ),
         suffixIcon: widget.obscureText
             ? IconButton(
                 tooltip: _obscured ? 'Show password' : 'Hide password',

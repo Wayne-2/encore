@@ -14,9 +14,12 @@ typedef ComposeAction = ({String label, IconData icon});
 /// Tapping the add button rotates it 45° into a close icon while a stack of
 /// quick actions — supplied via [actions] — is revealed above it.
 class ComposeFab extends StatefulWidget {
-  const ComposeFab({super.key, required this.actions});
+  const ComposeFab({super.key, required this.actions, this.onActionSelected});
 
   final List<ComposeAction> actions;
+
+  /// Called when a revealed action is tapped. The menu closes first.
+  final ValueChanged<ComposeAction>? onActionSelected;
 
   @override
   State<ComposeFab> createState() => _ComposeFabState();
@@ -94,6 +97,13 @@ class _ComposeFabState extends State<ComposeFab>
                         label: widget.actions[i].label,
                         icon: widget.actions[i].icon,
                         animation: _reveals[i],
+                        onTap: widget.onActionSelected == null
+                            ? null
+                            : () {
+                                final action = widget.actions[i];
+                                _toggle();
+                                widget.onActionSelected!(action);
+                              },
                       ),
                   GestureDetector(
                     onTap: _toggle,
@@ -137,11 +147,13 @@ class _ComposeAction extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.animation,
+    this.onTap,
   });
 
   final String label;
   final IconData icon;
   final Animation<double> animation;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -152,35 +164,39 @@ class _ComposeAction extends StatelessWidget {
       alignment: Alignment.bottomLeft,
       child: FadeTransition(
         opacity: animation,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: SpotifyColors.surface,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(label, style: AppType.subtitle(scheme)),
                 ),
-                decoration: BoxDecoration(
-                  color: SpotifyColors.surface,
-                  borderRadius: BorderRadius.circular(4),
+                const SizedBox(width: 10),
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: SpotifyColors.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: SpotifyColors.border),
+                  ),
+                  child: Icon(icon, size: 20, color: scheme.onSurfaceVariant),
                 ),
-                child: Text(label, style: AppType.subtitle(scheme)),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: SpotifyColors.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: SpotifyColors.border),
-                ),
-                child: Icon(icon, size: 20, color: scheme.onSurfaceVariant),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

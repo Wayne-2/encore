@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../data/announcements.dart';
 import '../models/announcement.dart';
 import '../navigation/app_route.dart';
+import '../services/announcement_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/announcement_tile.dart';
@@ -22,13 +22,26 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   static const List<String> _filters = ['Latest', 'Unread', 'Urgent'];
   int _filter = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    AnnouncementStore.instance.listen();
+  }
+
   List<Announcement> get _items {
-    final all = kAnnouncements;
+    final all = AnnouncementStore.instance.items;
     return switch (_filter) {
       1 => all.where((a) => a.unread).toList(),
       2 => all.where((a) => a.tag.toLowerCase().contains('high')).toList(),
       _ => List.of(all),
     };
+  }
+
+  void _open(Announcement announcement) {
+    AnnouncementStore.instance.markRead(announcement);
+    Navigator.of(
+      context,
+    ).push(fadeRoute(AnnouncementDetailScreen(announcement: announcement)));
   }
 
   @override
@@ -65,26 +78,30 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           ),
           const SizedBox(height: 4),
           Expanded(
-            child: _items.isEmpty
-                ? const Center(child: _EmptyState())
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _items.length,
-                    separatorBuilder: (_, _) => const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: SpotifyColors.border,
-                    ),
-                    itemBuilder: (context, i) => AnnouncementTile(
-                      key: ValueKey('all-announcement-$i'),
-                      announcement: _items[i],
-                      onTap: () => Navigator.of(context).push(
-                        fadeRoute(
-                          AnnouncementDetailScreen(announcement: _items[i]),
-                        ),
-                      ),
-                    ),
+            child: AnimatedBuilder(
+              animation: AnnouncementStore.instance,
+              builder: (context, _) {
+                final items = _items;
+                if (items.isEmpty) {
+                  return const Center(child: _EmptyState());
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: SpotifyColors.border,
                   ),
+                  itemBuilder: (context, i) => AnnouncementTile(
+                    key: ValueKey('all-announcement-$i'),
+                    announcement: items[i],
+                    onTap: () => _open(items[i]),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),

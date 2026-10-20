@@ -8,10 +8,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../config/app_config.dart';
+import '../../data/departments.dart';
 import '../../navigation/app_route.dart';
 import '../../services/auth_service.dart';
 import '../../services/media_storage.dart';
 import '../../services/notification_service.dart';
+import '../../services/session_service.dart';
 import '../../theme/spotify_colors.dart';
 import '../../widgets/app_loader.dart';
 import '../../widgets/auth_dialog.dart';
@@ -59,11 +61,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
 
   // Step 2 — school details.
   final _regNumber = TextEditingController();
-  final _department = TextEditingController();
-  final _faculty = TextEditingController();
-  final _adminId = TextEditingController();
+  String? _department;
   String? _role;
   String? _level;
+  final _adminId = TextEditingController();
 
   // Step 4 — profile picture.
   final _media = MediaStorage(workerUrl: AppConfig.r2WorkerUrl);
@@ -105,6 +106,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     'Alumni',
   ];
 
+  /// Departments offered to students.
+  static const List<String> _departments = kDepartments;
+
+  /// The faculty is fixed for now (SICT).
+  static const String _faculty = 'SICT';
+
   @override
   void initState() {
     super.initState();
@@ -120,8 +127,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     _email.dispose();
     _password.dispose();
     _regNumber.dispose();
-    _department.dispose();
-    _faculty.dispose();
     _adminId.dispose();
     _media.dispose();
     super.dispose();
@@ -141,6 +146,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
       if (registered && mounted) {
         _registered = true;
         _enterVerificationStep();
+        // Confirm the custom (Brevo) email actually went out.
+        if (AuthService.isAvailable) {
+          _showSnack('Verification email sent');
+        }
       }
       return;
     }
@@ -194,12 +203,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   }
 
   void _showVerifiedSnackBar() {
+    _showSnack('Email verified — you’re all set.');
+  }
+
+  /// Shows a themed snack bar (see `snackBarTheme` in [AppTheme]).
+  void _showSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Email verified — you’re all set.')),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -281,8 +293,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
             username: '_${_username.text.trim().toLowerCase()}',
             email: _email.text.trim(),
             registrationNumber: _regNumber.text.trim(),
-            department: _department.text.trim(),
-            faculty: _faculty.text.trim(),
+            department: _department ?? '',
+            faculty: _faculty,
             role: _role ?? '',
             level: _level,
             adminId: _role == _adminRole ? _adminId.text.trim() : null,
@@ -326,6 +338,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
           });
         }
       }
+      await SessionService.instance.markLoggedIn();
     }
     _continueToLoading();
   }
@@ -382,7 +395,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
           _avatarUrl = url;
           _uploading = false;
         });
-      } catch (_) {
+      } catch (error) {
+        debugPrint('Avatar upload failed: $error');
         if (!mounted) return;
         setState(() {
           _uploading = false;
@@ -418,7 +432,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   }
 
   Future<void> _resendEmail() async {
-    final email = _email.text.trim();
     if (!AuthService.isAvailable) return;
 
     setState(() {
@@ -432,13 +445,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         _busy = false;
         _busyLabel = null;
       });
-      await showAuthDialog(
-        context,
-        title: 'Email sent',
-        message:
-            'We sent a fresh verification link to '
-            '${email.isEmpty ? 'your email' : email}.',
-      );
+      _showSnack('Verification email sent');
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -627,27 +634,48 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
           },
         ),
         const SizedBox(height: 16),
-        AuthField(
-          label: 'Department',
-          icon: 'department',
-          controller: _department,
-          textCapitalization: TextCapitalization.words,
-          textInputAction: TextInputAction.next,
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Enter your department' : null,
+        DropdownButtonFormField<String>(
+          key: const ValueKey('department-dropdown'),
+          initialValue: _department,
+          onChanged: (value) => setState(() => _department = value),
+          isExpanded: true,
+          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+          style: Theme.of(context).textTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: 'Department',
+            prefixIcon: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: SvgPicture.asset(
+                'assets/icons/department.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  Theme.of(context).colorScheme.onSurfaceVariant,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 0,
+              minHeight: 0,
+            ),
+          ),
+          items: [
+            for (final department in _departments)
+              DropdownMenuItem(value: department, child: Text(department)),
+          ],
+          validator: (v) => v == null ? 'Select your department' : null,
         ),
         const SizedBox(height: 16),
-        AuthField(
+        const AuthField(
           label: 'Faculty',
           icon: 'faculty',
-          controller: _faculty,
-          textCapitalization: TextCapitalization.words,
-          textInputAction: TextInputAction.next,
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Enter your faculty' : null,
+          initialValue: _faculty,
+          enabled: false,
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
+          key: const ValueKey('role-dropdown'),
           initialValue: _role,
           onChanged: (value) => setState(() => _role = value),
           isExpanded: true,
@@ -673,6 +701,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: DropdownButtonFormField<String>(
+                    key: const ValueKey('level-dropdown'),
                     initialValue: _level,
                     onChanged: (value) => setState(() => _level = value),
                     isExpanded: true,
@@ -818,7 +847,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         Center(
           child: Stack(
             children: [
-              ClipOval(
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
                 child: SizedBox(
                   width: 104,
                   height: 104,
@@ -846,9 +876,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
                 ),
               ),
               if (_uploading)
-                const Positioned.fill(
-                  child: ClipOval(child: ShimmerBox(shape: BoxShape.circle)),
-                ),
+                const Positioned.fill(child: ShimmerBox(borderRadius: 4)),
             ],
           ),
         ),

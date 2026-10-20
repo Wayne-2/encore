@@ -2,30 +2,109 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/edit_profile_sheet.dart';
 
 /// The Profile section — the fourth tab of [HomeShell].
 ///
 /// A full-bleed hero profile modelled on the supplied `profiledesign.jpeg`: a
 /// portrait photo fading into the app background, the name, handle, bio and a
 /// bordered details banner.
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  static const String _bioPlaceholder = 'Edit your profile to add your bio';
+
+  String _fullName = 'Odeh\nSolomon';
+  String _username = '_wayne';
+  String _email = 'sodeh138@gmail.com';
+  String _bio = _bioPlaceholder;
+  bool _hasStoredBio = false;
+  String? _photoUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!AuthService.isAvailable) return;
+    try {
+      final data = await AuthService.instance.currentUserProfile();
+      if (!mounted || data == null) return;
+
+      final fullName = data['fullName'] as String?;
+      final username = data['username'] as String?;
+      final email = data['email'] as String?;
+      final bio = data['bio'] as String?;
+      final photoUrl = data['photoUrl'] as String?;
+
+      setState(() {
+        if (fullName != null && fullName.trim().isNotEmpty) {
+          _fullName = fullName;
+        }
+        if (username != null && username.trim().isNotEmpty) {
+          _username = username;
+        }
+        if (email != null && email.trim().isNotEmpty) {
+          _email = email;
+        }
+        if (bio != null) {
+          _bio = bio;
+          _hasStoredBio = true;
+        }
+        if (photoUrl != null && photoUrl.trim().isNotEmpty) {
+          _photoUrl = photoUrl;
+        }
+      });
+    } catch (_) {
+      // Keep the design fallback when the profile can't be read.
+    }
+  }
+
+  Future<void> _editProfile() async {
+    final saved = await showEditProfileSheet(
+      context,
+      username: _username,
+      bio: _hasStoredBio ? _bio : '',
+      photoUrl: _photoUrl,
+    );
+    if (saved == true) await _load();
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final topInset = MediaQuery.of(context).padding.top;
+    final hasBio = _bio.trim().isNotEmpty;
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          'assets/Encore.png',
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.medium,
-        ),
+        _photoUrl == null
+            ? Image.asset(
+                'assets/Encore.png',
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+              )
+            : Image.network(
+                _photoUrl!,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, _, _) => Image.asset(
+                  'assets/Encore.png',
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -46,7 +125,12 @@ class ProfileScreen extends StatelessWidget {
           top: topInset + 8,
           left: 16,
           right: 16,
-          child: Row(children: [const Spacer(), const _EditProfileButton()]),
+          child: Row(
+            children: [
+              const Spacer(),
+              _EditProfileButton(onTap: _editProfile),
+            ],
+          ),
         ),
         // Hero details
         Positioned(
@@ -64,7 +148,7 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Odeh\nSolomon',
+                        _fullName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppType.sectionTitle(
@@ -90,7 +174,7 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 15),
                 Row(
                   children: [
-                    Text('_wayne', style: AppType.tag(scheme.primary)),
+                    Text(_username, style: AppType.tag(scheme.primary)),
                     const SizedBox(width: 8),
                     Container(
                       width: 4,
@@ -103,7 +187,7 @@ class ProfileScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'sodeh138@gmail.com',
+                        _email,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppType.subtitle(scheme).copyWith(
@@ -116,10 +200,9 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Designers focused on creating impactful, user-centered '
-                  'digital experiences and branding.',
+                  hasBio ? _bio : _bioPlaceholder,
                   style: AppType.body(scheme).copyWith(
-                    color: scheme.onSurface,
+                    color: hasBio ? scheme.onSurface : scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                     height: 1.45,
                   ),
@@ -156,7 +239,9 @@ class ProfileScreen extends StatelessWidget {
 
 /// The translucent "Edit Profile" pill shown over the hero.
 class _EditProfileButton extends StatelessWidget {
-  const _EditProfileButton();
+  const _EditProfileButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -167,7 +252,7 @@ class _EditProfileButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         borderRadius: BorderRadius.circular(4),
-        onTap: () {},
+        onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(

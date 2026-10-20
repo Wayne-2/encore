@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../navigation/app_route.dart';
+import '../services/session_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
+import 'home_shell.dart';
 import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -33,20 +36,30 @@ class _SplashScreenState extends State<SplashScreen>
 
   static const double _logoSize = 104;
 
+  /// Resolved while the logo animates: a valid 24-hour session skips the
+  /// welcome/auth flow and opens the Updates tab directly.
+  late final Future<bool> _hasSession = _checkSession();
+
+  Future<bool> _checkSession() async {
+    try {
+      return await SessionService.instance.hasValidSession();
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         // Hold on the finished lockup + spinner before revealing the app.
-        Future.delayed(const Duration(milliseconds: 1200), () {
+        Future.delayed(const Duration(milliseconds: 1200), () async {
+          final signedIn = await _hasSession;
           if (!mounted) return;
           Navigator.of(context).pushReplacement(
-            PageRouteBuilder<void>(
-              transitionDuration: const Duration(milliseconds: 450),
-              pageBuilder: (_, _, _) => const WelcomeScreen(),
-              transitionsBuilder: (_, animation, _, child) =>
-                  FadeTransition(opacity: animation, child: child),
+            fadeRoute<void>(
+              signedIn ? const HomeShell() : const WelcomeScreen(),
             ),
           );
         });

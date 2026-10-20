@@ -2,19 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../models/announcement.dart';
 import '../models/comment.dart';
+import '../services/announcement_store.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/announcement_tile.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/reaction_bar.dart';
 
 /// Full-page view of a single announcement: sender, time, priority and the
 /// complete message — followed by a Twitter-style comment thread.
 class AnnouncementDetailScreen extends StatelessWidget {
-  const AnnouncementDetailScreen({super.key, required this.announcement});
+  const AnnouncementDetailScreen({
+    super.key,
+    required this.announcement,
+    this.viewerId,
+  });
 
   final Announcement announcement;
+
+  /// Overrides the signed-in user when resolving delete permission.
+  final String? viewerId;
 
   static const List<Comment> _comments = [
     Comment(
@@ -44,6 +54,35 @@ class AnnouncementDetailScreen extends StatelessWidget {
     ),
   ];
 
+  String? get _viewer =>
+      viewerId ??
+      (AuthService.isAvailable ? AuthService.instance.currentUser?.uid : null);
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: SpotifyColors.surface,
+        title: const Text('Delete announcement?'),
+        content: const Text('This announcement will be removed from the feed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    AnnouncementStore.instance.delete(announcement);
+    if (context.mounted) Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -67,6 +106,15 @@ class AnnouncementDetailScreen extends StatelessWidget {
             color: scheme.onSurface,
           ),
         ),
+        actions: [
+          if (announcement.canBeDeletedBy(_viewer))
+            IconButton(
+              tooltip: 'Delete announcement',
+              icon: const Icon(Icons.delete_outline),
+              color: scheme.onSurfaceVariant,
+              onPressed: () => _confirmDelete(context),
+            ),
+        ],
       ),
       body: CommentThread(
         header: _AnnouncementHeader(announcement: announcement),
@@ -93,41 +141,24 @@ class _AnnouncementHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              ClipOval(
-                      child: Image.asset(
-                        'assets/launch_icon_foreground.png',
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        filterQuality: FilterQuality.medium,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            announcement.author,
-                            style: SlackType.sender(scheme),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            announcement.time,
-                            style: SlackType.timestamp(scheme),
-                          ),
-                        ],
-                      ),
-                    ),
+              AnnouncementAvatar(photoUrl: announcement.photoUrl, size: 48),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(announcement.author, style: SlackType.sender(scheme)),
+                    const SizedBox(height: 2),
+                    Text(announcement.time, style: SlackType.timestamp(scheme)),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(announcement.tag, style: AppType.tag(announcement.tagColor)),
-                const SizedBox(height: 12),
-                Text(
-                  announcement.body,
-                  style: SlackType.body(scheme),
-                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(announcement.tag, style: AppType.tag(announcement.tagColor)),
+          const SizedBox(height: 12),
+          Text(announcement.body, style: SlackType.body(scheme)),
           const SizedBox(height: 12),
           const ReactionBar(initial: {'👍': 8, '🎉': 2}),
         ],

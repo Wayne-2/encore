@@ -15,6 +15,42 @@ import 'package:encore/screens/profile_screen.dart';
 import 'package:encore/screens/trending_more_screen.dart';
 import 'package:encore/screens/updates_screen.dart';
 import 'package:encore/screens/welcome_screen.dart';
+import 'package:encore/services/announcement_store.dart';
+import 'package:encore/theme/spotify_colors.dart';
+import 'package:encore/widgets/compose_announcement_sheet.dart';
+
+/// Fills the in-memory feed for tests that need announcements to exist.
+void seedAnnouncements() {
+  final store = AnnouncementStore.instance;
+  store.clear();
+  store.post(
+    author: 'Prof. Adeyemi',
+    authorId: 'seed-adeyemi',
+    tag: 'Less prior',
+    tagColor: SpotifyColors.tagMuted,
+    body:
+        'Continuous assessment scores are out. Check the department notice '
+        'board for your marks and reach out if anything looks off.',
+  );
+  store.post(
+    author: 'Course Rep',
+    authorId: 'seed-rep',
+    tag: 'General announcement',
+    tagColor: SpotifyColors.tagInfo,
+    body:
+        "Today's lecture has been moved to the main auditorium. We start at "
+        '10:00 AM instead.',
+  );
+  store.post(
+    author: 'Dr. Mensah',
+    authorId: 'seed-mensah',
+    tag: 'Highly prior',
+    tagColor: SpotifyColors.tagUrgent,
+    body:
+        'Good morning. The Csc 200 lab report is due this Friday — please '
+        'submit before 5:00 PM.',
+  );
+}
 
 void main() {
   testWidgets('Splash leads to the welcome screen', (
@@ -67,7 +103,7 @@ void main() {
     // Step 2 — academics.
     expect(find.text('Registration Number'), findsOneWidget);
     expect(find.text('Department'), findsOneWidget);
-    expect(find.text('Faculty'), findsOneWidget);
+    expect(find.text('SICT'), findsOneWidget);
     expect(find.text('Role'), findsOneWidget);
     expect(find.text('Create Account'), findsOneWidget);
   });
@@ -88,7 +124,7 @@ void main() {
     // No admin ID field until the Admin role is picked.
     expect(find.text('Admin ID'), findsNothing);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byKey(const ValueKey('role-dropdown')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Admin').last);
     await tester.pumpAndSettle();
@@ -111,7 +147,7 @@ void main() {
 
     expect(find.text('Level'), findsNothing);
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byKey(const ValueKey('role-dropdown')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Student').last);
     await tester.pumpAndSettle();
@@ -119,7 +155,7 @@ void main() {
     expect(find.text('Level'), findsOneWidget);
 
     // The level dropdown offers the full set.
-    await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+    await tester.tap(find.byKey(const ValueKey('level-dropdown')));
     await tester.pumpAndSettle();
     for (final level in [
       '100 Level',
@@ -150,15 +186,21 @@ void main() {
     // School details.
     final school = find.byType(TextFormField);
     await tester.enterText(school.at(0), '20211234567');
-    await tester.enterText(school.at(1), 'Computer Science');
-    await tester.enterText(school.at(2), 'Faculty of Science');
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    // The faculty is fixed and not editable.
+    expect(find.text('SICT'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('department-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CSC').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('role-dropdown')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Student').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+    await tester.tap(find.byKey(const ValueKey('level-dropdown')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('400 Level').last);
     await tester.pumpAndSettle();
@@ -276,6 +318,7 @@ void main() {
   testWidgets('Updates tab shows the workspace bar, header and announcements', (
     WidgetTester tester,
   ) async {
+    seedAnnouncements();
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
     // Workspace bar.
@@ -290,16 +333,44 @@ void main() {
       findsOneWidget,
     );
 
-    // Three announcement tiles plus the workspace logo (and trending art).
+    // Three announcement tiles, each falling back to the person glyph because
+    // the seeded posters have no profile picture.
     expect(find.byKey(const ValueKey('announcement-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('announcement-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('announcement-2')), findsOneWidget);
-    expect(find.byType(Image), findsAtLeastNWidgets(4));
+    expect(find.byIcon(Icons.person_outline), findsNWidgets(3));
 
     // Priority subtitles under each sender.
     expect(find.text('Highly prior'), findsOneWidget);
     expect(find.text('General announcement'), findsOneWidget);
     expect(find.text('Less prior'), findsOneWidget);
+  });
+
+  testWidgets('Updates shows an empty announcement state', (
+    WidgetTester tester,
+  ) async {
+    AnnouncementStore.instance.clear();
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    expect(find.text('No announcement posted yet'), findsOneWidget);
+    expect(find.byKey(const ValueKey('announcement-0')), findsNothing);
+  });
+
+  testWidgets('Announcement section keeps a three-row height when empty', (
+    WidgetTester tester,
+  ) async {
+    AnnouncementStore.instance.clear();
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    final section = find.byKey(const ValueKey('announcement-section'));
+    final emptyHeight = tester.getSize(section).height;
+
+    seedAnnouncements();
+    await tester.pumpAndSettle();
+
+    // Three announcements fit exactly in the space reserved for an empty feed.
+    expect(tester.getSize(section).height, emptyHeight);
+    expect(emptyHeight, greaterThan(250));
   });
 
   testWidgets('Updates shows Trending and opens Show more', (
@@ -337,6 +408,7 @@ void main() {
   testWidgets('Tapping an announcement opens its detail page', (
     WidgetTester tester,
   ) async {
+    seedAnnouncements();
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
     await tester.tap(find.byKey(const ValueKey('announcement-0')));
@@ -362,6 +434,7 @@ void main() {
   testWidgets('Announcement Show more opens the full announcements list', (
     WidgetTester tester,
   ) async {
+    seedAnnouncements();
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
     await tester.tap(find.byKey(const ValueKey('announcement-show-more')));
@@ -375,6 +448,48 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('all-announcement-0')));
     await tester.pumpAndSettle();
     expect(find.byType(AnnouncementDetailScreen), findsOneWidget);
+  });
+
+  testWidgets('Only the author can delete an announcement', (
+    WidgetTester tester,
+  ) async {
+    final store = AnnouncementStore.instance;
+    store.clear();
+    final announcement = store.post(
+      author: 'Dr. Mensah',
+      authorId: 'author-1',
+      tag: 'Highly prior',
+      tagColor: SpotifyColors.tagUrgent,
+      body: 'Bring your lab report on Friday.',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnnouncementDetailScreen(
+          announcement: announcement,
+          viewerId: 'author-2',
+        ),
+      ),
+    );
+    expect(find.byTooltip('Delete announcement'), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnnouncementDetailScreen(
+          announcement: announcement,
+          viewerId: 'author-1',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byTooltip('Delete announcement'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Delete announcement'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(store.items, isEmpty);
   });
 
   testWidgets('Announcement detail supports posting a comment', (
@@ -411,16 +526,18 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: HomeShell()));
     final pages = find.byType(PageView);
+    expect(pages, findsOneWidget);
 
-    // Swipe right to move from Updates to Messages.
-    await tester.fling(pages, const Offset(-300, 0), 1000);
+    // Swipe right to move from Updates to Messages. Start near the top so the
+    // drag does not land on an inner horizontal list (trending/stories).
+    await tester.flingFrom(const Offset(400, 30), const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
 
     expect(find.text('Messages'), findsNWidgets(2));
     expect(find.text('Csc 200 level'), findsNothing);
 
     // Swipe back to Updates.
-    await tester.fling(pages, const Offset(300, 0), 1000);
+    await tester.flingFrom(const Offset(400, 30), const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
 
     expect(find.text('Csc 200 level'), findsOneWidget);
@@ -556,7 +673,7 @@ void main() {
     expect(find.text('Odeh\nSolomon'), findsOneWidget);
     expect(find.text('_wayne'), findsOneWidget);
     expect(find.text('sodeh138@gmail.com'), findsOneWidget);
-    expect(find.textContaining('user-centered'), findsOneWidget);
+    expect(find.text('Edit your profile to add your bio'), findsOneWidget);
     expect(find.text('Edit Profile'), findsOneWidget);
     expect(find.text('See profile'), findsOneWidget);
     expect(find.text('Student'), findsOneWidget);
@@ -583,5 +700,47 @@ void main() {
     expect(find.text('CGPA Tracker'), findsOneWidget);
     expect(find.text('Student Agents'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
+  });
+
+  testWidgets('Posting an announcement adds it to the feed', (
+    WidgetTester tester,
+  ) async {
+    AnnouncementStore.instance.clear();
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New Announcement'));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byType(ComposeAnnouncementSheet);
+    expect(sheet, findsOneWidget);
+    expect(find.text('Post announcement'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(of: sheet, matching: find.text('Highly prior')),
+    );
+    await tester.pump();
+
+    const body = 'Midweek check-in moved to 4 PM';
+    await tester.enterText(
+      find.descendant(of: sheet, matching: find.byType(TextField)),
+      body,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Post announcement'));
+    await tester.pumpAndSettle();
+
+    expect(sheet, findsNothing);
+    expect(find.text(body), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('announcement-0')),
+        matching: find.text('Highly prior'),
+      ),
+      findsOneWidget,
+    );
   });
 }

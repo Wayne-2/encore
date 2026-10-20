@@ -31,16 +31,7 @@ class AnnouncementTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.asset(
-                  'assets/launch_icon_foreground.png',
-                  width: 36,
-                  height: 36,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.medium,
-                ),
-              ),
+              AnnouncementAvatar(photoUrl: announcement.photoUrl),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -92,6 +83,45 @@ class AnnouncementTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The poster's profile picture, or a subdued person glyph when they do not
+/// have one.
+class AnnouncementAvatar extends StatelessWidget {
+  const AnnouncementAvatar({super.key, this.photoUrl, this.size = 36});
+
+  final String? photoUrl;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholder = Container(
+      width: size,
+      height: size,
+      color: SpotifyColors.surfaceHover,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.person_outline,
+        size: size * 0.55,
+        color: SpotifyColors.textSubdued,
+      ),
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: photoUrl == null
+            ? placeholder
+            : Image.network(
+                photoUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => placeholder,
+              ),
       ),
     );
   }

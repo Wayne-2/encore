@@ -1,0 +1,19 @@
+{
+  "name": "encore-functions",
+  "description": "Cloud Functions for Encore (email verification via Brevo).",
+  "private": true,
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.1.1",
+    "nodemailer": "^6.9.16"
+  }
+}
