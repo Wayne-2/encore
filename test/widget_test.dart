@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:encore/main.dart';
 import 'package:encore/models/announcement.dart';
+import 'package:encore/models/trend.dart';
 import 'package:encore/screens/announcement_detail_screen.dart';
 import 'package:encore/screens/announcements_screen.dart';
 import 'package:encore/screens/auth/create_account_screen.dart';
@@ -27,6 +29,7 @@ import 'package:encore/services/trend_store.dart';
 import 'package:encore/theme/spotify_colors.dart';
 import 'package:encore/widgets/compose_announcement_sheet.dart';
 import 'package:encore/widgets/edit_profile_sheet.dart';
+import 'package:encore/widgets/trend_cover.dart';
 
 /// Fills the in-memory feed for tests that need announcements to exist.
 void seedAnnouncements() {
@@ -475,6 +478,40 @@ void main() {
     TrendStore.instance.clear();
   });
 
+  testWidgets('Trend cover keeps the local thumbnail when the URL fails', (
+    WidgetTester tester,
+  ) async {
+    final source = img.Image(width: 8, height: 8);
+    img.fill(source, color: img.ColorRgb8(37, 161, 12));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 100,
+            height: 100,
+            child: TrendCover(
+              media: [
+                TrendMedia(
+                  thumbnail: img.encodeJpg(source),
+                  url: 'https://example.invalid/missing.jpg',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Image && widget.image is MemoryImage,
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Trending keeps its height while empty and after a post', (
     WidgetTester tester,
   ) async {
@@ -633,11 +670,11 @@ void main() {
     ActivityStore.instance.clear();
   });
 
-  testWidgets('The activity author can hold to delete it', (
+  testWidgets('The activity author can double-tap and remove it', (
     WidgetTester tester,
   ) async {
     ActivityStore.instance.clear();
-    ActivityStore.instance.add(
+    final activity = ActivityStore.instance.add(
       title: 'Team Sync',
       date: DateTime.now().add(const Duration(days: 1)),
       authorId: 'author-1',
@@ -652,17 +689,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final card = find.text('Team Sync');
+    final card = find.byKey(const ValueKey('activity-0'));
     expect(card, findsOneWidget);
+    final delete = find.byKey(ValueKey('activity-delete-${activity.id}'));
+    expect(delete, findsNothing);
 
-    final gesture = await tester.startGesture(tester.getCenter(card));
-    await tester.pump(const Duration(milliseconds: 1600));
-    await gesture.up();
-    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(card);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(card);
     await tester.pumpAndSettle();
 
-    expect(find.text('Delete activity?'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('delete-activity-confirm')));
+    expect(delete, findsOneWidget);
+
+    await tester.tap(delete);
     await tester.pumpAndSettle();
 
     expect(ActivityStore.instance.items, isEmpty);
@@ -800,6 +839,8 @@ void main() {
     await partial.moveBy(const Offset(-60, 0));
     await tester.pump(const Duration(milliseconds: 16));
     expect(deleteBackground, findsOneWidget);
+    final background = tester.widget<Container>(deleteBackground);
+    expect(background.color, SpotifyColors.accent);
     await partial.up();
     await tester.pumpAndSettle();
 

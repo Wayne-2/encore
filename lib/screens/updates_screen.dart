@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../data/departments.dart';
@@ -25,6 +24,7 @@ import '../widgets/floating_empty_state.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/shimmer.dart';
 import '../widgets/trend_cover.dart';
+import '../widgets/cached_profile_image.dart';
 import '../widgets/workspace_app_bar.dart';
 import 'announcement_detail_screen.dart';
 import 'announcements_screen.dart';
@@ -107,13 +107,11 @@ class _UpdatesWorkspaceBarState extends State<_UpdatesWorkspaceBar> {
                   )
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: Image.network(
-                      photoUrl,
+                    child: CachedProfileImage(
+                      url: photoUrl,
                       width: 38,
                       height: 38,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (_, _, _) => Image.asset(
+                      fallback: Image.asset(
                         'assets/Encore.png',
                         width: 38,
                         height: 38,
@@ -879,8 +877,8 @@ class _UpcomingActivitiesSection extends StatelessWidget {
 /// Compact activity card with a leading theme-coloured sidebar, mirroring the
 /// colour of the workspace app bar. Past activities use a grey bar.
 ///
-/// The author can hold the card for 1.5 seconds to highlight it and confirm
-/// deletion.
+/// The author can double-tap the card to highlight it, then tap the X to
+/// remove it.
 class _ActivityCard extends StatefulWidget {
   const _ActivityCard({
     super.key,
@@ -898,52 +896,18 @@ class _ActivityCard extends StatefulWidget {
 }
 
 class _ActivityCardState extends State<_ActivityCard> {
-  static const _holdDuration = Duration(milliseconds: 1500);
-  static const _highlightDelay = Duration(milliseconds: 300);
-
   bool _highlighted = false;
-  bool _dialogOpen = false;
 
   bool get _canDelete => widget.item.canBeDeletedBy(widget.viewerId);
 
-  Future<void> _handleHold() async {
-    if (!mounted || _dialogOpen) return;
-
-    setState(() => _highlighted = true);
-    await Future<void>.delayed(_highlightDelay);
+  void _toggleHighlight() {
     if (!mounted) return;
+    setState(() => _highlighted = !_highlighted);
+  }
 
-    _dialogOpen = true;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: SpotifyColors.surface,
-        title: const Text('Delete activity?'),
-        content: Text(
-          '"${widget.item.title}" will be removed from Upcoming Activities.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            key: const ValueKey('delete-activity-confirm'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    _dialogOpen = false;
-    if (!mounted) return;
-
-    if (confirmed == true) {
-      widget.onDelete(widget.item);
-      if (mounted) setState(() => _highlighted = false);
-      return;
-    }
-    setState(() => _highlighted = false);
+  void _delete() {
+    if (!_highlighted) return;
+    widget.onDelete(widget.item);
   }
 
   @override
@@ -960,12 +924,12 @@ class _ActivityCardState extends State<_ActivityCard> {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: _highlighted
-              ? SpotifyColors.danger.withValues(alpha: 0.12)
+              ? SpotifyColors.accent.withValues(alpha: 0.12)
               : SpotifyColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: _highlighted
-                ? SpotifyColors.danger.withValues(alpha: 0.8)
+                ? SpotifyColors.accent.withValues(alpha: 0.8)
                 : Colors.transparent,
           ),
         ),
@@ -983,57 +947,56 @@ class _ActivityCardState extends State<_ActivityCard> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppType.cardTitle(scheme),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.item.dateLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppType.subtitle(scheme),
-                  ),
-                ],
-              ),
-            ),
-            if (_canDelete) ...[
-              AnimatedOpacity(
-                opacity: _highlighted ? 1 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: const Icon(
-                  Icons.delete_outline,
-                  size: 18,
-                  color: SpotifyColors.danger,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: _toggleHighlight,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.cardTitle(scheme),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.item.dateLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.subtitle(scheme),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-            ] else
+            ),
+            if (_canDelete)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: _highlighted
+                    ? IconButton(
+                        key: ValueKey('activity-delete-${widget.item.id}'),
+                        tooltip: 'Remove activity',
+                        onPressed: _delete,
+                        icon: const Icon(Icons.close, size: 16),
+                        style: IconButton.styleFrom(
+                          backgroundColor: SpotifyColors.accent,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(28, 28),
+                          padding: EdgeInsets.zero,
+                        ),
+                      )
+                    : const SizedBox(width: 28, height: 28),
+              )
+            else
               const SizedBox(width: 8),
           ],
         ),
       ),
     );
 
-    if (!_canDelete) return card;
-
-    return RawGestureDetector(
-      behavior: HitTestBehavior.opaque,
-      gestures: {
-        LongPressGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-              () => LongPressGestureRecognizer(duration: _holdDuration),
-              (recognizer) => recognizer.onLongPress = _handleHold,
-            ),
-      },
-      child: card,
-    );
+    return card;
   }
 }
 

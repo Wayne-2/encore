@@ -83,7 +83,11 @@ class TrendStore extends ChangeNotifier {
     final serverDocs = snapshot.docs
         .where((doc) => !_deletedIds.contains(doc.id))
         .toList();
-    final server = serverDocs.map(_fromDoc).toList();
+    final localById = {for (final trend in _items) trend.id: trend};
+    final server = serverDocs.map((doc) {
+      final parsed = _fromDoc(doc);
+      return _mergeLocalMedia(parsed, localById[parsed.id]);
+    }).toList();
     for (final doc in serverDocs) {
       _createdAtMillis[doc.id] = _timestampMillis(doc.data()['createdAt']);
     }
@@ -100,6 +104,30 @@ class TrendStore extends ChangeNotifier {
       ..addAll([...pending, ...server]);
     notifyListeners();
     unawaited(_saveCache());
+  }
+
+  /// Keeps the locally uploaded thumbnail available while the remote image
+  /// loads (or when the upload failed), instead of replacing the optimistic
+  /// card with one that can only show a network URL.
+  static Trend _mergeLocalMedia(Trend server, Trend? local) {
+    if (local == null || local.media.isEmpty) return server;
+
+    if (server.media.isEmpty) {
+      return server.copyWith(media: local.media);
+    }
+    if (server.media.length != local.media.length) return server;
+
+    return server.copyWith(
+      media: [
+        for (var i = 0; i < server.media.length; i++)
+          TrendMedia(
+            thumbnail: local.media[i].thumbnail,
+            url: server.media[i].url,
+            isVideo: server.media[i].isVideo,
+            duration: server.media[i].duration,
+          ),
+      ],
+    );
   }
 
   /// Publishes a trend immediately, then persists it (and its media) in the
@@ -156,13 +184,15 @@ class TrendStore extends ChangeNotifier {
         var url = item.url;
 
         if (url.isEmpty && item.thumbnail != null) {
+          final type = _mediaType(item.thumbnail!);
           try {
             url = await storage.upload(
               bytes: item.thumbnail!,
-              filename: '${trend.id}-$i.jpg',
-              contentType: 'image/jpeg',
+              filename: '${trend.id}-$i.${type.extension}',
+              contentType: type.contentType,
             );
-          } catch (_) {
+          } catch (error) {
+            debugPrint('Trend media upload failed: $error');
             continue;
           }
         }
@@ -186,11 +216,23 @@ class TrendStore extends ChangeNotifier {
         'media': media,
         'createdAt': FieldValue.serverTimestamp(),
       });
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Trend write failed: $error');
       // Keep the optimistic post in memory if the write fails.
     } finally {
       storage.dispose();
     }
+  }
+
+  static ({String extension, String contentType}) _mediaType(Uint8List bytes) {
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return (extension: 'png', contentType: 'image/png');
+    }
+    return (extension: 'jpg', contentType: 'image/jpeg');
   }
 
   /// Removes [trend] from the feed and from Firestore.

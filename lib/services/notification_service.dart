@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show Color;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
 import '../firebase_options.dart';
 import 'auth_service.dart';
 
@@ -124,8 +129,28 @@ class NotificationService {
         if (!(_registration?.isCompleted ?? true)) {
           _registration!.complete(id);
         }
-        AuthService.instance.saveFcmTokenForCurrentUser(id);
+        unawaited(
+          AuthService.instance
+              .saveFcmTokenForCurrentUser(id)
+              .catchError((_) {}),
+        );
       });
+
+      // The installation ID is often ready before anyone signs in, so listen
+      // for auth changes and attach it once a user is available.
+      if (AuthService.isAvailable) {
+        FirebaseAuth.instance.authStateChanges().listen((user) {
+          final id = _registrationId;
+          if (user != null && id != null) {
+            unawaited(
+              AuthService.instance
+                  .saveFcmTokenForCurrentUser(id)
+                  .catchError((_) {}),
+            );
+          }
+        });
+      }
+
       await FirebaseMessaging.instance.register();
     } catch (_) {
       // e.g. the installations API is disabled or Play services is missing.
@@ -149,6 +174,100 @@ class NotificationService {
       return await pending.future.timeout(const Duration(seconds: 5));
     } on TimeoutException {
       return _registrationId;
+    }
+  }
+
+  /// Queues a push for a newly created contact request and tries it now.
+  ///
+  /// The outbox document is durable, so the Worker cron retries it if this
+  /// device is offline or the immediate request fails.
+  Future<void> notifyContactRequest(String requestId) async {
+    final outboxId = await _enqueueOutbox(
+      type: 'contact_request',
+      requestId: requestId,
+    );
+    if (outboxId != null) unawaited(_dispatchOutbox(outboxId));
+  }
+
+  /// Queues a push for a newly sent message and tries it now.
+  ///
+  /// Best-effort: notification delivery must never break sending a message.
+  Future<void> notifyMessage({
+    required String chatId,
+    required String messageId,
+  }) async {
+    final outboxId = await _enqueueOutbox(
+      type: 'chat_message',
+      chatId: chatId,
+      messageId: messageId,
+    );
+    if (outboxId != null) unawaited(_dispatchOutbox(outboxId));
+  }
+
+  /// Writes a pending notification job to Firestore.
+  Future<String?> _enqueueOutbox({
+    required String type,
+    String? requestId,
+    String? chatId,
+    String? messageId,
+  }) async {
+    if (!AuthService.isAvailable) return null;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
+    final ref = FirebaseFirestore.instance
+        .collection('notificationOutbox')
+        .doc();
+    try {
+      await ref.set({
+        'type': type,
+        'actorId': user.uid,
+        'status': 'pending',
+        'attempts': 0,
+        'requestId': ?requestId,
+        'chatId': ?chatId,
+        'messageId': ?messageId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'nextAttemptAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return ref.id;
+    } catch (_) {
+      // The message/request itself has already been written; never fail it
+      // because the notification outbox is unavailable.
+      return null;
+    }
+  }
+
+  /// Nudges the Worker to process [outboxId] immediately.
+  ///
+  /// If this fails, the outbox document stays pending and the Worker cron
+  /// retries it with backoff.
+  Future<void> _dispatchOutbox(String outboxId) async {
+    if (!AuthService.isAvailable) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final base = AppConfig.r2WorkerUrl.trim();
+    if (base.isEmpty) return;
+
+    try {
+      final token = await user.getIdToken();
+      if (token == null || token.isEmpty) return;
+      await http
+          .post(
+            Uri.parse('$base/notify/outbox'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'outboxId': outboxId}),
+          )
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      // The outbox remains queued for the scheduled retry.
     }
   }
 

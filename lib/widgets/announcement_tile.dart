@@ -4,6 +4,7 @@ import '../models/announcement.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
 import '../theme/spotify_colors.dart';
+import 'cached_profile_image.dart';
 
 /// A single announcement row, matching Slack's message-list dimensions:
 /// a 36dp rounded-square avatar, a bold 15sp sender, a 12sp timestamp and
@@ -116,7 +117,7 @@ class AnnouncementTile extends StatelessWidget {
   }
 }
 
-/// The red, right-aligned panel revealed while an authored announcement is
+/// The green, right-aligned panel revealed while an authored announcement is
 /// swiped to the left.
 class _DeleteBackground extends StatelessWidget {
   const _DeleteBackground({required this.id});
@@ -127,7 +128,7 @@ class _DeleteBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: ValueKey('announcement-delete-bg-$id'),
-      color: SpotifyColors.danger,
+      color: SpotifyColors.accent,
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 22),
       child: Row(
@@ -176,10 +177,11 @@ class AnnouncementAvatar extends StatelessWidget {
         height: size,
         child: photoUrl == null
             ? placeholder
-            : Image.network(
-                photoUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => placeholder,
+            : CachedProfileImage(
+                url: photoUrl!,
+                width: size,
+                height: size,
+                fallback: placeholder,
               ),
       ),
     );

@@ -109,21 +109,25 @@ class TrendCover extends StatelessWidget {
   }
 
   Widget _buildImage(TrendMedia cover, Widget Function() placeholder) {
+    final thumbnail = cover.thumbnail;
+    final fallback = thumbnail == null
+        ? placeholder()
+        : Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true);
+
     if (cover.url.isNotEmpty) {
       return Image.network(
         cover.url,
         fit: BoxFit.cover,
         gaplessPlayback: true,
-        errorBuilder: (_, _, _) => placeholder(),
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) return child;
+          return fallback;
+        },
+        errorBuilder: (_, _, _) => fallback,
       );
     }
 
-    final thumbnail = cover.thumbnail;
-    if (thumbnail != null) {
-      return Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true);
-    }
-
-    return placeholder();
+    return fallback;
   }
 
   static String _formatDuration(Duration duration) {

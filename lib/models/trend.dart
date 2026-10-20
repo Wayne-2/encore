@@ -43,4 +43,18 @@ class Trend {
   /// Whether [userId] is the author and may therefore delete this trend.
   bool canBeDeletedBy(String? userId) =>
       userId != null && userId.isNotEmpty && userId == authorId;
+
+  /// Returns a copy with different [media], keeping every other field intact.
+  Trend copyWith({List<TrendMedia>? media}) {
+    return Trend(
+      id: id,
+      authorId: authorId,
+      title: title,
+      subtitle: subtitle,
+      author: author,
+      time: time,
+      body: body,
+      media: media ?? this.media,
+    );
+  }
 }

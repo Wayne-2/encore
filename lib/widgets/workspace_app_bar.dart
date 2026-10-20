@@ -13,6 +13,7 @@ class WorkspaceAppBar extends StatelessWidget {
     super.key,
     required this.heading,
     this.title,
+    this.leading,
     this.trailing,
     this.headingSize,
     this.headingWeight,
@@ -20,6 +21,9 @@ class WorkspaceAppBar extends StatelessWidget {
 
   final String heading;
   final String? title;
+
+  /// Optional replacement for the anchor glyph, such as a back button.
+  final Widget? leading;
 
   /// Widget shown at the far right. Defaults to the Encore logo.
   final Widget? trailing;
@@ -41,12 +45,16 @@ class WorkspaceAppBar extends StatelessWidget {
       padding: EdgeInsets.only(top: topInset, left: 16, right: 16),
       child: Row(
         children: [
-          SvgPicture.asset(
-            'assets/icons/anchor.svg',
-            width: 22,
-            height: 22,
-            colorFilter: ColorFilter.mode(scheme.onSurface, BlendMode.srcIn),
-          ),
+          leading ??
+              SvgPicture.asset(
+                'assets/icons/anchor.svg',
+                width: 22,
+                height: 22,
+                colorFilter: ColorFilter.mode(
+                  scheme.onSurface,
+                  BlendMode.srcIn,
+                ),
+              ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -55,6 +63,8 @@ class WorkspaceAppBar extends StatelessWidget {
               children: [
                 Text(
                   heading,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: headingSize ?? 16,
@@ -66,6 +76,8 @@ class WorkspaceAppBar extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     title!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 13,

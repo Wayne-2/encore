@@ -151,14 +151,16 @@ class AuthService {
     return _auth.sendPasswordResetEmail(email: email);
   }
 
-  /// Stores the device's FCM token on `users/{uid}` so push can be targeted.
+  /// Stores the device's Firebase Installation ID on `users/{uid}` so push
+  /// notifications can be targeted.
   Future<void> saveFcmToken(String uid, String token) {
     return _firestore.collection('users').doc(uid).set({
       'fcmToken': token,
     }, SetOptions(merge: true));
   }
 
-  /// Saves a refreshed FCM token for the signed-in user, if there is one.
+  /// Saves a refreshed installation ID for the signed-in user, if there is
+  /// one.
   Future<void> saveFcmTokenForCurrentUser(String token) async {
     final uid = currentUser?.uid;
     if (uid == null) return;

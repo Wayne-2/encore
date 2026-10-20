@@ -1,5 +1,11 @@
 import { AwsClient } from 'aws4fetch';
 
+import {
+  handleNotifyContactRequest,
+  handleNotifyMessage,
+  handleNotifyOutbox,
+  processNotificationOutbox,
+} from './notify.js';
 import { handleVerifySend } from './verify.js';
 
 // Signed-URL lifetime, in seconds.
@@ -22,12 +28,17 @@ function json(data, status, env) {
 
 // - GET  /health      -> { ok: true }
 // - GET  /media/<key> -> streams the object from the R2 bucket
-// - POST /sign        -> { key, uploadUrl, publicUrl, expiresIn }
+// - POST /upload      -> stores the request body in R2 and returns { publicUrl }
+// - POST /sign        -> { key, uploadUrl, publicUrl, expiresIn } (legacy)
 // - POST /verify/send -> mints a Firebase verification link and emails it
+// - POST /notify/outbox          -> processes one queued notification
+// - POST /notify/contact-request -> pushes a new DM request (legacy)
+// - POST /notify/message         -> pushes a new chat message (legacy)
 //
-// Uploads never pass through the Worker: the app gets a short-lived presigned
-// PUT URL, uploads straight to R2, and reads back through /media. The R2
-// credentials never leave the Worker.
+// The scheduled handler retries pending/failed notification outbox jobs.
+//
+// The app uploads through /upload, which writes to the bucket via the R2
+// binding. No S3 credentials are involved for uploads.
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -43,6 +54,53 @@ export default {
 
     if (request.method === 'POST' && pathname === '/verify/send') {
       return handleVerifySend(request, env, json);
+    }
+
+    if (request.method === 'POST' && pathname === '/notify/outbox') {
+      return handleNotifyOutbox(request, env, json);
+    }
+
+    if (request.method === 'POST' && pathname === '/notify/contact-request') {
+      return handleNotifyContactRequest(request, env, json);
+    }
+
+    if (request.method === 'POST' && pathname === '/notify/message') {
+      return handleNotifyMessage(request, env, json);
+    }
+
+    if (request.method === 'POST' && pathname === '/upload') {
+      const filename = url.searchParams.get('filename');
+      if (!filename) {
+        return json({ error: 'filename is required' }, 400, env);
+      }
+
+      const length = Number(request.headers.get('Content-Length') || 0);
+      if (length > 20 * 1024 * 1024) {
+        return json({ error: 'file is too large' }, 413, env);
+      }
+
+      const prefix = env.UPLOAD_PREFIX || 'uploads';
+      const safeName =
+        filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'upload';
+      const key = `${prefix}/${crypto.randomUUID()}-${safeName}`;
+      const contentType =
+        request.headers.get('Content-Type') || 'application/octet-stream';
+
+      await env.BUCKET.put(key, await request.arrayBuffer(), {
+        httpMetadata: {
+          contentType,
+          cacheControl: 'public, max-age=31536000, immutable',
+        },
+      });
+
+      return json(
+        {
+          key,
+          publicUrl: `${url.origin}${MEDIA_PATH}${key}`,
+        },
+        200,
+        env,
+      );
     }
 
     if (request.method === 'GET' && pathname.startsWith(MEDIA_PATH)) {
@@ -116,5 +174,9 @@ export default {
     }
 
     return json({ error: 'not found' }, 404, env);
+  },
+
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(processNotificationOutbox(env));
   },
 };

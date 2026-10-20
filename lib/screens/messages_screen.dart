@@ -2,17 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/chat_conversation.dart';
+import '../models/direct_chat.dart';
+import '../models/group_chat.dart';
 import '../navigation/app_route.dart';
+import '../services/auth_service.dart';
+import '../services/chat_store.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/compose_fab.dart';
 import '../widgets/filter_pills.dart';
+import '../widgets/floating_empty_state.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/workspace_app_bar.dart';
+import 'available_contacts_screen.dart';
+import 'create_group_screen.dart';
 import 'direct_chat_screen.dart';
 import 'group_chat_screen.dart';
+import 'persistent_direct_chat_screen.dart';
+import 'persistent_group_chat_screen.dart';
 import 'story_viewer_screen.dart';
 
 /// Quick actions revealed by the Messages compose button.
@@ -29,13 +39,62 @@ const List<ComposeAction> _messagesComposeActions = [
 /// - `# Story` reel: Horizontal status list with squircle avatars, active online
 ///   presence dots, and usernames. Tapping opens a WhatsApp/Instagram style
 ///   StoryViewer with progress and replies.
-/// - `# Conversations`: List of 1-on-1 direct chats and WhatsApp-style groups.
-///   - Group items highlight the sender's username in brand green.
-///   - Tapping a group opens the WhatsApp-style [GroupChatScreen] with the
-///     Admin Anonymous Mode feature accessible via the paperclip icon.
-///   - Tapping a direct chat opens the 1-on-1 [DirectChatScreen].
-class MessagesScreen extends StatelessWidget {
+/// - `New DM` opens [AvailableContactsScreen], where contact requests must be
+///   accepted before a chat can be started.
+/// - `# Conversations`: List of 1-on-1 direct chats and Firestore-backed
+///   groups.
+///   - Group items highlight the last sender's username in brand green.
+///   - Tapping a group opens [PersistentGroupChatScreen]. The mock
+///     [GroupChatScreen] remains for offline/demo use and widget tests.
+///   - Tapping a direct chat opens [PersistentDirectChatScreen]. The mock
+///     [DirectChatScreen] remains for offline/demo use and widget tests.
+class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
+
+  @override
+  State<MessagesScreen> createState() => _MessagesScreenState();
+}
+
+class _MessagesScreenState extends State<MessagesScreen> {
+  Future<void> _onComposeAction(ComposeAction action) async {
+    switch (action.label) {
+      case 'New DM':
+        await _startNewDm();
+      case 'New Group':
+        await _startNewGroup();
+      case 'Add Story':
+        _showSnack('Story creation is coming soon.');
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _startNewDm() async {
+    if (!ChatStore.instance.isEnabled) {
+      _showSnack('Sign in to message other members.');
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(sharedAxisRoute(const AvailableContactsScreen()));
+  }
+
+  Future<void> _startNewGroup() async {
+    if (!ChatStore.instance.isEnabled) {
+      _showSnack('Sign in to create a group.');
+      return;
+    }
+
+    await Navigator.of(
+      context,
+    ).push(sharedAxisRoute(const CreateGroupScreen()));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,8 +117,11 @@ class MessagesScreen extends StatelessWidget {
             ),
           ],
         ),
-        const Positioned.fill(
-          child: ComposeFab(actions: _messagesComposeActions),
+        Positioned.fill(
+          child: ComposeFab(
+            actions: _messagesComposeActions,
+            onActionSelected: _onComposeAction,
+          ),
         ),
       ],
     );
@@ -146,10 +208,10 @@ class _ConversationsSection extends StatefulWidget {
 
 class _ConversationsSectionState extends State<_ConversationsSection> {
   static const List<String> _filters = ['All', 'DMs', 'Groups', 'Unread'];
+  late final Stream<ChatInbox> _inbox = ChatStore.instance.watchInbox();
   int _filter = 0;
 
-  List<ChatConversation> get _items {
-    final all = MockChatData.conversations;
+  List<ChatConversation> _filtered(List<ChatConversation> all) {
     return switch (_filter) {
       1 => all.where((c) => !c.isGroup).toList(),
       2 => all.where((c) => c.isGroup).toList(),
@@ -158,10 +220,21 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
     };
   }
 
+  void _openMockChat(ChatConversation item) {
+    if (item.isGroup) {
+      Navigator.of(
+        context,
+      ).push(sharedAxisRoute(GroupChatScreen(conversation: item)));
+    } else {
+      Navigator.of(
+        context,
+      ).push(sharedAxisRoute(DirectChatScreen(conversation: item)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final conversations = _items;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,23 +280,129 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
           fontWeight: FontWeight.w500,
         ),
         const SizedBox(height: 8),
+        _buildContent(),
+      ],
+    );
+  }
+
+  Widget _buildContent() {
+    if (!ChatStore.instance.isEnabled) {
+      final conversations = _filtered(MockChatData.conversations);
+      return _buildRows(
+        List<ChatConversation>.of(conversations),
+        onTap: _openMockChat,
+        emptyMessage: 'No conversations yet.',
+      );
+    }
+
+    return StreamBuilder<ChatInbox>(
+      stream: _inbox,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'Could not load conversations. Check your connection.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Montserrat',
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: AppLoader()),
+          );
+        }
+
+        final inbox = snapshot.data!;
+        final myUid = AuthService.instance.currentUser?.uid ?? '';
+        final entries =
+            <({ChatConversation item, DateTime? activityAt})>[
+              for (final chat in inbox.directChats)
+                (
+                  item: chat.toConversation(myUid: myUid),
+                  activityAt: chat.lastMessageAt ?? chat.createdAt,
+                ),
+              for (final group in inbox.groups)
+                (
+                  item: group.toConversation(myUid: myUid),
+                  activityAt: group.lastMessageAt ?? group.createdAt,
+                ),
+            ]..sort((a, b) {
+              final aTime = a.activityAt;
+              final bTime = b.activityAt;
+              if (aTime == null && bTime == null) return 0;
+              if (aTime == null) return 1;
+              if (bTime == null) return -1;
+              return bTime.compareTo(aTime);
+            });
+        final conversations = _filtered([
+          for (final entry in entries) entry.item,
+        ]);
+        final chatsById = <String, Object>{
+          for (final chat in inbox.directChats) chat.id: chat,
+          for (final group in inbox.groups) group.id: group,
+        };
+
+        return _buildRows(
+          conversations,
+          onTap: (item) {
+            final chat = chatsById[item.id];
+            if (chat == null) return;
+            Navigator.of(context).push(
+              sharedAxisRoute(switch (chat) {
+                DirectChat direct => PersistentDirectChatScreen(
+                  chatId: direct.id,
+                  peer: direct.peer,
+                ),
+                GroupChat group => PersistentGroupChatScreen(
+                  chatId: group.id,
+                  initialGroup: group,
+                ),
+                _ => const SizedBox.shrink(),
+              }),
+            );
+          },
+          emptyMessage: _filter == 2
+              ? 'No group chats yet.'
+              : _filter == 3
+              ? 'You are all caught up.'
+              : 'No conversations yet. Start a new message.',
+        );
+      },
+    );
+  }
+
+  Widget _buildRows(
+    List<ChatConversation> conversations, {
+    required ValueChanged<ChatConversation> onTap,
+    required String emptyMessage,
+  }) {
+    if (conversations.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: FloatingEmptyState(
+          key: const ValueKey('messages-empty'),
+          icon: Icons.forum_outlined,
+          message: emptyMessage,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
         for (var i = 0; i < conversations.length; i++) ...[
           if (i > 0)
             const Divider(height: 1, thickness: 1, color: SpotifyColors.border),
           _ConversationTile(
             item: conversations[i],
-            onTap: () {
-              final item = conversations[i];
-              if (item.isGroup) {
-                Navigator.of(
-                  context,
-                ).push(sharedAxisRoute(GroupChatScreen(conversation: item)));
-              } else {
-                Navigator.of(
-                  context,
-                ).push(sharedAxisRoute(DirectChatScreen(conversation: item)));
-              }
-            },
+            onTap: () => onTap(conversations[i]),
           ),
         ],
       ],
@@ -255,10 +434,12 @@ class _ConversationTile extends StatelessWidget {
             children: [
               ChatAvatar(
                 avatarAsset: item.avatarAsset,
+                avatarUrl: item.avatarUrl,
                 avatarColor: item.avatarColor,
                 avatarInitials: item.avatarInitials,
                 size: 36,
                 borderRadius: BorderRadius.circular(4),
+                showOnlineDot: item.isOnline,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -276,11 +457,48 @@ class _ConversationTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(item.time, style: SlackType.timestamp(scheme)),
+                        Text(
+                          item.time,
+                          style: SlackType.timestamp(scheme).copyWith(
+                            color: item.hasUnread ? SpotifyColors.accent : null,
+                          ),
+                        ),
+                        if (item.hasUnread) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: SpotifyColors.accent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              item.unreadCount > 9
+                                  ? '9+'
+                                  : item.unreadCount.toString(),
+                              style: const TextStyle(
+                                fontFamily: 'Montserrat',
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
-                    if (item.isGroup && item.lastMessageSender != null)
+                    if (item.isTyping)
+                      Text(
+                        'typing…',
+                        style: SlackType.body(scheme).copyWith(
+                          color: SpotifyColors.accent,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    else if (item.isGroup && item.lastMessageSender != null)
                       Text.rich(
                         TextSpan(
                           style: SlackType.body(scheme),

@@ -1,0 +1,471 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+
+import 'chat_conversation.dart';
+
+/// A person available to chat with in Encore.
+class ChatUser {
+  const ChatUser({
+    required this.id,
+    required this.name,
+    required this.username,
+    this.photoUrl,
+    this.level,
+    this.lastSeen,
+  });
+
+  final String id;
+  final String name;
+  final String username;
+  final String? photoUrl;
+  final String? level;
+  final DateTime? lastSeen;
+
+  String get displayName {
+    final trimmed = name.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    if (username.trim().isNotEmpty) return username.trim();
+    return 'Encore user';
+  }
+
+  String get handle {
+    final value = username.trim();
+    if (value.isEmpty) return '@user';
+    if (value.startsWith('@') || value.startsWith('_')) return value;
+    return '@$value';
+  }
+
+  String get initials {
+    final parts = displayName
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return '${parts[0].substring(0, 1)}${parts[1].substring(0, 1)}'
+        .toUpperCase();
+  }
+
+  /// A stable colour for the initials avatar.
+  Color get avatarColor {
+    const palette = [
+      Color(0xFF1F7A4D),
+      Color(0xFF1F5F8B),
+      Color(0xFF7A4D9E),
+      Color(0xFF9E4D5B),
+      Color(0xFF8B6A1F),
+      Color(0xFF3D6B8B),
+    ];
+    final sum = id.codeUnits.fold<int>(0, (total, unit) => total + unit);
+    return palette[sum % palette.length];
+  }
+
+  bool isOnlineAt(DateTime now) {
+    final seen = lastSeen;
+    if (seen == null) return false;
+    return now.difference(seen).inMinutes < 2;
+  }
+
+  String presenceLabel(DateTime now) {
+    if (isOnlineAt(now)) return 'online';
+    return formatLastSeen(lastSeen, now);
+  }
+
+  factory ChatUser.fromMap(String id, Map<String, dynamic> data) {
+    final name =
+        (data['fullName'] as String?)?.trim() ??
+        (data['name'] as String?)?.trim() ??
+        '';
+    final username = (data['username'] as String?)?.trim() ?? '';
+    return ChatUser(
+      id: id,
+      name: name,
+      username: username,
+      photoUrl: (data['photoUrl'] as String?)?.trim(),
+      level: (data['level'] as String?)?.trim(),
+      lastSeen: parseTimestamp(data['lastSeen']),
+    );
+  }
+
+  factory ChatUser.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    return ChatUser.fromMap(doc.id, doc.data() ?? const {});
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'fullName': name,
+      'username': username,
+      'photoUrl': photoUrl,
+      'level': level,
+    };
+  }
+}
+
+/// A Firestore-backed 1:1 conversation.
+class DirectChat {
+  const DirectChat({
+    required this.id,
+    required this.peer,
+    required this.members,
+    required this.lastMessage,
+    required this.lastMessageAt,
+    required this.lastSenderId,
+    this.lastMessageId,
+    this.lastMessageType = 'text',
+    this.unreadCount = 0,
+    this.peerLastReadAt,
+    this.peerTypingAt,
+    this.clearedAt,
+    this.createdAt,
+  });
+
+  final String id;
+  final ChatUser peer;
+  final List<String> members;
+  final String lastMessage;
+  final String? lastMessageId;
+  final String lastMessageType;
+  final String? lastSenderId;
+  final DateTime? lastMessageAt;
+  final int unreadCount;
+  final DateTime? peerLastReadAt;
+  final DateTime? peerTypingAt;
+  final DateTime? clearedAt;
+  final DateTime? createdAt;
+
+  factory DirectChat.empty({
+    required String id,
+    required ChatUser peer,
+    required String myUid,
+    DateTime? createdAt,
+  }) {
+    return DirectChat(
+      id: id,
+      peer: peer,
+      members: [myUid, peer.id],
+      lastMessage: '',
+      lastMessageAt: null,
+      lastSenderId: null,
+      createdAt: createdAt,
+    );
+  }
+
+  bool get hasUnread => unreadCount > 0;
+
+  bool get isCleared {
+    final cleared = clearedAt;
+    final last = lastMessageAt;
+    if (cleared == null) return false;
+    return last == null || !cleared.isBefore(last);
+  }
+
+  int get visibleUnread => isCleared ? 0 : unreadCount;
+
+  bool isTypingAt(DateTime now) {
+    final typing = peerTypingAt;
+    if (typing == null) return false;
+    final difference = now.difference(typing);
+    return !difference.isNegative && difference.inSeconds < 5;
+  }
+
+  DirectChat copyWith({ChatUser? peer}) {
+    return DirectChat(
+      id: id,
+      peer: peer ?? this.peer,
+      members: members,
+      lastMessage: lastMessage,
+      lastMessageId: lastMessageId,
+      lastMessageType: lastMessageType,
+      lastSenderId: lastSenderId,
+      lastMessageAt: lastMessageAt,
+      unreadCount: unreadCount,
+      peerLastReadAt: peerLastReadAt,
+      peerTypingAt: peerTypingAt,
+      clearedAt: clearedAt,
+      createdAt: createdAt,
+    );
+  }
+
+  String preview({required String myUid}) {
+    if (isCleared) return 'No messages yet';
+    final text = switch (lastMessageType) {
+      'image' => 'Photo',
+      'deleted' => 'This message was deleted',
+      _ => lastMessage.trim().isEmpty ? 'No messages yet' : lastMessage,
+    };
+    return lastSenderId == myUid ? 'You: $text' : text;
+  }
+
+  ChatConversation toConversation({required String myUid}) {
+    final now = DateTime.now();
+    return ChatConversation(
+      id: id,
+      title: peer.displayName,
+      avatarUrl: peer.photoUrl,
+      avatarColor: peer.avatarColor,
+      avatarInitials: peer.initials,
+      lastMessage: preview(myUid: myUid),
+      time: isCleared ? '' : formatChatListTime(lastMessageAt ?? createdAt),
+      hasUnread: visibleUnread > 0,
+      unreadCount: visibleUnread,
+      membersDescription: peer.presenceLabel(now),
+      peerUid: peer.id,
+      isOnline: peer.isOnlineAt(now),
+      isTyping: isTypingAt(now),
+      joinedDate: createdAt == null
+          ? null
+          : 'Started ${formatShortDate(createdAt!)}',
+    );
+  }
+}
+
+/// A reply preview attached to a message.
+class ReplyPreview {
+  const ReplyPreview({
+    required this.id,
+    required this.senderId,
+    required this.senderName,
+    required this.text,
+    required this.type,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String senderId;
+  final String senderName;
+  final String text;
+  final String type;
+  final String? imageUrl;
+
+  String get preview => switch (type) {
+    'image' => 'Photo',
+    'deleted' => 'This message was deleted',
+    _ => text,
+  };
+
+  factory ReplyPreview.fromMap(Map<String, dynamic> data) {
+    return ReplyPreview(
+      id: data['id'] as String? ?? '',
+      senderId: data['senderId'] as String? ?? '',
+      senderName: data['senderName'] as String? ?? '',
+      text: data['text'] as String? ?? '',
+      type: data['type'] as String? ?? 'text',
+      imageUrl: data['imageUrl'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'senderId': senderId,
+      'senderName': senderName,
+      'text': text,
+      'type': type,
+      'imageUrl': imageUrl,
+    };
+  }
+}
+
+/// A Firestore-backed message in a direct conversation.
+class DirectMessage {
+  const DirectMessage({
+    required this.id,
+    required this.senderId,
+    required this.senderName,
+    required this.senderUsername,
+    required this.text,
+    required this.createdAt,
+    required this.type,
+    this.imageUrl,
+    this.editedAt,
+    this.deleted = false,
+    this.replyTo,
+  });
+
+  final String id;
+  final String senderId;
+  final String senderName;
+  final String senderUsername;
+  final String text;
+  final DateTime? createdAt;
+  final String type;
+  final String? imageUrl;
+  final DateTime? editedAt;
+  final bool deleted;
+  final ReplyPreview? replyTo;
+
+  bool isMine(String uid) => senderId == uid;
+
+  bool get isEdited => editedAt != null;
+
+  DirectMessage copyWith({
+    String? text,
+    DateTime? editedAt,
+    bool? deleted,
+    String? imageUrl,
+  }) {
+    return DirectMessage(
+      id: id,
+      senderId: senderId,
+      senderName: senderName,
+      senderUsername: senderUsername,
+      text: text ?? this.text,
+      createdAt: createdAt,
+      type: deleted == true ? 'deleted' : type,
+      imageUrl: imageUrl ?? this.imageUrl,
+      editedAt: editedAt ?? this.editedAt,
+      deleted: deleted ?? this.deleted,
+      replyTo: replyTo,
+    );
+  }
+
+  factory DirectMessage.fromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    return DirectMessage.fromMap(doc.id, doc.data());
+  }
+
+  factory DirectMessage.fromMap(String id, Map<String, dynamic> data) {
+    final replyData = data['replyTo'];
+    return DirectMessage(
+      id: id,
+      senderId: data['senderId'] as String? ?? '',
+      senderName: data['senderName'] as String? ?? 'User',
+      senderUsername: data['senderUsername'] as String? ?? '',
+      text: data['text'] as String? ?? '',
+      createdAt: parseTimestamp(data['createdAt']),
+      type: data['type'] as String? ?? 'text',
+      imageUrl: (data['imageUrl'] as String?)?.trim(),
+      editedAt: parseTimestamp(data['editedAt']),
+      deleted: data['deleted'] == true || data['type'] == 'deleted',
+      replyTo: replyData is Map
+          ? ReplyPreview.fromMap(Map<String, dynamic>.from(replyData))
+          : null,
+    );
+  }
+
+  ReplyPreview toReplyPreview() {
+    return ReplyPreview(
+      id: id,
+      senderId: senderId,
+      senderName: senderName,
+      text: text,
+      type: type,
+      imageUrl: imageUrl,
+    );
+  }
+
+  ChatMessage toUiMessage({
+    required String myUid,
+    required bool isSeen,
+    bool showUsername = false,
+    ChatUser? sender,
+  }) {
+    final mine = senderId == myUid;
+    final username = (sender?.username ?? senderUsername).trim();
+    final groupLabel = username.isNotEmpty
+        ? username
+        : (sender?.displayName.trim().isNotEmpty == true
+              ? sender!.displayName
+              : senderName);
+    return ChatMessage(
+      id: id,
+      senderId: senderId,
+      senderName: mine ? 'You' : (showUsername ? groupLabel : senderName),
+      senderColor: showUsername ? sender?.avatarColor : null,
+      text: deleted ? 'This message was deleted' : text,
+      time: formatMessageTime(createdAt),
+      createdAt: createdAt,
+      isMe: mine,
+      isSeen: isSeen,
+      isDeleted: deleted,
+      isEdited: editedAt != null,
+      imageUrl: imageUrl,
+      replyToSender: replyTo?.senderId == myUid ? 'You' : replyTo?.senderName,
+      replyToText: replyTo?.preview,
+    );
+  }
+}
+
+DateTime? parseTimestamp(Object? value) {
+  return switch (value) {
+    Timestamp timestamp => timestamp.toDate(),
+    DateTime time => time,
+    int milliseconds => DateTime.fromMillisecondsSinceEpoch(milliseconds),
+    _ => null,
+  };
+}
+
+String formatMessageTime(DateTime? time) {
+  if (time == null) return '';
+  final local = time.toLocal();
+  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute ${local.hour >= 12 ? 'pm' : 'am'}';
+}
+
+String formatChatListTime(DateTime? time) {
+  if (time == null) return '';
+  final local = time.toLocal();
+  final now = DateTime.now();
+  if (isSameDay(local, now)) return formatMessageTime(local);
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
+  if (isSameDay(local, yesterday)) return 'Yesterday';
+  if (now.difference(local).inDays < 7) {
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return weekdays[local.weekday - 1];
+  }
+  return '${local.day.toString().padLeft(2, '0')}/'
+      '${local.month.toString().padLeft(2, '0')}/'
+      '${local.year.toString().substring(2)}';
+}
+
+String formatLastSeen(DateTime? time, DateTime now) {
+  if (time == null) return 'last seen recently';
+  final local = time.toLocal();
+  if (now.difference(local).inMinutes < 2) return 'online';
+  if (isSameDay(local, now)) {
+    return 'last seen today at ${formatMessageTime(local)}';
+  }
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
+  if (isSameDay(local, yesterday)) return 'last seen yesterday';
+  return 'last seen ${formatShortDate(local)}';
+}
+
+String formatShortDate(DateTime time) {
+  final local = time.toLocal();
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${local.day} ${months[local.month - 1]} ${local.year}';
+}
+
+String formatDateSeparator(DateTime? time) {
+  if (time == null) return '';
+  final local = time.toLocal();
+  final now = DateTime.now();
+  if (isSameDay(local, now)) return 'Today';
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
+  if (isSameDay(local, yesterday)) return 'Yesterday';
+  return formatShortDate(local);
+}
+
+bool isSameDay(DateTime? a, DateTime? b) {
+  if (a == null || b == null) return false;
+  final first = a.toLocal();
+  final second = b.toLocal();
+  return first.year == second.year &&
+      first.month == second.month &&
+      first.day == second.day;
+}

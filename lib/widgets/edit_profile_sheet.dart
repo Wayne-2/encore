@@ -11,6 +11,7 @@ import '../services/media_storage.dart';
 import '../services/notification_service.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import 'cached_profile_image.dart';
 import 'shimmer.dart';
 
 /// Opens the edit-profile sheet over the profile page.
@@ -383,11 +384,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
     if (_photoBytes != null) {
       image = Image.memory(_photoBytes!, fit: BoxFit.cover);
     } else if (_photoUrl != null) {
-      image = Image.network(
-        _photoUrl!,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
+      image = CachedProfileImage(url: _photoUrl!, fallback: _placeholder());
     } else {
       image = _placeholder();
     }

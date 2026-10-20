@@ -78,7 +78,7 @@ async function getSigningKeys() {
   return data.keys;
 }
 
-async function verifyIdToken(token, projectId) {
+export async function verifyIdToken(token, projectId) {
   const parts = token.split('.');
   if (parts.length !== 3) {
     throw new Error('malformed token');
@@ -133,7 +133,10 @@ async function verifyIdToken(token, projectId) {
 
 // --- Link generation (Admin REST) -------------------------------------------
 
-async function googleAccessToken(serviceAccount) {
+export async function googleAccessToken(
+  serviceAccount,
+  scope = IDENTITYTOOLKIT_SCOPE,
+) {
   const now = Math.floor(Date.now() / 1000);
   const encoder = new TextEncoder();
   const unsigned = `${base64UrlEncode(
@@ -142,7 +145,7 @@ async function googleAccessToken(serviceAccount) {
     encoder.encode(
       JSON.stringify({
         iss: serviceAccount.client_email,
-        scope: IDENTITYTOOLKIT_SCOPE,
+        scope,
         aud: GOOGLE_TOKEN_URL,
         iat: now,
         exp: now + 3600,

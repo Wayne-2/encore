@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/cached_profile_image.dart';
 import '../widgets/edit_profile_sheet.dart';
 
 /// Small supporting text on the profile page. Kept slightly brighter and
@@ -39,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   bool _loadFailed = false;
   String? _photoUrl;
+  StreamSubscription<Map<String, dynamic>?>? _profileSubscription;
 
   String _role = 'Student';
   String _registrationNumber = '20241426282';
@@ -49,22 +52,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCached();
-    _load();
+    _listenToProfile();
   }
 
-  /// Renders the last profile saved on this device before Firestore responds.
-  Future<void> _loadCached() async {
-    if (!AuthService.isAvailable) return;
-    try {
-      final data = await AuthService.instance.cachedProfile();
-      if (!mounted || data == null) return;
-      _applyProfile(data);
-    } catch (error) {
-      debugPrint('Cached profile read failed: $error');
+  @override
+  void dispose() {
+    _profileSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Hive answers first, then Firestore pushes any profile/photo updates.
+  void _listenToProfile() {
+    if (!AuthService.isAvailable) {
+      _loading = false;
+      return;
     }
+
+    var hasProfile = false;
+    _profileSubscription = AuthService.instance
+        .currentUserProfileStream()
+        .listen(
+          (data) {
+            if (!mounted) return;
+            if (data != null) {
+              hasProfile = true;
+              _applyProfile(data);
+            }
+            setState(() {
+              _loading = false;
+              if (hasProfile) _loadFailed = false;
+            });
+          },
+          onError: (Object error) {
+            debugPrint('Profile stream failed: $error');
+            if (!mounted) return;
+            setState(() {
+              _loading = false;
+              _loadFailed = !hasProfile;
+            });
+          },
+        );
   }
 
+  /// Manual retry for the error banner; normal updates arrive via the stream.
   Future<void> _load() async {
     if (!AuthService.isAvailable) {
       if (mounted) setState(() => _loading = false);
@@ -124,9 +154,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _bio = bio;
         _hasStoredBio = true;
       }
-      if (photoUrl != null && photoUrl.trim().isNotEmpty) {
-        _photoUrl = photoUrl;
-      }
+      _photoUrl = (photoUrl != null && photoUrl.trim().isNotEmpty)
+          ? photoUrl
+          : null;
       if (role != null && role.trim().isNotEmpty) {
         final value = role.trim();
         _role = value[0].toUpperCase() + value.substring(1);
@@ -148,13 +178,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _editProfile() async {
     try {
-      final saved = await showEditProfileSheet(
+      await showEditProfileSheet(
         context,
         username: _username,
         bio: _hasStoredBio ? _bio : '',
         photoUrl: _photoUrl,
       );
-      if (saved == true) await _load();
     } catch (error) {
       debugPrint('Profile editor failed to open: $error');
       if (!mounted) return;
@@ -183,11 +212,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.medium,
               )
-            : Image.network(
-                _photoUrl!,
+            : CachedProfileImage(
+                url: _photoUrl!,
                 fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
-                errorBuilder: (_, _, _) => Image.asset(
+                fallback: Image.asset(
                   'assets/Encore.png',
                   fit: BoxFit.cover,
                   filterQuality: FilterQuality.medium,

@@ -31,23 +31,33 @@ class StoryItem {
 class ChatMessage {
   const ChatMessage({
     required this.id,
+    this.senderId,
     this.senderName,
     this.senderColor,
     this.senderAvatar,
     required this.text,
     required this.time,
+    this.createdAt,
     this.isMe = false,
     this.isAnonymous = false,
     this.isNotice = false,
     this.isAdmin = false,
+    this.isSeen = true,
+    this.isEdited = false,
+    this.isDeleted = false,
+    this.imageUrl,
+    this.replyToSender,
+    this.replyToText,
   });
 
   final String id;
+  final String? senderId;
   final String? senderName;
   final Color? senderColor;
   final String? senderAvatar;
   final String text;
   final String time;
+  final DateTime? createdAt;
   final bool isMe;
 
   /// In anonymous mode, messages do not carry the sender's real ID.
@@ -59,29 +69,61 @@ class ChatMessage {
   /// Admin tag shown on member messages.
   final bool isAdmin;
 
+  /// Whether the other participant has read this message.
+  final bool isSeen;
+
+  /// Whether the message copy was changed after sending.
+  final bool isEdited;
+
+  /// Deleted messages render a placeholder instead of their old copy.
+  final bool isDeleted;
+
+  /// Remote photo attached to the message.
+  final String? imageUrl;
+
+  /// Reply preview shown above the message copy.
+  final String? replyToSender;
+  final String? replyToText;
+
   ChatMessage copyWith({
     String? id,
+    String? senderId,
     String? senderName,
     Color? senderColor,
     String? senderAvatar,
     String? text,
     String? time,
+    DateTime? createdAt,
     bool? isMe,
     bool? isAnonymous,
     bool? isNotice,
     bool? isAdmin,
+    bool? isSeen,
+    bool? isEdited,
+    bool? isDeleted,
+    String? imageUrl,
+    String? replyToSender,
+    String? replyToText,
   }) {
     return ChatMessage(
       id: id ?? this.id,
+      senderId: senderId ?? this.senderId,
       senderName: senderName ?? this.senderName,
       senderColor: senderColor ?? this.senderColor,
       senderAvatar: senderAvatar ?? this.senderAvatar,
       text: text ?? this.text,
       time: time ?? this.time,
+      createdAt: createdAt ?? this.createdAt,
       isMe: isMe ?? this.isMe,
       isAnonymous: isAnonymous ?? this.isAnonymous,
       isNotice: isNotice ?? this.isNotice,
       isAdmin: isAdmin ?? this.isAdmin,
+      isSeen: isSeen ?? this.isSeen,
+      isEdited: isEdited ?? this.isEdited,
+      isDeleted: isDeleted ?? this.isDeleted,
+      imageUrl: imageUrl ?? this.imageUrl,
+      replyToSender: replyToSender ?? this.replyToSender,
+      replyToText: replyToText ?? this.replyToText,
     );
   }
 }
@@ -93,6 +135,7 @@ class ChatConversation {
     required this.title,
     this.isGroup = false,
     this.avatarAsset,
+    this.avatarUrl,
     this.avatarColor,
     this.avatarInitials,
     required this.lastMessage,
@@ -104,12 +147,16 @@ class ChatConversation {
     this.initialMessages = const [],
     this.followersCount,
     this.joinedDate,
+    this.peerUid,
+    this.isOnline = false,
+    this.isTyping = false,
   });
 
   final String id;
   final String title;
   final bool isGroup;
   final String? avatarAsset;
+  final String? avatarUrl;
   final Color? avatarColor;
   final String? avatarInitials;
   final String lastMessage;
@@ -123,6 +170,11 @@ class ChatConversation {
   final List<ChatMessage> initialMessages;
   final int? followersCount;
   final String? joinedDate;
+
+  /// Set for Firestore-backed direct chats.
+  final String? peerUid;
+  final bool isOnline;
+  final bool isTyping;
 }
 
 /// Mock data replicating the exact items shown in the user's design screenshot.

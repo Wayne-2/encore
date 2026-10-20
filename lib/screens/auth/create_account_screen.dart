@@ -11,6 +11,7 @@ import '../../config/app_config.dart';
 import '../../data/departments.dart';
 import '../../navigation/app_route.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/cached_profile_image.dart';
 import '../../services/media_storage.dart';
 import '../../services/notification_service.dart';
 import '../../services/session_service.dart';
@@ -917,10 +918,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     final bytes = _avatarBytes;
     final url = _avatarUrl;
     if (url != null) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => bytes != null
+      return CachedProfileImage(
+        url: url,
+        fallback: bytes != null
             ? Image.memory(bytes, fit: BoxFit.cover)
             : _avatarPlaceholder(theme),
       );
