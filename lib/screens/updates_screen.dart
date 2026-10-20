@@ -240,6 +240,7 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
                     _TrendingSection(
                       key: _trendingKey,
                       loading: _loading,
+                      viewerId: _viewerId,
                       onShowMore: () => _openTrending(context),
                     ),
                     const SizedBox(height: AppSpacing.section),
@@ -338,12 +339,13 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
       }
     }
 
-    TrendStore.instance.post(
+    final trend = TrendStore.instance.post(
       title: draft.title,
       body: draft.body,
       author: author ?? 'You',
       media: draft.media,
     );
+    NotificationService.instance.showTrendPosted(title: trend.title);
 
     // Bring the new card into view if the user was scrolled elsewhere.
     if (!mounted) return;
@@ -362,7 +364,14 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
     final draft = await showAddActivitySheet(context);
     if (draft == null) return;
 
-    ActivityStore.instance.add(title: draft.title, date: draft.date);
+    final activity = ActivityStore.instance.add(
+      title: draft.title,
+      date: draft.date,
+    );
+    NotificationService.instance.showActivityAdded(
+      title: activity.title,
+      date: activity.dateLabel,
+    );
 
     // Bring the activities grid into view after adding.
     if (!mounted) return;
@@ -382,7 +391,9 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
   }
 
   void _openTrending(BuildContext context) {
-    Navigator.of(context).push(fadeRoute(const TrendingMoreScreen()));
+    Navigator.of(
+      context,
+    ).push(sharedAxisRoute(TrendingMoreScreen(viewerId: _viewerId)));
   }
 
   void _openAnnouncement(BuildContext context, Announcement announcement) {
@@ -654,10 +665,12 @@ class _TrendingSection extends StatelessWidget {
     super.key,
     required this.onShowMore,
     required this.loading,
+    required this.viewerId,
   });
 
   final VoidCallback onShowMore;
   final bool loading;
+  final String? viewerId;
 
   /// Height reserved for the row, kept even when there are no trends.
   static const double _height = 200;
@@ -725,9 +738,11 @@ class _TrendingSection extends StatelessWidget {
                 itemBuilder: (context, i) => _TrendingCard(
                   key: ValueKey('trending-$i'),
                   item: items[i],
-                  onTap: () => Navigator.of(
-                    context,
-                  ).push(fadeRoute(TrendingDetailScreen(trend: items[i]))),
+                  onTap: () => Navigator.of(context).push(
+                    sharedAxisRoute(
+                      TrendingDetailScreen(trend: items[i], viewerId: viewerId),
+                    ),
+                  ),
                 ),
               );
             },

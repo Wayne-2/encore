@@ -18,6 +18,8 @@ const Color _accent = Color(0xFF25A10C);
 const int _welcomeNotificationId = 1001;
 const int _profileUpdatedNotificationId = 1002;
 const int _announcementNotificationId = 1003;
+const int _trendNotificationId = 1004;
+const int _activityNotificationId = 1005;
 
 /// FCM handler for messages that arrive while the app is in the background.
 ///
@@ -195,6 +197,53 @@ class NotificationService {
         id: _announcementNotificationId,
         title: 'New announcement from $name',
         body: 'Priority: $priority',
+        notificationDetails: _details,
+      );
+    } catch (_) {
+      // Local notifications are unavailable in this environment.
+    }
+  }
+
+  /// Confirms that [title] was published to the Trending feed.
+  ///
+  /// Best-effort: posting must still succeed when notifications are blocked.
+  Future<void> showTrendPosted({required String title}) async {
+    try {
+      if (!_initialized) await initialize();
+      if (!_initialized) return;
+
+      final name = title.trim();
+      await _local.show(
+        id: _trendNotificationId,
+        title: 'Trend posted',
+        body: name.isEmpty ? 'Your trend is now live.' : '"$name" is now live.',
+        notificationDetails: _details,
+      );
+    } catch (_) {
+      // Local notifications are unavailable in this environment.
+    }
+  }
+
+  /// Confirms that [title] was added for [date] on the activities grid.
+  ///
+  /// Best-effort: adding an activity must still succeed when notifications
+  /// are blocked.
+  Future<void> showActivityAdded({
+    required String title,
+    required String date,
+  }) async {
+    try {
+      if (!_initialized) await initialize();
+      if (!_initialized) return;
+
+      final name = title.trim().isEmpty ? 'Your activity' : title.trim();
+      final day = date.trim();
+      await _local.show(
+        id: _activityNotificationId,
+        title: 'Activity added',
+        body: day.isEmpty
+            ? '$name has been added to your activities.'
+            : '$name is scheduled for $day.',
         notificationDetails: _details,
       );
     } catch (_) {

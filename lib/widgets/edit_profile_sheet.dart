@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -62,6 +63,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
 
   late String? _photoUrl = widget.photoUrl;
   Uint8List? _photoBytes;
+  bool _picking = false;
   bool _uploading = false;
   bool _saving = false;
   String? _error;
@@ -74,31 +76,58 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
   }
 
   Future<void> _pickPhoto() async {
-    final source = await _chooseSource();
-    if (source == null) return;
+    if (_uploading || _picking) return;
 
-    final picked = await ImagePicker().pickImage(
-      source: source,
-      imageQuality: 85,
-      maxWidth: 1080,
-    );
-    if (picked == null) return;
-
-    final bytes = await picked.readAsBytes();
-    if (!mounted) return;
-
-    final cropped = await Navigator.of(context).push<Uint8List>(
-      sharedAxisRoute<Uint8List>(ImageCropScreen(image: bytes)),
-    );
-    if (cropped == null || !mounted) return;
-
-    final contentType = _contentTypeFor(cropped);
     setState(() {
-      _photoBytes = cropped;
-      _uploading = true;
+      _picking = true;
       _error = null;
     });
 
+    try {
+      final source = await _chooseSource();
+      if (source == null) return;
+
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1080,
+      );
+      if (picked == null) return;
+
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+
+      final cropped = await Navigator.of(context).push<Uint8List>(
+        sharedAxisRoute<Uint8List>(ImageCropScreen(image: bytes)),
+      );
+      if (cropped == null || !mounted) return;
+
+      setState(() {
+        _photoBytes = cropped;
+        _uploading = true;
+        _picking = false;
+      });
+      await _uploadPhoto(cropped);
+    } on PlatformException catch (error) {
+      debugPrint('Image picker failed: $error');
+      if (!mounted) return;
+      setState(() => _error = _pickerMessage(error));
+    } catch (error) {
+      debugPrint('Profile photo selection failed: $error');
+      if (!mounted) return;
+      setState(() => _error = 'Couldn’t open that photo. Try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _picking = false;
+          _uploading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _uploadPhoto(Uint8List cropped) async {
+    final contentType = _contentTypeFor(cropped);
     final media = MediaStorage(workerUrl: AppConfig.r2WorkerUrl);
     try {
       final url = await media.upload(
@@ -109,21 +138,31 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
         contentType: contentType,
       );
       if (!mounted) return;
-      setState(() {
-        _photoUrl = url;
-        _uploading = false;
-      });
+      setState(() => _photoUrl = url);
     } catch (error) {
       debugPrint('Profile photo upload failed: $error');
       if (!mounted) return;
       setState(() {
         _photoBytes = null;
-        _uploading = false;
         _error = 'Couldn’t upload that photo. Try again.';
       });
     } finally {
       media.dispose();
     }
+  }
+
+  String _pickerMessage(PlatformException error) {
+    return switch (error.code) {
+      'camera_access_denied' =>
+        'Camera access is off. Enable it in Settings to take a photo.',
+      'photo_access_denied' =>
+        'Photo access is off. Enable it in Settings to choose a photo.',
+      'camera_access_restricted' =>
+        'Camera access is restricted on this device.',
+      'photo_access_restricted' => 'Photo access is restricted on this device.',
+      'no_available_camera' => 'No camera is available on this device.',
+      _ => error.message ?? 'Couldn’t open the photo picker. Try again.',
+    };
   }
 
   Future<ImageSource?> _chooseSource() {
@@ -163,7 +202,11 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
       setState(() => _error = 'Your username needs at least 3 characters.');
       return;
     }
-    if (_uploading) return;
+    if (_uploading) {
+      setState(() => _error = 'Wait for your photo to finish uploading.');
+      return;
+    }
+    if (_picking) return;
 
     setState(() {
       _saving = true;
@@ -176,15 +219,35 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
         bio: _bio.text.trim(),
         photoUrl: _photoUrl,
       );
-      if (updated) {
-        try {
-          await NotificationService.instance.showProfileUpdated();
-        } catch (_) {
-          // A blocked/failed notification must not stop the save.
-        }
+      if (!updated) {
+        if (!mounted) return;
+        setState(() {
+          _saving = false;
+          _error = 'You need to be signed in to save changes.';
+        });
+        return;
+      }
+      try {
+        await NotificationService.instance.showProfileUpdated();
+      } catch (_) {
+        // A blocked/failed notification must not stop the save.
       }
       if (!mounted) return;
       Navigator.of(context).pop(true);
+    } on FirebaseAuthException catch (error) {
+      debugPrint('Profile save failed: $error');
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = AuthService.messageFor(error);
+      });
+    } on FirebaseException catch (error) {
+      debugPrint('Profile save failed: $error');
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = _saveMessage(error);
+      });
     } catch (error) {
       debugPrint('Profile save failed: $error');
       if (!mounted) return;
@@ -193,6 +256,19 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
         _error = 'Couldn’t save your changes. Try again.';
       });
     }
+  }
+
+  String _saveMessage(FirebaseException error) {
+    return switch (error.code) {
+      'unavailable' || 'network-request-failed' =>
+        'No internet connection. Check your network and try again.',
+      'permission-denied' =>
+        'You don’t have permission to update this profile.',
+      'unauthenticated' =>
+        'Your session expired. Sign in again to save changes.',
+      'deadline-exceeded' => 'The request timed out. Try again.',
+      _ => error.message ?? 'Couldn’t save your changes. Try again.',
+    };
   }
 
   @override
@@ -270,6 +346,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 const SizedBox(height: 4),
                 Text(
                   _error!,
+                  key: const ValueKey('edit-profile-error'),
                   style: AppType.subtitle(
                     scheme,
                   ).copyWith(color: SpotifyColors.danger),
@@ -280,7 +357,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 width: double.infinity,
                 height: 48,
                 child: FilledButton(
-                  onPressed: _saving || _uploading ? null : _save,
+                  key: const ValueKey('edit-profile-save'),
+                  onPressed: _saving || _uploading || _picking ? null : _save,
                   child: _saving
                       ? const SizedBox(
                           width: 20,
@@ -333,7 +411,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
               color: SpotifyColors.accent,
               shape: const CircleBorder(),
               child: InkWell(
-                onTap: _uploading ? null : _pickPhoto,
+                key: const ValueKey('edit-profile-photo-button'),
+                onTap: _uploading || _picking ? null : _pickPhoto,
                 customBorder: const CircleBorder(),
                 child: const Padding(
                   padding: EdgeInsets.all(8),

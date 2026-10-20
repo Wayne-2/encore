@@ -213,8 +213,11 @@ class AuthService {
   /// The signed-in user's profile document, or null when unavailable.
   ///
   /// Fresh Firestore data is cached in Hive, and the cache is used when the
-  /// network is unavailable.
-  Future<Map<String, dynamic>?> currentUserProfile() async {
+  /// network is unavailable. Pass `fallbackToCache: false` when the caller
+  /// needs to distinguish a failed refresh from cached data.
+  Future<Map<String, dynamic>?> currentUserProfile({
+    bool fallbackToCache = true,
+  }) async {
     final uid = currentUser?.uid;
     if (uid == null) return null;
 
@@ -226,6 +229,7 @@ class AuthService {
       }
       return data;
     } catch (_) {
+      if (!fallbackToCache) rethrow;
       return LocalCache.instance.profile(uid);
     }
   }
@@ -289,10 +293,15 @@ class AuthService {
       await user.updatePhotoURL(photoUrl);
     }
 
-    final cached = await LocalCache.instance.profile(user.uid);
-    unawaited(
-      LocalCache.instance.saveProfile(user.uid, {...?cached, ...updates}),
-    );
+    try {
+      final cached = await LocalCache.instance.profile(user.uid);
+      unawaited(
+        LocalCache.instance.saveProfile(user.uid, {...?cached, ...updates}),
+      );
+    } catch (_) {
+      // The Firestore update already succeeded; a cache problem must not turn
+      // it into a failed save.
+    }
     return true;
   }
 

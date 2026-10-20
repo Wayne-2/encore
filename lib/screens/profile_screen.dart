@@ -7,6 +7,15 @@ import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/edit_profile_sheet.dart';
 
+/// Small supporting text on the profile page. Kept slightly brighter and
+/// heavier than [AppType.meta] so it stays legible over the hero image.
+TextStyle _profileMetaStyle(ColorScheme scheme) {
+  return AppType.meta(scheme).copyWith(
+    color: scheme.onSurface.withValues(alpha: 0.65),
+    fontWeight: FontWeight.w500,
+  );
+}
+
 /// The Profile section — the fourth tab of [HomeShell].
 ///
 /// A full-bleed hero profile modelled on the supplied `profiledesign.jpeg`: a
@@ -27,6 +36,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _email = 'sodeh138@gmail.com';
   String _bio = _bioPlaceholder;
   bool _hasStoredBio = false;
+  bool _loading = true;
+  bool _loadFailed = false;
   String? _photoUrl;
 
   String _role = 'Student';
@@ -45,33 +56,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// Renders the last profile saved on this device before Firestore responds.
   Future<void> _loadCached() async {
     if (!AuthService.isAvailable) return;
-    final data = await AuthService.instance.cachedProfile();
-    if (!mounted || data == null) return;
-    _applyProfile(data);
+    try {
+      final data = await AuthService.instance.cachedProfile();
+      if (!mounted || data == null) return;
+      _applyProfile(data);
+    } catch (error) {
+      debugPrint('Cached profile read failed: $error');
+    }
   }
 
   Future<void> _load() async {
-    if (!AuthService.isAvailable) return;
+    if (!AuthService.isAvailable) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    if (!_loading) setState(() => _loading = true);
+
     try {
-      final data = await AuthService.instance.currentUserProfile();
-      if (!mounted || data == null) return;
+      final data = await AuthService.instance.currentUserProfile(
+        fallbackToCache: false,
+      );
+      if (!mounted) return;
+      if (data == null) throw StateError('Profile document was not found.');
       _applyProfile(data);
-    } catch (_) {
-      // Keep the cached/design fallback when the profile can't be read.
+      setState(() {
+        _loading = false;
+        _loadFailed = false;
+      });
+    } catch (error) {
+      debugPrint('Profile load failed: $error');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
     }
   }
 
   void _applyProfile(Map<String, dynamic> data) {
-    final fullName = data['fullName'] as String?;
-    final username = data['username'] as String?;
-    final email = data['email'] as String?;
-    final bio = data['bio'] as String?;
-    final photoUrl = data['photoUrl'] as String?;
-    final role = data['role'] as String?;
-    final registrationNumber = data['registrationNumber'] as String?;
-    final department = data['department'] as String?;
-    final level = data['level'] as String?;
-    final faculty = data['faculty'] as String?;
+    String? read(String key) {
+      final value = data[key];
+      return value is String ? value : null;
+    }
+
+    final fullName = read('fullName');
+    final username = read('username');
+    final email = read('email');
+    final bio = read('bio');
+    final photoUrl = read('photoUrl');
+    final role = read('role');
+    final registrationNumber = read('registrationNumber');
+    final department = read('department');
+    final level = read('level');
+    final faculty = read('faculty');
 
     setState(() {
       if (fullName != null && fullName.trim().isNotEmpty) {
@@ -110,13 +147,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _editProfile() async {
-    final saved = await showEditProfileSheet(
-      context,
-      username: _username,
-      bio: _hasStoredBio ? _bio : '',
-      photoUrl: _photoUrl,
-    );
-    if (saved == true) await _load();
+    try {
+      final saved = await showEditProfileSheet(
+        context,
+        username: _username,
+        bio: _hasStoredBio ? _bio : '',
+        photoUrl: _photoUrl,
+      );
+      if (saved == true) await _load();
+    } catch (error) {
+      debugPrint('Profile editor failed to open: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Couldn’t open the profile editor. Try again.'),
+          ),
+        );
+    }
   }
 
   @override
@@ -171,6 +220,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+        if (_loadFailed)
+          Positioned(
+            top: topInset + 56,
+            left: 16,
+            right: 16,
+            child: _ProfileLoadError(loading: _loading, onRetry: _load),
+          ),
         // Hero details
         Positioned(
           left: 0,
@@ -199,7 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('See profile', style: AppType.meta(scheme)),
+                        Text('See profile', style: _profileMetaStyle(scheme)),
                         const SizedBox(height: 10),
                         _CircleIcon(
                           icon: Icons.share_outlined,
@@ -278,6 +334,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A compact banner shown when the profile could not be refreshed. The cached
+/// profile stays visible behind it so the page is never blank.
+class _ProfileLoadError extends StatelessWidget {
+  const _ProfileLoadError({required this.loading, required this.onRetry});
+
+  final bool loading;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Material(
+      key: const ValueKey('profile-load-error'),
+      color: SpotifyColors.surface.withValues(alpha: 0.96),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: SpotifyColors.danger.withValues(alpha: 0.55),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 18,
+              color: SpotifyColors.danger,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Couldn’t refresh your profile.',
+                style: AppType.subtitle(scheme).copyWith(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.all(10),
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              TextButton(
+                key: const ValueKey('profile-retry'),
+                onPressed: onRetry,
+                child: const Text('Retry'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -401,7 +520,7 @@ class _DetailsBannerState extends State<_DetailsBanner> {
                   const SizedBox(height: 2),
                   Text(
                     _isPrivate ? 'Profile is private' : 'Profile is public',
-                    style: AppType.meta(scheme),
+                    style: _profileMetaStyle(scheme),
                   ),
                 ],
               ),
@@ -495,7 +614,7 @@ class _ProfileActionTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: AppType.meta(scheme)),
+                    Text(subtitle, style: _profileMetaStyle(scheme)),
                   ],
                 ),
               ),

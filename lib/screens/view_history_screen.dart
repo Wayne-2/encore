@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 
 /// Placeholder history page for finance transactions.
@@ -20,24 +20,24 @@ class ViewHistoryScreen extends StatelessWidget {
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: Text(
-          'View History',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
-        ),
+        title: Text('View History', style: AppType.name(scheme)),
       ),
       body: Center(
-        child: Text(
-          'No history yet',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 14,
-            color: scheme.onSurfaceVariant,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 34,
+              color: scheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No history yet',
+              key: const ValueKey('no-history-message'),
+              style: AppType.subtitle(scheme),
+            ),
+          ],
         ),
       ),
     );

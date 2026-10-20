@@ -1,181 +1,335 @@
-import 'view_history_screen.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../navigation/app_route.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
 import '../theme/spotify_colors.dart';
-import '../widgets/section_heading.dart';
+import '../widgets/add_expenditure_sheet.dart';
+import '../widgets/add_funds_sheet.dart';
 import '../widgets/checkout_sheet.dart';
+import '../widgets/compose_fab.dart';
+import '../widgets/section_heading.dart';
 import '../widgets/workspace_app_bar.dart';
+import 'view_history_screen.dart';
 
 /// The Finance section — the third tab of [HomeShell].
 ///
 /// Shares the Slack-style workspace bar with the Updates section, but shows a
 /// "Finances" heading (no subheading) and a notification glyph on the right.
-class FinanceScreen extends StatelessWidget {
+class FinanceScreen extends StatefulWidget {
   const FinanceScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+  State<FinanceScreen> createState() => _FinanceScreenState();
+}
 
-    return Column(
+class _FinanceScreenState extends State<FinanceScreen>
+    with AutomaticKeepAliveClientMixin {
+  StreamSubscription<Map<String, dynamic>?>? _profileSubscription;
+
+  String _fullName = 'Odeh Solomon';
+  String _accountNumber = '4267438338';
+  String _bankName = 'Kuda Bank';
+  String _registrationNumber = '20241426282';
+  String _department = 'Computer Science';
+  String _level = '300 Level';
+  double _availablePoints = 0;
+
+  late List<_Due> _dues = List.of(_initialDues);
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (AuthService.isAvailable) {
+      _profileSubscription = AuthService.instance
+          .currentUserProfileStream()
+          .listen(_applyProfile);
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_profileSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _applyProfile(Map<String, dynamic>? data) {
+    if (!mounted || data == null) return;
+
+    final fullName = (data['fullName'] as String?)?.trim();
+    final accountNumber = (data['accountNumber'] as String?)?.trim();
+    final bankName =
+        (data['bankName'] as String?)?.trim() ??
+        (data['bank'] as String?)?.trim();
+    final registrationNumber = (data['registrationNumber'] as String?)?.trim();
+    final department = (data['department'] as String?)?.trim();
+    final level = (data['level'] as String?)?.trim();
+    final points = data['availablePoints'];
+
+    setState(() {
+      if (fullName != null && fullName.isNotEmpty) _fullName = fullName;
+      if (accountNumber != null && accountNumber.isNotEmpty) {
+        _accountNumber = accountNumber;
+      }
+      if (bankName != null && bankName.isNotEmpty) _bankName = bankName;
+      if (registrationNumber != null && registrationNumber.isNotEmpty) {
+        _registrationNumber = registrationNumber;
+      }
+      if (department != null && department.isNotEmpty) {
+        _department = department;
+      }
+      if (level != null && level.isNotEmpty) _level = level;
+      if (points is num) _availablePoints = points.toDouble();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final scheme = Theme.of(context).colorScheme;
+    final completed = _dues.where((due) => due.paid).length;
+    final total = _dues.length;
+    final unpaid = total - completed;
+    final progress = total == 0 ? 0.0 : completed / total;
+
+    return Stack(
       children: [
-        WorkspaceAppBar(
-          heading: 'Finances',
-          trailing: SvgPicture.asset(
-            'assets/icons/notification.svg',
-            width: 20,
-            height: 20,
-            colorFilter: ColorFilter.mode(scheme.onSurface, BlendMode.srcIn),
-          ),
-        ),
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '2025/2026 FIRST SEMESTER',
-                      style: AppType.name(
-                        scheme,
-                      ).copyWith(fontWeight: FontWeight.w500),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ViewHistoryScreen(),
-                        ),
-                      ),
-                      child: Text(
-                        'View History',
-                        style: AppType.subtitle(
-                          scheme,
-                        ).copyWith(color: scheme.primary),
-                      ),
-                    ),
-                  ],
+        Column(
+          children: [
+            WorkspaceAppBar(
+              heading: 'Finances',
+              trailing: SvgPicture.asset(
+                'assets/icons/notification.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  scheme.onSurface,
+                  BlendMode.srcIn,
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: _BankBanner(),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Row(
-                  children: [
-                    Text(
-                      '3/10 Dues completed',
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '2025/2026 FIRST SEMESTER',
+                          style: AppType.name(
+                            scheme,
+                          ).copyWith(fontWeight: FontWeight.w500),
+                        ),
+                        GestureDetector(
+                          key: const ValueKey('view-history-button'),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).push(sharedAxisRoute(const ViewHistoryScreen())),
+                          child: Text(
+                            'View History',
+                            style: AppType.subtitle(
+                              scheme,
+                            ).copyWith(color: scheme.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _BankBanner(
+                      fullName: _fullName,
+                      accountNumber: _accountNumber,
+                      bankName: _bankName,
+                      availablePoints: _availablePoints.toStringAsFixed(2),
+                      onCopy: () => _copyAccountNumber(context),
+                      onAddFunds: () => _showAddFunds(context),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Row(
+                      children: [
+                        Text(
+                          '$completed/$total Dues completed',
+                          style: AppType.subtitle(scheme),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 3,
+                            color: scheme.primary,
+                            backgroundColor: SpotifyColors.surfaceHover,
+                            borderRadius: BorderRadius.circular(1.5),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${(progress * 100).round()}%',
+                          style: AppType.subtitle(scheme),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                    child: FractionallySizedBox(
+                      widthFactor: 0.8,
+                      child: FilledButton(
+                        onPressed: unpaid == 0
+                            ? null
+                            : () => _showCheckout(context),
+                        child: Text('Pay All ($unpaid unpaid)'),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: SectionHeading(
+                      'Budgeted Semester Expenditure',
+                      style: SlackType.sectionTitle(scheme),
+                      glyphStyle: SlackType.glyph(scheme),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Text(
+                      'Assigned for computer science - 200lvl',
                       style: AppType.subtitle(scheme),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: LinearProgressIndicator(
-                        value: 0.33,
-                        minHeight: 3,
-                        color: scheme.primary,
-                        backgroundColor: SpotifyColors.surfaceHover,
-                        borderRadius: BorderRadius.circular(1.5),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text('33%', style: AppType.subtitle(scheme)),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                child: FractionallySizedBox(
-                  widthFactor: 0.8,
-                  child: FilledButton(
-                    onPressed: () => _showCheckout(context),
-                    child: const Text('Pay All (4 unpaid)'),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                child: SectionHeading(
-                  'Budgeted Semester Expenditure',
-                  style: SlackType.sectionTitle(scheme),
-                  glyphStyle: SlackType.glyph(scheme),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: Text(
-                  'Assigned for computer science - 200lvl',
-                  style: AppType.subtitle(scheme),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Row(
-                  children: [
-                    const _ExpenditureFilter(),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(
-                        height: 40,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: SpotifyColors.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: SpotifyColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            SvgPicture.asset(
-                              'assets/icons/searching.svg',
-                              width: 16,
-                              height: 16,
-                              colorFilter: ColorFilter.mode(
-                                scheme.onSurfaceVariant.withValues(alpha: 0.8),
-                                BlendMode.srcIn,
-                              ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Row(
+                      children: [
+                        const _ExpenditureFilter(),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: SpotifyColors.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: SpotifyColors.border),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                style: AppType.subtitle(scheme),
-                                cursorColor: scheme.primary,
-                                cursorHeight: 14,
-                                textAlignVertical: TextAlignVertical.center,
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  errorBorder: InputBorder.none,
-                                  focusedErrorBorder: InputBorder.none,
-                                  hintText: 'Search',
-                                  hintStyle: AppType.meta(scheme),
+                            child: Row(
+                              children: [
+                                SvgPicture.asset(
+                                  'assets/icons/searching.svg',
+                                  width: 16,
+                                  height: 16,
+                                  colorFilter: ColorFilter.mode(
+                                    scheme.onSurfaceVariant.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                    BlendMode.srcIn,
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    style: AppType.subtitle(scheme),
+                                    cursorColor: scheme.primary,
+                                    cursorHeight: 14,
+                                    textAlignVertical: TextAlignVertical.center,
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      disabledBorder: InputBorder.none,
+                                      errorBorder: InputBorder.none,
+                                      focusedErrorBorder: InputBorder.none,
+                                      hintText: 'Search',
+                                      hintStyle: AppType.meta(scheme),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final due in _dues) _ExpenditureTile(due: due),
+                  const SizedBox(height: 88),
+                ],
               ),
-              const SizedBox(height: 8),
-              for (final due in _dues) _ExpenditureTile(due: due),
+            ),
+          ],
+        ),
+        Positioned.fill(
+          child: ComposeFab(
+            buttonKey: const ValueKey('finance-add-button'),
+            actions: const [
+              (label: 'Add Expenditure', icon: Icons.receipt_long_outlined),
             ],
+            onActionSelected: (_) => _addExpenditure(context),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _copyAccountNumber(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: _accountNumber));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Account number copied')));
+  }
+
+  void _showAddFunds(BuildContext context) {
+    showAddFundsSheet(
+      context,
+      fullName: _fullName,
+      accountNumber: _accountNumber,
+      bankName: _bankName,
+      availablePoints: _availablePoints.toStringAsFixed(2),
+      registrationNumber: _registrationNumber,
+      department: _department,
+      level: _level,
+    );
+  }
+
+  Future<void> _addExpenditure(BuildContext context) async {
+    final draft = await showAddExpenditureSheet(context);
+    if (draft == null || !context.mounted) return;
+
+    setState(() {
+      _dues = [
+        ..._dues,
+        _Due(
+          title: draft.title,
+          amount: draft.amount,
+          kind: _DueKind.manual,
+          paid: false,
+        ),
+      ];
+    });
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('${draft.title} added to expenditures')),
+      );
   }
 
   void _showCheckout(BuildContext context) {
@@ -197,7 +351,21 @@ class FinanceScreen extends StatelessWidget {
 
 /// The account banner shown under the semester row.
 class _BankBanner extends StatelessWidget {
-  const _BankBanner();
+  const _BankBanner({
+    required this.fullName,
+    required this.accountNumber,
+    required this.bankName,
+    required this.availablePoints,
+    required this.onCopy,
+    required this.onAddFunds,
+  });
+
+  final String fullName;
+  final String accountNumber;
+  final String bankName;
+  final String availablePoints;
+  final VoidCallback onCopy;
+  final VoidCallback onAddFunds;
 
   @override
   Widget build(BuildContext context) {
@@ -224,17 +392,33 @@ class _BankBanner extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          'Odeh Solomon',
-                          style: AppType.cardTitle(
-                            scheme,
-                          ).copyWith(fontSize: 16, fontWeight: FontWeight.w500),
+                        Flexible(
+                          child: Text(
+                            fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.cardTitle(scheme).copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.copy,
-                          size: 14,
-                          color: scheme.onSurfaceVariant,
+                        const SizedBox(width: 4),
+                        IconButton(
+                          key: const ValueKey('copy-account-number'),
+                          tooltip: 'Copy account number',
+                          onPressed: onCopy,
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 24,
+                            height: 24,
+                          ),
+                          icon: Icon(
+                            Icons.copy,
+                            size: 14,
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -242,7 +426,7 @@ class _BankBanner extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '4267438338',
+                          accountNumber,
                           style: AppType.meta(scheme).copyWith(
                             fontSize: 14,
                             color: scheme.onSurfaceVariant.withValues(
@@ -260,14 +444,21 @@ class _BankBanner extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Text('Kuda Bank', style: AppType.tag(scheme.primary)),
+                        Flexible(
+                          child: Text(
+                            bankName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.tag(scheme.primary),
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const _FundButton(),
+              _FundButton(onTap: onAddFunds),
             ],
           ),
           Row(
@@ -290,7 +481,7 @@ class _BankBanner extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                '0.00',
+                availablePoints,
                 style: AppType.tag(scheme.primary).copyWith(fontSize: 16),
               ),
             ],
@@ -324,7 +515,9 @@ class _DashLine extends StatelessWidget {
 
 /// The green "Fund" action shown on the account banner.
 class _FundButton extends StatelessWidget {
-  const _FundButton();
+  const _FundButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -334,8 +527,9 @@ class _FundButton extends StatelessWidget {
       color: buttonColor,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
+        key: const ValueKey('add-funds-button'),
         borderRadius: BorderRadius.circular(6),
-        onTap: () {},
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
@@ -472,7 +666,7 @@ class _Due {
   };
 }
 
-const List<_Due> _dues = [
+const List<_Due> _initialDues = [
   _Due(
     title: 'GST 212 - Philosophy and Logic',
     amount: '₦1,500.00',

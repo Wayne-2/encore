@@ -14,12 +14,21 @@ typedef ComposeAction = ({String label, IconData icon});
 /// Tapping the add button rotates it 45° into a close icon while a stack of
 /// quick actions — supplied via [actions] — is revealed above it.
 class ComposeFab extends StatefulWidget {
-  const ComposeFab({super.key, required this.actions, this.onActionSelected});
+  const ComposeFab({
+    super.key,
+    required this.actions,
+    this.onActionSelected,
+    this.buttonKey,
+  });
 
   final List<ComposeAction> actions;
 
   /// Called when a revealed action is tapped. The menu closes first.
   final ValueChanged<ComposeAction>? onActionSelected;
+
+  /// Optional key for the main add button (useful when a page has more than
+  /// one add icon).
+  final Key? buttonKey;
 
   @override
   State<ComposeFab> createState() => _ComposeFabState();
@@ -106,6 +115,7 @@ class _ComposeFabState extends State<ComposeFab>
                               },
                       ),
                   GestureDetector(
+                    key: widget.buttonKey,
                     onTap: _toggle,
                     child: Container(
                       width: 56,

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:encore/main.dart';
@@ -16,6 +17,7 @@ import 'package:encore/screens/profile_screen.dart';
 import 'package:encore/screens/trending_detail_screen.dart';
 import 'package:encore/screens/trending_more_screen.dart';
 import 'package:encore/screens/updates_screen.dart';
+import 'package:encore/screens/view_history_screen.dart';
 import 'package:encore/screens/welcome_screen.dart';
 import 'package:encore/services/activity_store.dart';
 import 'package:encore/services/announcement_store.dart';
@@ -24,6 +26,7 @@ import 'package:encore/services/reaction_store.dart';
 import 'package:encore/services/trend_store.dart';
 import 'package:encore/theme/spotify_colors.dart';
 import 'package:encore/widgets/compose_announcement_sheet.dart';
+import 'package:encore/widgets/edit_profile_sheet.dart';
 
 /// Fills the in-memory feed for tests that need announcements to exist.
 void seedAnnouncements() {
@@ -440,6 +443,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TrendingMoreScreen), findsOneWidget);
+  });
+
+  testWidgets('Trending For you feed opens the full trend page', (
+    WidgetTester tester,
+  ) async {
+    TrendStore.instance.clear();
+    TrendStore.instance.post(
+      title: 'Library hours',
+      body: 'The library is now open until 10 PM through the exam period.',
+      author: 'Ama Boateng',
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: TrendingMoreScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('For you'), findsOneWidget);
+    expect(find.byKey(const ValueKey('trend-feed-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('trend-feed-0')), findsOneWidget);
+    expect(find.text('Library hours'), findsOneWidget);
+    expect(find.text('Ama Boateng'), findsOneWidget);
+    expect(find.text('Read story'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('trend-feed-0')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TrendingDetailScreen), findsOneWidget);
+    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('Library hours'), findsOneWidget);
+
+    TrendStore.instance.clear();
   });
 
   testWidgets('Trending keeps its height while empty and after a post', (
@@ -965,6 +998,129 @@ void main() {
     expect(find.widgetWithText(MenuItemButton, 'Manuals'), findsNothing);
   });
 
+  testWidgets('Finance Add Funds shows account details and copies', (
+    WidgetTester tester,
+  ) async {
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') calls.add(call);
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: FinanceScreen())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('add-funds-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Funds'), findsWidgets);
+    expect(find.text('Account name'), findsOneWidget);
+    expect(find.text('Odeh Solomon'), findsNWidgets(2));
+    expect(find.text('4267438338'), findsNWidgets(2));
+    expect(find.text('Kuda Bank'), findsNWidgets(2));
+    expect(find.text('Student details'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('copy-funds-account')));
+    await tester.pump();
+
+    expect(calls, isNotEmpty);
+    expect(calls.last.arguments['text'], '4267438338');
+    expect(find.text('Account number copied'), findsOneWidget);
+  });
+
+  testWidgets('Finance copy icon copies the account number', (
+    WidgetTester tester,
+  ) async {
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') calls.add(call);
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: FinanceScreen())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('copy-account-number')));
+    await tester.pump();
+
+    expect(calls, isNotEmpty);
+    expect(calls.last.arguments['text'], '4267438338');
+    expect(find.text('Account number copied'), findsOneWidget);
+  });
+
+  testWidgets('Finance adds an expenditure from the add action', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: FinanceScreen())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('finance-add-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Add Expenditure'), findsOneWidget);
+
+    await tester.tap(find.text('Add Expenditure'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('expenditure-title')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('expenditure-title')),
+      'Lab coat',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('expenditure-amount')),
+      '7500',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('add-expenditure-button')));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -600));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lab coat'), findsWidgets);
+    expect(find.text('₦7,500.00'), findsOneWidget);
+  });
+
+  testWidgets('Finance View History opens the empty history page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: FinanceScreen())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('view-history-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ViewHistoryScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('no-history-message')), findsOneWidget);
+    expect(find.text('No history yet'), findsOneWidget);
+  });
+
   testWidgets('Finance due tile options follow the paid state', (
     WidgetTester tester,
   ) async {
@@ -978,6 +1134,8 @@ void main() {
       const ValueKey('due-options-GST 212 - Philosophy and Logic'),
     );
     await tester.ensureVisible(paidOptions);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -140));
+    await tester.pumpAndSettle();
     await tester.tap(paidOptions);
     await tester.pumpAndSettle();
     expect(find.text('Save Details'), findsOneWidget);
@@ -992,6 +1150,8 @@ void main() {
       const ValueKey('due-options-MATH 202 - Differential Calculus'),
     );
     await tester.ensureVisible(unpaidOptions);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -140));
+    await tester.pumpAndSettle();
     await tester.tap(unpaidOptions);
     await tester.pumpAndSettle();
     expect(find.text('Draft Invoice'), findsOneWidget);
@@ -1075,6 +1235,27 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('profile-privacy-toggle')));
     await tester.pump();
     expect(find.text('Profile is private'), findsOneWidget);
+  });
+
+  testWidgets('Edit profile shows an error when saving is unavailable', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: EditProfileSheet(username: 'wayne', bio: ''),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('edit-profile-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('edit-profile-error')), findsOneWidget);
+    expect(
+      find.text('You need to be signed in to save changes.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('More tab shows its workspace bar', (WidgetTester tester) async {
