@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'local_cache.dart';
 
 /// Thrown when the admin ID entered on login doesn't match the one saved on
 /// the account during sign-up.
@@ -187,8 +189,8 @@ class AuthService {
     String? level,
     String? adminId,
     String? photoUrl,
-  }) {
-    return _firestore.collection('users').doc(uid).set({
+  }) async {
+    final data = <String, dynamic>{
       'fullName': fullName,
       'username': username,
       'email': email,
@@ -199,28 +201,68 @@ class AuthService {
       'level': level,
       'adminId': adminId,
       'photoUrl': photoUrl,
+    };
+
+    await _firestore.collection('users').doc(uid).set({
+      ...data,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    unawaited(LocalCache.instance.saveProfile(uid, data));
   }
 
   /// The signed-in user's profile document, or null when unavailable.
+  ///
+  /// Fresh Firestore data is cached in Hive, and the cache is used when the
+  /// network is unavailable.
   Future<Map<String, dynamic>?> currentUserProfile() async {
     final uid = currentUser?.uid;
     if (uid == null) return null;
-    final snapshot = await _firestore.collection('users').doc(uid).get();
-    return snapshot.data();
+
+    try {
+      final snapshot = await _firestore.collection('users').doc(uid).get();
+      final data = snapshot.data();
+      if (data != null) {
+        unawaited(LocalCache.instance.saveProfile(uid, data));
+      }
+      return data;
+    } catch (_) {
+      return LocalCache.instance.profile(uid);
+    }
+  }
+
+  /// The last profile saved on this device, available before the network.
+  Future<Map<String, dynamic>?> cachedProfile() {
+    final uid = currentUser?.uid;
+    if (uid == null) return Future<Map<String, dynamic>?>.value();
+    return LocalCache.instance.profile(uid);
   }
 
   /// Streams the signed-in user's profile document, so screens can react to
   /// edits (photo, level, department, bio) without a reload.
-  Stream<Map<String, dynamic>?> currentUserProfileStream() {
+  ///
+  /// The Hive-cached profile is emitted first so the UI can render offline.
+  Stream<Map<String, dynamic>?> currentUserProfileStream() async* {
     final uid = currentUser?.uid;
-    if (uid == null) return Stream.value(null);
-    return _firestore
-        .collection('users')
-        .doc(uid)
-        .snapshots()
-        .map((snapshot) => snapshot.data());
+    if (uid == null) {
+      yield null;
+      return;
+    }
+
+    final cached = await LocalCache.instance.profile(uid);
+    if (cached != null) yield cached;
+
+    try {
+      await for (final snapshot
+          in _firestore.collection('users').doc(uid).snapshots()) {
+        final data = snapshot.data();
+        if (data != null) {
+          unawaited(LocalCache.instance.saveProfile(uid, data));
+        }
+        yield data;
+      }
+    } catch (_) {
+      // Keep the cached profile already emitted.
+    }
   }
 
   /// Updates the editable parts of the signed-in user's profile.
@@ -233,14 +275,24 @@ class AuthService {
   }) async {
     final user = currentUser;
     if (user == null) return false;
-    await _firestore.collection('users').doc(user.uid).set({
+
+    final updates = <String, dynamic>{
       'username': username,
       'bio': bio,
       'photoUrl': ?photoUrl,
-    }, SetOptions(merge: true));
+    };
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(updates, SetOptions(merge: true));
     if (photoUrl != null) {
       await user.updatePhotoURL(photoUrl);
     }
+
+    final cached = await LocalCache.instance.profile(user.uid);
+    unawaited(
+      LocalCache.instance.saveProfile(user.uid, {...?cached, ...updates}),
+    );
     return true;
   }
 

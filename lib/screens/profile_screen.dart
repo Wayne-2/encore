@@ -29,10 +29,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasStoredBio = false;
   String? _photoUrl;
 
+  String _role = 'Student';
+  String _registrationNumber = '20241426282';
+  String _department = 'Computer Science';
+  String _level = '300 Level';
+  String _faculty = 'SICT';
+
   @override
   void initState() {
     super.initState();
+    _loadCached();
     _load();
+  }
+
+  /// Renders the last profile saved on this device before Firestore responds.
+  Future<void> _loadCached() async {
+    if (!AuthService.isAvailable) return;
+    final data = await AuthService.instance.cachedProfile();
+    if (!mounted || data == null) return;
+    _applyProfile(data);
   }
 
   Future<void> _load() async {
@@ -40,34 +55,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final data = await AuthService.instance.currentUserProfile();
       if (!mounted || data == null) return;
-
-      final fullName = data['fullName'] as String?;
-      final username = data['username'] as String?;
-      final email = data['email'] as String?;
-      final bio = data['bio'] as String?;
-      final photoUrl = data['photoUrl'] as String?;
-
-      setState(() {
-        if (fullName != null && fullName.trim().isNotEmpty) {
-          _fullName = fullName;
-        }
-        if (username != null && username.trim().isNotEmpty) {
-          _username = username;
-        }
-        if (email != null && email.trim().isNotEmpty) {
-          _email = email;
-        }
-        if (bio != null) {
-          _bio = bio;
-          _hasStoredBio = true;
-        }
-        if (photoUrl != null && photoUrl.trim().isNotEmpty) {
-          _photoUrl = photoUrl;
-        }
-      });
+      _applyProfile(data);
     } catch (_) {
-      // Keep the design fallback when the profile can't be read.
+      // Keep the cached/design fallback when the profile can't be read.
     }
+  }
+
+  void _applyProfile(Map<String, dynamic> data) {
+    final fullName = data['fullName'] as String?;
+    final username = data['username'] as String?;
+    final email = data['email'] as String?;
+    final bio = data['bio'] as String?;
+    final photoUrl = data['photoUrl'] as String?;
+    final role = data['role'] as String?;
+    final registrationNumber = data['registrationNumber'] as String?;
+    final department = data['department'] as String?;
+    final level = data['level'] as String?;
+    final faculty = data['faculty'] as String?;
+
+    setState(() {
+      if (fullName != null && fullName.trim().isNotEmpty) {
+        _fullName = fullName;
+      }
+      if (username != null && username.trim().isNotEmpty) {
+        _username = username;
+      }
+      if (email != null && email.trim().isNotEmpty) {
+        _email = email;
+      }
+      if (bio != null) {
+        _bio = bio;
+        _hasStoredBio = true;
+      }
+      if (photoUrl != null && photoUrl.trim().isNotEmpty) {
+        _photoUrl = photoUrl;
+      }
+      if (role != null && role.trim().isNotEmpty) {
+        final value = role.trim();
+        _role = value[0].toUpperCase() + value.substring(1);
+      }
+      if (registrationNumber != null && registrationNumber.trim().isNotEmpty) {
+        _registrationNumber = registrationNumber.trim();
+      }
+      if (department != null && department.trim().isNotEmpty) {
+        _department = department.trim();
+      }
+      if (level != null && level.trim().isNotEmpty) {
+        _level = level.trim();
+      }
+      if (faculty != null && faculty.trim().isNotEmpty) {
+        _faculty = faculty.trim();
+      }
+    });
   }
 
   Future<void> _editProfile() async {
@@ -208,7 +247,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const _DetailsBanner(),
+                _DetailsBanner(
+                  role: _role,
+                  registrationNumber: _registrationNumber,
+                  department: _department,
+                  level: _level,
+                  faculty: _faculty,
+                ),
                 const SizedBox(height: 12),
                 const _ProfileActionTile(
                   icon: Icons.insights,
@@ -303,7 +348,19 @@ class _CircleIcon extends StatelessWidget {
 
 /// A bordered banner of profile details plus a privacy toggle.
 class _DetailsBanner extends StatefulWidget {
-  const _DetailsBanner();
+  const _DetailsBanner({
+    required this.role,
+    required this.registrationNumber,
+    required this.department,
+    required this.level,
+    required this.faculty,
+  });
+
+  final String role;
+  final String registrationNumber;
+  final String department;
+  final String level;
+  final String faculty;
 
   @override
   State<_DetailsBanner> createState() => _DetailsBannerState();
@@ -321,9 +378,12 @@ class _DetailsBannerState extends State<_DetailsBanner> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _DotRow(items: ['Student', '20241426282'], emphasize: true),
+          _DotRow(
+            items: [widget.role, widget.registrationNumber],
+            emphasize: true,
+          ),
           const SizedBox(height: 10),
-          const _DotRow(items: ['Computer Science', '300 Level', 'SICT']),
+          _DotRow(items: [widget.department, widget.level, widget.faculty]),
           const SizedBox(height: 12),
           Row(
             children: [

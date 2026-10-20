@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,10 +13,15 @@ import 'package:encore/screens/home_shell.dart';
 import 'package:encore/screens/messages_screen.dart';
 import 'package:encore/screens/more_screen.dart';
 import 'package:encore/screens/profile_screen.dart';
+import 'package:encore/screens/trending_detail_screen.dart';
 import 'package:encore/screens/trending_more_screen.dart';
 import 'package:encore/screens/updates_screen.dart';
 import 'package:encore/screens/welcome_screen.dart';
+import 'package:encore/services/activity_store.dart';
 import 'package:encore/services/announcement_store.dart';
+import 'package:encore/services/comment_store.dart';
+import 'package:encore/services/reaction_store.dart';
+import 'package:encore/services/trend_store.dart';
 import 'package:encore/theme/spotify_colors.dart';
 import 'package:encore/widgets/compose_announcement_sheet.dart';
 
@@ -50,6 +56,30 @@ void seedAnnouncements() {
         'Good morning. The Csc 200 lab report is due this Friday — please '
         'submit before 5:00 PM.',
   );
+}
+
+/// Fills the in-memory activities grid for tests that need cards to exist.
+void seedActivities() {
+  final store = ActivityStore.instance;
+  store.clear();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  const titles = [
+    'Matriculation',
+    'Sports Week',
+    'Career Fair',
+    'Hostel Ballot',
+    'Library Tour',
+    'Exam Timetable',
+  ];
+
+  for (var i = 0; i < titles.length; i++) {
+    store.add(
+      title: titles[i],
+      date: today.add(Duration(days: i)),
+      authorId: 'seed-author',
+    );
+  }
 }
 
 void main() {
@@ -353,7 +383,28 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
     expect(find.text('No announcement posted yet'), findsOneWidget);
+    expect(find.byKey(const ValueKey('announcement-empty')), findsOneWidget);
+    expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
     expect(find.byKey(const ValueKey('announcement-0')), findsNothing);
+  });
+
+  testWidgets('Updates exposes refresh controls', (WidgetTester tester) async {
+    AnnouncementStore.instance.clear();
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: UpdatesScreen())),
+    );
+
+    expect(find.byKey(const ValueKey('updates-refresh')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('updates-refresh-indicator')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('updates-refresh')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('updates-refresh')), findsOneWidget);
+    expect(find.text('No announcement posted yet'), findsOneWidget);
   });
 
   testWidgets('Announcement section keeps a three-row height when empty', (
@@ -376,10 +427,13 @@ void main() {
   testWidgets('Updates shows Trending and opens Show more', (
     WidgetTester tester,
   ) async {
+    TrendStore.instance.clear();
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
     expect(find.text('Trending'), findsOneWidget);
-    expect(find.byKey(const ValueKey('trending-0')), findsOneWidget);
+    expect(find.text('No Trending news available'), findsOneWidget);
+    expect(find.byKey(const ValueKey('trending-empty')), findsOneWidget);
+    expect(find.byIcon(Icons.trending_up), findsOneWidget);
     expect(find.byKey(const ValueKey('trending-show-more')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('trending-show-more')));
@@ -388,9 +442,59 @@ void main() {
     expect(find.byType(TrendingMoreScreen), findsOneWidget);
   });
 
+  testWidgets('Trending keeps its height while empty and after a post', (
+    WidgetTester tester,
+  ) async {
+    // The gallery plugin is unavailable on the test host; pretend this is a
+    // desktop platform so the composer skips loading device media.
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+
+    TrendStore.instance.clear();
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    final emptyHeight = tester
+        .getSize(find.byKey(const ValueKey('trending-section')))
+        .height;
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Post Trends'));
+    await tester.pumpAndSettle();
+
+    // The composer only checks the platform when it opens.
+    debugDefaultTargetPlatformOverride = null;
+
+    expect(find.text('Post Trend'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('trend-title')),
+      'Library hours',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('trend-body')),
+      'The library is now open until 10 PM through the exam period.',
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('post-trend-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No Trending news available'), findsNothing);
+    expect(find.text('Library hours'), findsOneWidget);
+    expect(find.byKey(const ValueKey('trending-0')), findsOneWidget);
+
+    // The row keeps the same height after the post.
+    final postedHeight = tester
+        .getSize(find.byKey(const ValueKey('trending-section')))
+        .height;
+    expect(postedHeight, emptyHeight);
+    expect(emptyHeight, 200);
+  });
+
   testWidgets('Updates shows the Upcoming Activities grid', (
     WidgetTester tester,
   ) async {
+    seedActivities();
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
     await tester.drag(
@@ -403,6 +507,136 @@ void main() {
     for (var i = 0; i < 6; i++) {
       expect(find.byKey(ValueKey('activity-$i')), findsOneWidget);
     }
+  });
+
+  testWidgets('Upcoming activities shows a floating empty state', (
+    WidgetTester tester,
+  ) async {
+    ActivityStore.instance.clear();
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+    await tester.drag(
+      find.byKey(const ValueKey('updates-scroll')),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('activity-empty')), findsOneWidget);
+    expect(find.text('No upcoming activities yet'), findsOneWidget);
+    expect(find.byIcon(Icons.event_available_outlined), findsOneWidget);
+  });
+
+  testWidgets('Adding an activity opens the composer and updates the grid', (
+    WidgetTester tester,
+  ) async {
+    ActivityStore.instance.clear();
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add Activity'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Activity'), findsOneWidget);
+    expect(find.byKey(const ValueKey('activity-title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('activity-date')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('activity-date')));
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('activity-title')),
+      'Alumni Meetup',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('add-activity-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Activity'), findsNothing);
+    expect(
+      ActivityStore.instance.items.any(
+        (activity) => activity.title == 'Alumni Meetup',
+      ),
+      isTrue,
+    );
+    final added = ActivityStore.instance.items.firstWhere(
+      (activity) => activity.title == 'Alumni Meetup',
+    );
+    expect(
+      tester
+          .widget<ColoredBox>(find.byKey(ValueKey('activity-bar-${added.id}')))
+          .color,
+      SpotifyColors.accent,
+    );
+    expect(find.text('Alumni Meetup'), findsOneWidget);
+
+    ActivityStore.instance.clear();
+  });
+
+  testWidgets('Past activities use a grey sidebar', (
+    WidgetTester tester,
+  ) async {
+    ActivityStore.instance.clear();
+    final past = ActivityStore.instance.add(
+      title: 'Old Event',
+      date: DateTime.now().subtract(const Duration(days: 3)),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
+    await tester.drag(
+      find.byKey(const ValueKey('updates-scroll')),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Old Event'), findsOneWidget);
+    final bar = tester.widget<ColoredBox>(
+      find.byKey(ValueKey('activity-bar-${past.id}')),
+    );
+    expect(bar.color, SpotifyColors.tagMuted);
+
+    ActivityStore.instance.clear();
+  });
+
+  testWidgets('The activity author can hold to delete it', (
+    WidgetTester tester,
+  ) async {
+    ActivityStore.instance.clear();
+    ActivityStore.instance.add(
+      title: 'Team Sync',
+      date: DateTime.now().add(const Duration(days: 1)),
+      authorId: 'author-1',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(home: UpdatesScreen(viewerId: 'author-1')),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('updates-scroll')),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.text('Team Sync');
+    expect(card, findsOneWidget);
+
+    final gesture = await tester.startGesture(tester.getCenter(card));
+    await tester.pump(const Duration(milliseconds: 1600));
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete activity?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('delete-activity-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(ActivityStore.instance.items, isEmpty);
+    expect(find.text('No upcoming activities yet'), findsOneWidget);
+    expect(find.byKey(const ValueKey('activity-empty')), findsOneWidget);
+
+    ActivityStore.instance.clear();
   });
 
   testWidgets('Tapping an announcement opens its detail page', (
@@ -492,13 +726,71 @@ void main() {
     expect(store.items, isEmpty);
   });
 
+  testWidgets('Only the announcement author can swipe it away', (
+    WidgetTester tester,
+  ) async {
+    final store = AnnouncementStore.instance;
+    store.clear();
+    final announcement = store.post(
+      author: 'Dr. Mensah',
+      authorId: 'author-1',
+      tag: 'Highly prior',
+      tagColor: SpotifyColors.tagUrgent,
+      body: 'Bring your lab report on Friday.',
+    );
+    final deleteBackground = find.byKey(
+      ValueKey('announcement-delete-bg-${announcement.id}'),
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(home: UpdatesScreen(viewerId: 'author-2')),
+    );
+    expect(deleteBackground, findsNothing);
+    await tester.drag(
+      find.byKey(const ValueKey('announcement-0')),
+      const Offset(-400, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(store.items, hasLength(1));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: UpdatesScreen(viewerId: 'author-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(Dismissible), findsOneWidget);
+
+    final partial = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('announcement-0'))),
+    );
+    await partial.moveBy(const Offset(-60, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    await partial.moveBy(const Offset(-60, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(deleteBackground, findsOneWidget);
+    await partial.up();
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('announcement-0')),
+      const Offset(-400, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(store.items, isEmpty);
+    expect(find.text('Bring your lab report on Friday.'), findsNothing);
+
+    store.clear();
+  });
+
   testWidgets('Announcement detail supports posting a comment', (
     WidgetTester tester,
   ) async {
+    CommentStore.instance.clear();
     await tester.pumpWidget(
       const MaterialApp(
         home: AnnouncementDetailScreen(
           announcement: Announcement(
+            id: 'test-announcement-comment',
             author: 'Dr. Mensah',
             time: '9:41 AM',
             tag: 'Highly prior',
@@ -510,7 +802,7 @@ void main() {
     );
 
     expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('Ama Boateng'), findsOneWidget);
+    expect(find.text('No comments yet'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Noted, thank you!');
     await tester.pump();
@@ -518,7 +810,104 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Noted, thank you!'), findsOneWidget);
-    expect(find.text('Odeh Solomon'), findsOneWidget);
+    expect(find.text('You'), findsOneWidget);
+  });
+
+  testWidgets('Trending detail supports posting a comment', (
+    WidgetTester tester,
+  ) async {
+    TrendStore.instance.clear();
+    TrendStore.instance.post(
+      title: 'Library hours',
+      body: 'The library is now open until 10 PM through the exam period.',
+      author: 'Ama Boateng',
+    );
+    final trend = TrendStore.instance.items.first;
+
+    await tester.pumpWidget(
+      MaterialApp(home: TrendingDetailScreen(trend: trend)),
+    );
+
+    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('No comments yet'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'See you there!');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('comment-send-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('See you there!'), findsOneWidget);
+    expect(find.text('You'), findsOneWidget);
+
+    TrendStore.instance.clear();
+  });
+
+  testWidgets('Trending reactions toggle and tally', (
+    WidgetTester tester,
+  ) async {
+    TrendStore.instance.clear();
+    ReactionStore.instance.clear();
+    TrendStore.instance.post(
+      title: 'Library hours',
+      body: 'The library is now open until 10 PM through the exam period.',
+      author: 'Ama Boateng',
+    );
+    final trend = TrendStore.instance.items.first;
+
+    await tester.pumpWidget(
+      MaterialApp(home: TrendingDetailScreen(trend: trend)),
+    );
+
+    await tester.tap(find.byIcon(Icons.add_reaction_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('🔥').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('1'), findsOneWidget);
+
+    // Tapping the tally again removes the reaction.
+    await tester.tap(find.text('🔥'));
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsNothing);
+
+    TrendStore.instance.clear();
+    ReactionStore.instance.clear();
+  });
+
+  testWidgets('Only the trend author can delete a trend', (
+    WidgetTester tester,
+  ) async {
+    TrendStore.instance.clear();
+    final trend = TrendStore.instance.post(
+      title: 'Library hours',
+      body: 'The library is now open until 10 PM through the exam period.',
+      author: 'Ama Boateng',
+      authorId: 'author-1',
+    );
+    const deleteButton = ValueKey('delete-trend-button');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TrendingDetailScreen(trend: trend, viewerId: 'author-2'),
+      ),
+    );
+    expect(find.byKey(deleteButton), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TrendingDetailScreen(trend: trend, viewerId: 'author-1'),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(deleteButton), findsOneWidget);
+
+    await tester.tap(find.byKey(deleteButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('delete-trend-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(TrendStore.instance.items, isEmpty);
+    TrendStore.instance.clear();
   });
 
   testWidgets('Home shell supports swiping between sections', (

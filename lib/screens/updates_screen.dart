@@ -1,22 +1,30 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../data/departments.dart';
+import '../models/activity.dart';
 import '../models/announcement.dart';
 import '../models/trend.dart';
 import '../navigation/app_route.dart';
+import '../services/activity_store.dart';
 import '../services/announcement_store.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../services/trend_store.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/add_activity_sheet.dart';
 import '../widgets/announcement_tile.dart';
 import '../widgets/compose_announcement_sheet.dart';
 import '../widgets/compose_fab.dart';
+import '../widgets/compose_trend_sheet.dart';
+import '../widgets/floating_empty_state.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/shimmer.dart';
+import '../widgets/trend_cover.dart';
 import '../widgets/workspace_app_bar.dart';
 import 'announcement_detail_screen.dart';
 import 'announcements_screen.dart';
@@ -33,7 +41,13 @@ const List<ComposeAction> _updatesComposeActions = [
 /// The workspace bar, with the title and avatar sourced from the signed-in
 /// user's Firestore profile (falling back to the design defaults).
 class _UpdatesWorkspaceBar extends StatefulWidget {
-  const _UpdatesWorkspaceBar();
+  const _UpdatesWorkspaceBar({
+    required this.onRefresh,
+    required this.refreshing,
+  });
+
+  final VoidCallback onRefresh;
+  final bool refreshing;
 
   @override
   State<_UpdatesWorkspaceBar> createState() => _UpdatesWorkspaceBarState();
@@ -53,7 +67,18 @@ class _UpdatesWorkspaceBarState extends State<_UpdatesWorkspaceBar> {
   @override
   Widget build(BuildContext context) {
     if (_profile == null) {
-      return const WorkspaceAppBar(heading: 'Update', title: 'Csc 200 level');
+      return WorkspaceAppBar(
+        heading: 'Update',
+        title: 'Csc 200 level',
+        trailing: _barActions(
+          const Image(
+            image: AssetImage('assets/Encore.png'),
+            width: 38,
+            height: 38,
+            filterQuality: FilterQuality.medium,
+          ),
+        ),
+      );
     }
 
     return StreamBuilder<Map<String, dynamic>?>(
@@ -72,26 +97,62 @@ class _UpdatesWorkspaceBarState extends State<_UpdatesWorkspaceBar> {
         return WorkspaceAppBar(
           heading: 'Update',
           title: title,
-          trailing: (photoUrl == null || photoUrl.isEmpty)
-              ? null
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Image.network(
-                    photoUrl,
+          trailing: _barActions(
+            (photoUrl == null || photoUrl.isEmpty)
+                ? const Image(
+                    image: AssetImage('assets/Encore.png'),
                     width: 38,
                     height: 38,
-                    fit: BoxFit.cover,
                     filterQuality: FilterQuality.medium,
-                    errorBuilder: (_, _, _) => Image.asset(
-                      'assets/Encore.png',
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(
+                      photoUrl,
                       width: 38,
                       height: 38,
+                      fit: BoxFit.cover,
                       filterQuality: FilterQuality.medium,
+                      errorBuilder: (_, _, _) => Image.asset(
+                        'assets/Encore.png',
+                        width: 38,
+                        height: 38,
+                        filterQuality: FilterQuality.medium,
+                      ),
                     ),
                   ),
-                ),
+          ),
         );
       },
+    );
+  }
+
+  Widget _barActions(Widget avatar) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          key: const ValueKey('updates-refresh'),
+          tooltip: 'Refresh updates',
+          onPressed: widget.refreshing ? null : widget.onRefresh,
+          color: SpotifyColors.textSubdued,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          icon: widget.refreshing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: SpotifyColors.accent,
+                  ),
+                )
+              : const Icon(Icons.refresh_rounded, size: 21),
+        ),
+        const SizedBox(width: 8),
+        avatar,
+      ],
     );
   }
 }
@@ -101,7 +162,10 @@ class _UpdatesWorkspaceBarState extends State<_UpdatesWorkspaceBar> {
 /// Opens with a workspace bar, a Slack-style Announcement feed, then
 /// Spotify-style Trending and Upcoming Activities carousels.
 class UpdatesScreen extends StatefulWidget {
-  const UpdatesScreen({super.key});
+  const UpdatesScreen({super.key, this.viewerId});
+
+  /// Overrides the signed-in user when resolving delete permission.
+  final String? viewerId;
 
   @override
   State<UpdatesScreen> createState() => _UpdatesScreenState();
@@ -113,13 +177,22 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
   static const _skeletonDuration = Duration(milliseconds: 900);
 
   final _scrollController = ScrollController();
+  final _trendingKey = GlobalKey();
+  final _activitiesKey = GlobalKey();
 
   bool _loading = AuthService.isAvailable;
+  bool _refreshing = false;
+
+  String? get _viewerId =>
+      widget.viewerId ??
+      (AuthService.isAvailable ? AuthService.instance.currentUser?.uid : null);
 
   @override
   void initState() {
     super.initState();
     AnnouncementStore.instance.listen();
+    TrendStore.instance.listen();
+    ActivityStore.instance.listen();
     if (_loading) {
       Future<void>.delayed(_skeletonDuration, () {
         if (mounted) setState(() => _loading = false);
@@ -139,31 +212,46 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
       children: [
         Column(
           children: [
-            const _UpdatesWorkspaceBar(),
+            _UpdatesWorkspaceBar(onRefresh: _refresh, refreshing: _refreshing),
             Expanded(
-              child: ListView(
-                key: const ValueKey('updates-scroll'),
-                controller: _scrollController,
-                padding: EdgeInsets.zero,
-                children: [
-                  _AnnouncementHeader(
-                    onMore: () => _openAnnouncements(context),
-                  ),
-                  if (_loading)
-                    const _AnnouncementSkeletonList()
-                  else
-                    _AnnouncementList(
-                      onTap: (a) => _openAnnouncement(context, a),
+              child: RefreshIndicator(
+                key: const ValueKey('updates-refresh-indicator'),
+                onRefresh: _refresh,
+                color: SpotifyColors.accent,
+                backgroundColor: SpotifyColors.surface,
+                child: ListView(
+                  key: const ValueKey('updates-scroll'),
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _AnnouncementHeader(
+                      onMore: () => _openAnnouncements(context),
                     ),
-                  const SizedBox(height: AppSpacing.section),
-                  _TrendingSection(
-                    loading: _loading,
-                    onShowMore: () => _openTrending(context),
-                  ),
-                  const SizedBox(height: AppSpacing.section),
-                  _UpcomingActivitiesSection(loading: _loading),
-                  const SizedBox(height: AppSpacing.section),
-                ],
+                    if (_loading)
+                      const _AnnouncementSkeletonList()
+                    else
+                      _AnnouncementList(
+                        viewerId: _viewerId,
+                        onDelete: AnnouncementStore.instance.delete,
+                        onTap: (a) => _openAnnouncement(context, a),
+                      ),
+                    const SizedBox(height: AppSpacing.section),
+                    _TrendingSection(
+                      key: _trendingKey,
+                      loading: _loading,
+                      onShowMore: () => _openTrending(context),
+                    ),
+                    const SizedBox(height: AppSpacing.section),
+                    _UpcomingActivitiesSection(
+                      key: _activitiesKey,
+                      loading: _loading,
+                      viewerId: _viewerId,
+                      onDelete: ActivityStore.instance.delete,
+                    ),
+                    const SizedBox(height: AppSpacing.section),
+                  ],
+                ),
               ),
             ),
           ],
@@ -174,12 +262,27 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
             onActionSelected: (action) {
               if (action.label == 'New Announcement') {
                 _composeAnnouncement(context);
+              } else if (action.label == 'Post Trends') {
+                _composeTrend(context);
+              } else if (action.label == 'Add Activity') {
+                _addActivity(context);
               }
             },
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    await Future.wait([
+      AnnouncementStore.instance.refresh(),
+      TrendStore.instance.refresh(),
+      ActivityStore.instance.refresh(),
+    ]);
+    if (mounted) setState(() => _refreshing = false);
   }
 
   Future<void> _composeAnnouncement(BuildContext context) async {
@@ -216,6 +319,62 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
       author: draft.author,
       priority: draft.tag,
     );
+  }
+
+  Future<void> _composeTrend(BuildContext context) async {
+    final draft = await showComposeTrendSheet(context);
+    if (draft == null) return;
+
+    var author = AuthService.isAvailable
+        ? AuthService.instance.currentUser?.displayName
+        : null;
+    if (AuthService.isAvailable) {
+      try {
+        final profile = await AuthService.instance.currentUserProfile();
+        final fullName = (profile?['fullName'] as String?)?.trim();
+        if (fullName != null && fullName.isNotEmpty) author = fullName;
+      } catch (_) {
+        // Fall back to the Firebase Auth display name.
+      }
+    }
+
+    TrendStore.instance.post(
+      title: draft.title,
+      body: draft.body,
+      author: author ?? 'You',
+      media: draft.media,
+    );
+
+    // Bring the new card into view if the user was scrolled elsewhere.
+    if (!mounted) return;
+    final trendingContext = _trendingKey.currentContext;
+    if (trendingContext != null && trendingContext.mounted) {
+      await Scrollable.ensureVisible(
+        trendingContext,
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+        alignment: 0.1,
+      );
+    }
+  }
+
+  Future<void> _addActivity(BuildContext context) async {
+    final draft = await showAddActivitySheet(context);
+    if (draft == null) return;
+
+    ActivityStore.instance.add(title: draft.title, date: draft.date);
+
+    // Bring the activities grid into view after adding.
+    if (!mounted) return;
+    final activitiesContext = _activitiesKey.currentContext;
+    if (activitiesContext != null && activitiesContext.mounted) {
+      await Scrollable.ensureVisible(
+        activitiesContext,
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+        alignment: 0.4,
+      );
+    }
   }
 
   void _openAnnouncements(BuildContext context) {
@@ -277,9 +436,15 @@ class _AnnouncementHeader extends StatelessWidget {
 }
 
 class _AnnouncementList extends StatefulWidget {
-  const _AnnouncementList({required this.onTap});
+  const _AnnouncementList({
+    required this.onTap,
+    required this.onDelete,
+    this.viewerId,
+  });
 
   final ValueChanged<Announcement> onTap;
+  final ValueChanged<Announcement> onDelete;
+  final String? viewerId;
 
   @override
   State<_AnnouncementList> createState() => _AnnouncementListState();
@@ -340,6 +505,8 @@ class _AnnouncementListState extends State<_AnnouncementList> {
               child: AnnouncementTile(
                 key: ValueKey('announcement-$i'),
                 announcement: item,
+                viewerId: widget.viewerId,
+                onDelete: widget.onDelete,
                 onTap: () {
                   AnnouncementStore.instance.markRead(item);
                   widget.onTap(item);
@@ -472,89 +639,28 @@ class _AnnouncementEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-      child: Center(
-        child: Text(
-          'No announcement posted yet',
-          style: AppType.subtitle(scheme),
-        ),
+    return const Center(
+      child: FloatingEmptyState(
+        key: ValueKey('announcement-empty'),
+        icon: Icons.campaign_outlined,
+        message: 'No announcement posted yet',
       ),
     );
   }
 }
 
 class _TrendingSection extends StatelessWidget {
-  const _TrendingSection({required this.onShowMore, required this.loading});
+  const _TrendingSection({
+    super.key,
+    required this.onShowMore,
+    required this.loading,
+  });
 
   final VoidCallback onShowMore;
   final bool loading;
 
-  static const List<Trend> _items = [
-    Trend(
-      image: 'assets/background.jpeg',
-      title: 'Matriculation',
-      subtitle: 'Campus · Main hall',
-      author: 'Campus Desk',
-      time: '2h',
-      body:
-          'Matriculation ceremony holds at the Main Hall this Saturday. '
-          'Graduands should be seated by 8:00 AM in full academic dress.',
-    ),
-    Trend(
-      image: 'assets/background-2.jpeg',
-      title: 'Library hours',
-      subtitle: 'Extended to 10 PM',
-      author: 'Library Admin',
-      time: '5h',
-      body:
-          'The main library will now stay open until 10:00 PM on weekdays '
-          'through the exam period. Bring your student ID for after-hours '
-          'access.',
-    ),
-    Trend(
-      image: 'assets/background-3.jpeg',
-      title: 'Sports week',
-      subtitle: 'Kicks off Monday',
-      author: 'Sports Council',
-      time: '1d',
-      body:
-          'Inter-faculty sports week begins Monday with track events at the '
-          'stadium. Registration closes Friday — sign up at the sports office.',
-    ),
-    Trend(
-      image: 'assets/background.jpeg',
-      title: 'Hostel ballot',
-      subtitle: 'Closes Friday',
-      author: 'Housing Office',
-      time: '1d',
-      body:
-          'The hostel room ballot closes this Friday at 6:00 PM. Log in to the '
-          'portal to rank your preferred halls before the deadline.',
-    ),
-    Trend(
-      image: 'assets/background-2.jpeg',
-      title: 'Career fair',
-      subtitle: 'Alumni networks',
-      author: 'Career Services',
-      time: '2d',
-      body:
-          'Meet alumni and recruiters at the annual career fair. Bring copies '
-          'of your CV and dress smart. Doors open at 9:00 AM.',
-    ),
-    Trend(
-      image: 'assets/background-3.jpeg',
-      title: 'Exam timetable',
-      subtitle: 'Now published',
-      author: 'Exams Office',
-      time: '3d',
-      body:
-          'The end-of-semester examination timetable is now live on the '
-          'portal. Cross-check your course codes and report clashes promptly.',
-    ),
-  ];
+  /// Height reserved for the row, kept even when there are no trends.
+  static const double _height = 200;
 
   @override
   Widget build(BuildContext context) {
@@ -597,27 +703,53 @@ class _TrendingSection extends StatelessWidget {
             ],
           ),
         ),
-        if (loading)
-          const _TrendingSkeletonRow()
-        else
-          SizedBox(
-            height: 200,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-              itemCount: _items.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(width: AppSpacing.card),
-              itemBuilder: (context, i) => _TrendingCard(
-                key: ValueKey('trending-$i'),
-                item: _items[i],
-                onTap: () => Navigator.of(
-                  context,
-                ).push(fadeRoute(TrendingDetailScreen(trend: _items[i]))),
-              ),
-            ),
+        SizedBox(
+          key: const ValueKey('trending-section'),
+          height: _height,
+          child: AnimatedBuilder(
+            animation: TrendStore.instance,
+            builder: (context, _) {
+              if (loading) return const _TrendingSkeletonRow();
+
+              final items = TrendStore.instance.items;
+              if (items.isEmpty) return const _TrendingEmptyState();
+
+              return ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.page,
+                ),
+                itemCount: items.length,
+                separatorBuilder: (_, _) =>
+                    const SizedBox(width: AppSpacing.card),
+                itemBuilder: (context, i) => _TrendingCard(
+                  key: ValueKey('trending-$i'),
+                  item: items[i],
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(fadeRoute(TrendingDetailScreen(trend: items[i]))),
+                ),
+              );
+            },
           ),
+        ),
       ],
+    );
+  }
+}
+
+/// Shown in place of the row when nothing has been posted yet.
+class _TrendingEmptyState extends StatelessWidget {
+  const _TrendingEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: FloatingEmptyState(
+        key: ValueKey('trending-empty'),
+        icon: Icons.trending_up,
+        message: 'No Trending news available',
+      ),
     );
   }
 }
@@ -632,15 +764,7 @@ class _TrendingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _MediaTile(
-      art: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.asset(
-          item.image,
-          width: 150,
-          height: 150,
-          fit: BoxFit.cover,
-        ),
-      ),
+      art: TrendCover(media: item.media, width: 150, height: 150),
       title: item.title,
       subtitle: item.subtitle,
       onTap: onTap,
@@ -651,18 +775,16 @@ class _TrendingCard extends StatelessWidget {
 /// The Upcoming Activities section: a heading over a two-column grid of
 /// compact activity cards.
 class _UpcomingActivitiesSection extends StatelessWidget {
-  const _UpcomingActivitiesSection({required this.loading});
+  const _UpcomingActivitiesSection({
+    super.key,
+    required this.loading,
+    required this.viewerId,
+    required this.onDelete,
+  });
 
   final bool loading;
-
-  static const List<_ActivityItem> _items = [
-    _ActivityItem('Matriculation', 'Mon, 20 Oct'),
-    _ActivityItem('Sports Week', 'Tue, 21 Oct'),
-    _ActivityItem('Career Fair', 'Wed, 22 Oct'),
-    _ActivityItem('Hostel Ballot', 'Thu, 23 Oct'),
-    _ActivityItem('Library Tour', 'Fri, 24 Oct'),
-    _ActivityItem('Exam Timetable', 'Sat, 25 Oct'),
-  ];
+  final String? viewerId;
+  final ValueChanged<Activity> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -679,83 +801,223 @@ class _UpcomingActivitiesSection extends StatelessWidget {
             glyphStyle: SlackType.glyph(scheme),
           ),
         ),
-        GridView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: loading ? 6 : _items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            mainAxisExtent: 56,
-          ),
-          itemBuilder: (context, i) => loading
-              ? _ActivitySkeletonCard(key: ValueKey('activity-skeleton-$i'))
-              : _ActivityCard(key: ValueKey('activity-$i'), item: _items[i]),
+        AnimatedBuilder(
+          animation: ActivityStore.instance,
+          builder: (context, _) {
+            if (loading) {
+              return GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 6,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  mainAxisExtent: 56,
+                ),
+                itemBuilder: (context, i) => _ActivitySkeletonCard(
+                  key: ValueKey('activity-skeleton-$i'),
+                ),
+              );
+            }
+
+            final items = ActivityStore.instance.items;
+            if (items.isEmpty) {
+              return const SizedBox(
+                height: 150,
+                child: Center(
+                  child: FloatingEmptyState(
+                    key: ValueKey('activity-empty'),
+                    icon: Icons.event_available_outlined,
+                    message: 'No upcoming activities yet',
+                  ),
+                ),
+              );
+            }
+
+            return GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                mainAxisExtent: 56,
+              ),
+              itemBuilder: (context, i) => _ActivityCard(
+                key: ValueKey('activity-$i'),
+                item: items[i],
+                viewerId: viewerId,
+                onDelete: onDelete,
+              ),
+            );
+          },
         ),
       ],
     );
   }
 }
 
-/// A single upcoming activity: a title and its date.
-class _ActivityItem {
-  const _ActivityItem(this.title, this.date);
+/// Compact activity card with a leading theme-coloured sidebar, mirroring the
+/// colour of the workspace app bar. Past activities use a grey bar.
+///
+/// The author can hold the card for 1.5 seconds to highlight it and confirm
+/// deletion.
+class _ActivityCard extends StatefulWidget {
+  const _ActivityCard({
+    super.key,
+    required this.item,
+    required this.viewerId,
+    required this.onDelete,
+  });
 
-  final String title;
-  final String date;
+  final Activity item;
+  final String? viewerId;
+  final ValueChanged<Activity> onDelete;
+
+  @override
+  State<_ActivityCard> createState() => _ActivityCardState();
 }
 
-/// Compact activity card with a leading theme-coloured sidebar, mirroring the
-/// colour of the workspace app bar.
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({super.key, required this.item});
+class _ActivityCardState extends State<_ActivityCard> {
+  static const _holdDuration = Duration(milliseconds: 1500);
+  static const _highlightDelay = Duration(milliseconds: 300);
 
-  final _ActivityItem item;
+  bool _highlighted = false;
+  bool _dialogOpen = false;
+
+  bool get _canDelete => widget.item.canBeDeletedBy(widget.viewerId);
+
+  Future<void> _handleHold() async {
+    if (!mounted || _dialogOpen) return;
+
+    setState(() => _highlighted = true);
+    await Future<void>.delayed(_highlightDelay);
+    if (!mounted) return;
+
+    _dialogOpen = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: SpotifyColors.surface,
+        title: const Text('Delete activity?'),
+        content: Text(
+          '"${widget.item.title}" will be removed from Upcoming Activities.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const ValueKey('delete-activity-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    _dialogOpen = false;
+    if (!mounted) return;
+
+    if (confirmed == true) {
+      widget.onDelete(widget.item);
+      if (mounted) setState(() => _highlighted = false);
+      return;
+    }
+    setState(() => _highlighted = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: SpotifyColors.surface,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(
-            width: 2,
-            child: ColoredBox(color: SpotifyColors.accent),
+    final card = AnimatedScale(
+      scale: _highlighted ? 1.02 : 1,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: _highlighted
+              ? SpotifyColors.danger.withValues(alpha: 0.12)
+              : SpotifyColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _highlighted
+                ? SpotifyColors.danger.withValues(alpha: 0.8)
+                : Colors.transparent,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppType.cardTitle(scheme),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.date,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppType.subtitle(scheme),
-                ),
-              ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 2,
+              child: ColoredBox(
+                key: ValueKey('activity-bar-${widget.item.id}'),
+                color: widget.item.isPast
+                    ? SpotifyColors.tagMuted
+                    : SpotifyColors.accent,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.cardTitle(scheme),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.item.dateLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.subtitle(scheme),
+                  ),
+                ],
+              ),
+            ),
+            if (_canDelete) ...[
+              AnimatedOpacity(
+                opacity: _highlighted ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: const Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: SpotifyColors.danger,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ] else
+              const SizedBox(width: 8),
+          ],
+        ),
       ),
+    );
+
+    if (!_canDelete) return card;
+
+    return RawGestureDetector(
+      behavior: HitTestBehavior.opaque,
+      gestures: {
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+              () => LongPressGestureRecognizer(duration: _holdDuration),
+              (recognizer) => recognizer.onLongPress = _handleHold,
+            ),
+      },
+      child: card,
     );
   }
 }

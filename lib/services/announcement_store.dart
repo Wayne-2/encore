@@ -8,6 +8,7 @@ import '../data/departments.dart';
 import '../models/announcement.dart';
 import '../theme/spotify_colors.dart';
 import 'auth_service.dart';
+import 'local_cache.dart';
 
 /// Shared announcement feed backed by Firestore's `announcements` collection.
 ///
@@ -25,6 +26,8 @@ class AnnouncementStore extends ChangeNotifier {
 
   final List<Announcement> _items = [];
   final Set<String> _unreadIds = {};
+  final Set<String> _deletedIds = {};
+  final Map<String, int> _createdAtMillis = {};
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
   bool _hasLoaded = false;
@@ -36,53 +39,96 @@ class AnnouncementStore extends ChangeNotifier {
   List<Announcement> get items => List.unmodifiable(_items);
 
   /// Starts the live Firestore listener for the signed-in user's group.
-  /// Safe to call more than once.
+  /// Cached posts appear immediately, then Firestore reconciles them.
   Future<void> listen() async {
     if (Firebase.apps.isEmpty || _subscription != null || _starting) return;
     _starting = true;
 
     try {
-      final profile = await AuthService.instance.currentUserProfile();
-      final department = normalizeDepartment(
-        (profile?['department'] as String?) ?? '',
-      );
-      final level = (profile?['level'] as String?)?.trim() ?? '';
-      if (department.isEmpty || level.isEmpty) {
-        _starting = false;
-        return;
-      }
+      if (!await _ensureGroup()) return;
+      await _loadCache();
+      if (_subscription != null) return;
 
-      _department = department;
-      _level = level;
-      _subscription = FirebaseFirestore.instance
-          .collection(_collection)
-          .where('department', isEqualTo: department)
-          .where('level', isEqualTo: level)
-          .orderBy('createdAt', descending: true)
-          .limit(_maxItems)
-          .snapshots()
-          .listen(_onSnapshot, onError: (Object _) {});
+      _subscription = _query.snapshots().listen(
+        _onSnapshot,
+        onError: (Object _) {},
+      );
     } catch (_) {
+      // Keep any cached posts available when the network is unavailable.
+    } finally {
       _starting = false;
     }
   }
 
+  Query<Map<String, dynamic>> get _query => FirebaseFirestore.instance
+      .collection(_collection)
+      .where('department', isEqualTo: _department)
+      .where('level', isEqualTo: _level)
+      .orderBy('createdAt', descending: true)
+      .limit(_maxItems);
+
+  Future<bool> _ensureGroup() async {
+    if (_department.isNotEmpty && _level.isNotEmpty) return true;
+
+    final profile = await AuthService.instance.currentUserProfile();
+    final department = normalizeDepartment(
+      (profile?['department'] as String?) ?? '',
+    );
+    final level = (profile?['level'] as String?)?.trim() ?? '';
+    if (department.isEmpty || level.isEmpty) return false;
+
+    _department = department;
+    _level = level;
+    return true;
+  }
+
+  Future<void> _loadCache() async {
+    if (_items.isNotEmpty || _hasLoaded) return;
+
+    final cached = await LocalCache.instance.announcements(_department, _level);
+    if (cached == null || cached.isEmpty || _items.isNotEmpty) return;
+
+    _items.addAll(cached.map(_fromCachedMap));
+    _hasLoaded = true;
+    notifyListeners();
+  }
+
+  /// Forces a server read and refreshes the feed plus its Hive cache.
+  Future<void> refresh() async {
+    if (Firebase.apps.isEmpty) return;
+    try {
+      if (!await _ensureGroup()) return;
+      _onSnapshot(await _query.get());
+    } catch (_) {
+      // Offline: keep the cached feed.
+    }
+  }
+
   void _onSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
+    // Ignore docs whose optimistic deletion has not reached the server yet.
+    final docs = snapshot.docs
+        .where((doc) => !_deletedIds.contains(doc.id))
+        .toList();
+
     // Announcements that appear after the first snapshot are new arrivals, so
     // they stay unread until the user opens them. The initial batch is treated
     // as already read.
     if (_hasLoaded) {
       final existingIds = _items.map((item) => item.id).toSet();
-      for (final doc in snapshot.docs) {
+      for (final doc in docs) {
         if (!existingIds.contains(doc.id)) _unreadIds.add(doc.id);
       }
     }
 
     _items
       ..clear()
-      ..addAll(snapshot.docs.map(_fromDoc));
+      ..addAll(docs.map(_fromDoc));
+    for (final doc in docs) {
+      _createdAtMillis[doc.id] = _timestampMillis(doc.data()['createdAt']);
+    }
     _hasLoaded = true;
     notifyListeners();
+    unawaited(_saveCache());
   }
 
   /// Publishes a new announcement for the signed-in user's department and
@@ -119,7 +165,9 @@ class AnnouncementStore extends ChangeNotifier {
     // Show the post immediately; the live snapshot reconciles it shortly.
     _items.insert(0, announcement);
     _unreadIds.add(announcement.id);
+    _createdAtMillis[announcement.id] = DateTime.now().millisecondsSinceEpoch;
     notifyListeners();
+    unawaited(_saveCache());
 
     if (doc != null) {
       unawaited(
@@ -161,7 +209,10 @@ class AnnouncementStore extends ChangeNotifier {
 
     _items.removeAt(index);
     _unreadIds.remove(announcement.id);
+    _deletedIds.add(announcement.id);
+    _createdAtMillis.remove(announcement.id);
     notifyListeners();
+    unawaited(_saveCache());
 
     if (Firebase.apps.isNotEmpty && announcement.id.isNotEmpty) {
       unawaited(
@@ -176,9 +227,11 @@ class AnnouncementStore extends ChangeNotifier {
 
   /// Drops every announcement from memory (the live listener repopulates it).
   void clear() {
-    if (_items.isEmpty && _unreadIds.isEmpty) return;
+    if (_items.isEmpty && _unreadIds.isEmpty && _deletedIds.isEmpty) return;
     _items.clear();
     _unreadIds.clear();
+    _deletedIds.clear();
+    _createdAtMillis.clear();
     notifyListeners();
   }
 
@@ -197,6 +250,54 @@ class AnnouncementStore extends ChangeNotifier {
     );
   }
 
+  Announcement _fromCachedMap(Map<String, dynamic> data) {
+    final id = data['id'] as String? ?? '';
+    final createdAt = _timestampMillis(data['createdAt']);
+    _createdAtMillis[id] = createdAt;
+    return Announcement(
+      id: id,
+      author: (data['author'] as String?)?.trim() ?? 'Unknown',
+      authorId: data['authorId'] as String? ?? '',
+      photoUrl: (data['photoUrl'] as String?)?.trim(),
+      time: _formatTimestamp(data['createdAt']),
+      tag: data['tag'] as String? ?? 'General announcement',
+      tagColor: _tagColorFrom(data['tagColor']),
+      body: data['body'] as String? ?? '',
+      unread: _unreadIds.contains(id),
+    );
+  }
+
+  Future<void> _saveCache() {
+    if (_department.isEmpty || _level.isEmpty) {
+      return Future<void>.value();
+    }
+
+    return LocalCache.instance.saveAnnouncements(_department, _level, [
+      for (final item in _items)
+        {
+          'id': item.id,
+          'author': item.author,
+          'authorId': item.authorId,
+          'photoUrl': item.photoUrl,
+          'tag': item.tag,
+          'tagColor': item.tagColor.toARGB32(),
+          'body': item.body,
+          'createdAt':
+              _createdAtMillis[item.id] ??
+              DateTime.now().millisecondsSinceEpoch,
+        },
+    ]);
+  }
+
+  static int _timestampMillis(Object? value) {
+    return switch (value) {
+      Timestamp timestamp => timestamp.millisecondsSinceEpoch,
+      DateTime time => time.millisecondsSinceEpoch,
+      int millis => millis,
+      _ => DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
   static Color _tagColorFrom(Object? value) {
     if (value is num) return Color(value.toInt());
     return SpotifyColors.tagInfo;
@@ -206,6 +307,7 @@ class AnnouncementStore extends ChangeNotifier {
     final DateTime? date = switch (value) {
       Timestamp timestamp => timestamp.toDate(),
       DateTime time => time,
+      int millis => DateTime.fromMillisecondsSinceEpoch(millis),
       _ => null,
     };
     if (date == null) return _clockNow();

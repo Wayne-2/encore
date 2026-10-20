@@ -19,7 +19,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Encore uses your camera to take a profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Encore uses your photo library so you can choose a profile photo.</string>
+	<string>Encore uses your photo library so you can choose a profile photo, or attach photos and videos to a trend.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

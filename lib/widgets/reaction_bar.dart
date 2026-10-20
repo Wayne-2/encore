@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/reaction_store.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 
@@ -25,10 +26,17 @@ class _ReactionEntry {
 }
 
 /// Emoji reaction row: tappable tallies plus a picker to add more.
+///
+/// When [reactionsPath] is supplied, reactions persist in that document's
+/// `reactions` subcollection. Otherwise they stay local to the widget.
 class ReactionBar extends StatefulWidget {
-  const ReactionBar({super.key, this.initial = const {}});
+  const ReactionBar({super.key, this.initial = const {}, this.reactionsPath});
 
   final Map<String, int> initial;
+
+  /// Firestore document path whose `reactions` subcollection stores votes,
+  /// e.g. `trends/<id>` or `trends/<id>/comments/<commentId>`.
+  final String? reactionsPath;
 
   @override
   State<ReactionBar> createState() => _ReactionBarState();
@@ -40,7 +48,39 @@ class _ReactionBarState extends State<ReactionBar> {
       entry.key: _ReactionEntry(entry.value),
   };
 
+  @override
+  void initState() {
+    super.initState();
+    final path = widget.reactionsPath;
+    if (path != null) ReactionStore.instance.listen(path);
+  }
+
+  @override
+  void didUpdateWidget(covariant ReactionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reactionsPath == widget.reactionsPath) return;
+
+    final oldPath = oldWidget.reactionsPath;
+    if (oldPath != null) ReactionStore.instance.stopListening(oldPath);
+
+    final newPath = widget.reactionsPath;
+    if (newPath != null) ReactionStore.instance.listen(newPath);
+  }
+
+  @override
+  void dispose() {
+    final path = widget.reactionsPath;
+    if (path != null) ReactionStore.instance.stopListening(path);
+    super.dispose();
+  }
+
   void _toggle(String emoji) {
+    final path = widget.reactionsPath;
+    if (path != null) {
+      ReactionStore.instance.toggle(path, emoji);
+      return;
+    }
+
     setState(() {
       final existing = _reactions[emoji];
       if (existing != null && existing.mine) {
@@ -86,6 +126,35 @@ class _ReactionBarState extends State<ReactionBar> {
 
   @override
   Widget build(BuildContext context) {
+    final path = widget.reactionsPath;
+    if (path == null) {
+      return _buildRow(
+        counts: {
+          for (final entry in _reactions.entries) entry.key: entry.value.count,
+        },
+        mine: {
+          for (final entry in _reactions.entries)
+            if (entry.value.mine) entry.key,
+        },
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: ReactionStore.instance,
+      builder: (context, _) {
+        final summary = ReactionStore.instance.summaryFor(
+          path,
+          initial: widget.initial,
+        );
+        return _buildRow(counts: summary.counts, mine: summary.mine);
+      },
+    );
+  }
+
+  Widget _buildRow({
+    required Map<String, int> counts,
+    required Set<String> mine,
+  }) {
     final scheme = Theme.of(context).colorScheme;
 
     return Wrap(
@@ -93,11 +162,11 @@ class _ReactionBarState extends State<ReactionBar> {
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final entry in _reactions.entries)
+        for (final entry in counts.entries)
           _ReactionChip(
             emoji: entry.key,
-            count: entry.value.count,
-            active: entry.value.mine,
+            count: entry.value,
+            active: mine.contains(entry.key),
             onTap: () => _toggle(entry.key),
           ),
         Material(

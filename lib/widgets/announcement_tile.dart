@@ -13,16 +13,27 @@ class AnnouncementTile extends StatelessWidget {
     super.key,
     required this.announcement,
     required this.onTap,
+    this.viewerId,
+    this.onDelete,
   });
 
   final Announcement announcement;
   final VoidCallback onTap;
 
+  /// The signed-in user, used to decide whether the post can be swiped away.
+  final String? viewerId;
+
+  /// Called after the swipe-away animation completes.
+  final ValueChanged<Announcement>? onDelete;
+
+  bool get _canDelete =>
+      onDelete != null && announcement.canBeDeletedBy(viewerId);
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Material(
+    final tile = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -83,6 +94,54 @@ class AnnouncementTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+
+    if (!_canDelete) return tile;
+
+    final id = announcement.id.isNotEmpty
+        ? announcement.id
+        : '${identityHashCode(announcement)}';
+
+    return Dismissible(
+      key: ValueKey('announcement-dismissible-$id'),
+      direction: DismissDirection.endToStart,
+      dismissThresholds: const {DismissDirection.endToStart: 0.35},
+      movementDuration: const Duration(milliseconds: 220),
+      resizeDuration: const Duration(milliseconds: 260),
+      background: _DeleteBackground(id: id),
+      onDismissed: (_) => onDelete?.call(announcement),
+      child: tile,
+    );
+  }
+}
+
+/// The red, right-aligned panel revealed while an authored announcement is
+/// swiped to the left.
+class _DeleteBackground extends StatelessWidget {
+  const _DeleteBackground({required this.id});
+
+  final String id;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('announcement-delete-bg-$id'),
+      color: SpotifyColors.danger,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.delete_outline, size: 20, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            'Delete',
+            style: AppType.subtitle(
+              Theme.of(context).colorScheme,
+            ).copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }

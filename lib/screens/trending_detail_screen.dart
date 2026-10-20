@@ -1,42 +1,76 @@
 import 'package:flutter/material.dart';
 
-import '../models/comment.dart';
 import '../models/trend.dart';
+import '../services/auth_service.dart';
+import '../services/trend_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/reaction_bar.dart';
+import '../widgets/trend_cover.dart';
 
 /// Full-page view of a single trend: its image, title, author, time and body —
 /// followed by the same Twitter-style comment thread as announcements.
-class TrendingDetailScreen extends StatelessWidget {
-  const TrendingDetailScreen({super.key, required this.trend});
+class TrendingDetailScreen extends StatefulWidget {
+  const TrendingDetailScreen({super.key, required this.trend, this.viewerId});
 
   final Trend trend;
 
-  static const List<Comment> _comments = [
-    Comment(
-      name: 'Nana Adjei',
-      handle: '_nana_a',
-      time: '3h',
-      text: 'Great to see this on the board — been waiting for it.',
-      initials: 'NA',
-      reactions: {'🔥': 6, '🎉': 3},
-    ),
-    Comment(
-      name: 'Akosua Frimpong',
-      handle: '_akosua',
-      time: '1h',
-      text: 'Will there be a virtual option for those off campus?',
-      initials: 'AF',
-      reactions: {'👍': 2},
-    ),
-  ];
+  /// Overrides the signed-in user when resolving delete permission.
+  final String? viewerId;
+
+  @override
+  State<TrendingDetailScreen> createState() => _TrendingDetailScreenState();
+}
+
+class _TrendingDetailScreenState extends State<TrendingDetailScreen> {
+  String? get _viewerId =>
+      widget.viewerId ??
+      (AuthService.isAvailable ? AuthService.instance.currentUser?.uid : null);
+
+  @override
+  void initState() {
+    super.initState();
+    TrendStore.instance.listenToComments(widget.trend.id);
+  }
+
+  @override
+  void dispose() {
+    TrendStore.instance.stopListeningToComments(widget.trend.id);
+    super.dispose();
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: SpotifyColors.surface,
+        title: const Text('Delete trend?'),
+        content: const Text('This trend will be removed from the feed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const ValueKey('delete-trend-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    TrendStore.instance.delete(widget.trend);
+    if (context.mounted) Navigator.of(context).maybePop();
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final trend = widget.trend;
 
     return Scaffold(
       backgroundColor: SpotifyColors.background,
@@ -57,10 +91,26 @@ class TrendingDetailScreen extends StatelessWidget {
             color: scheme.onSurface,
           ),
         ),
+        actions: [
+          if (trend.canBeDeletedBy(_viewerId))
+            IconButton(
+              key: const ValueKey('delete-trend-button'),
+              tooltip: 'Delete trend',
+              icon: const Icon(Icons.delete_outline),
+              color: scheme.onSurfaceVariant,
+              onPressed: () => _confirmDelete(context),
+            ),
+        ],
       ),
-      body: CommentThread(
-        header: _TrendHeader(trend: trend),
-        initialComments: _comments,
+      body: AnimatedBuilder(
+        animation: TrendStore.instance,
+        builder: (context, _) => CommentThread(
+          header: _TrendHeader(trend: trend),
+          comments: TrendStore.instance.commentsFor(trend.id),
+          loading: TrendStore.instance.commentsLoading(trend.id),
+          reactionsBasePath: 'trends/${trend.id}',
+          onSubmit: (text) => TrendStore.instance.addComment(trend.id, text),
+        ),
       ),
     );
   }
@@ -81,15 +131,7 @@ class _TrendHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              trend.image,
-              width: double.infinity,
-              height: 190,
-              fit: BoxFit.cover,
-            ),
-          ),
+          TrendCover(media: trend.media, width: double.infinity, height: 190),
           const SizedBox(height: 16),
           Text(trend.title, style: AppType.name(scheme)),
           const SizedBox(height: 6),
@@ -112,7 +154,7 @@ class _TrendHeader extends StatelessWidget {
           const SizedBox(height: 12),
           Text(trend.body, style: AppType.body(scheme)),
           const SizedBox(height: 12),
-          const ReactionBar(initial: {'🔥': 5, '👏': 2}),
+          ReactionBar(reactionsPath: 'trends/${trend.id}'),
         ],
       ),
     );

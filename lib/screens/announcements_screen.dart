@@ -3,16 +3,21 @@ import 'package:flutter/material.dart';
 import '../models/announcement.dart';
 import '../navigation/app_route.dart';
 import '../services/announcement_store.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/announcement_tile.dart';
 import '../widgets/filter_pills.dart';
+import '../widgets/floating_empty_state.dart';
 import 'announcement_detail_screen.dart';
 
 /// Full list of announcements, opened from the Updates "Show more" action.
 /// Shows filter pills: Latest / Unread / Urgent.
 class AnnouncementsScreen extends StatefulWidget {
-  const AnnouncementsScreen({super.key});
+  const AnnouncementsScreen({super.key, this.viewerId});
+
+  /// Overrides the signed-in user when resolving delete permission.
+  final String? viewerId;
 
   @override
   State<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
@@ -21,6 +26,10 @@ class AnnouncementsScreen extends StatefulWidget {
 class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   static const List<String> _filters = ['Latest', 'Unread', 'Urgent'];
   int _filter = 0;
+
+  String? get _viewerId =>
+      widget.viewerId ??
+      (AuthService.isAvailable ? AuthService.instance.currentUser?.uid : null);
 
   @override
   void initState() {
@@ -83,7 +92,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               builder: (context, _) {
                 final items = _items;
                 if (items.isEmpty) {
-                  return const Center(child: _EmptyState());
+                  return Center(child: _EmptyState(filter: _filter));
                 }
 
                 return ListView.separated(
@@ -97,6 +106,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   itemBuilder: (context, i) => AnnouncementTile(
                     key: ValueKey('all-announcement-$i'),
                     announcement: items[i],
+                    viewerId: _viewerId,
+                    onDelete: AnnouncementStore.instance.delete,
                     onTap: () => _open(items[i]),
                   ),
                 );
@@ -110,20 +121,22 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.filter});
+
+  final int filter;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Text(
-        'Nothing here yet',
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          fontSize: 14,
-          color: scheme.onSurfaceVariant,
-        ),
-      ),
+    final message = switch (filter) {
+      1 => 'No unread announcements',
+      2 => 'No urgent announcements',
+      _ => 'No announcement posted yet',
+    };
+
+    return FloatingEmptyState(
+      key: const ValueKey('announcements-empty'),
+      icon: Icons.campaign_outlined,
+      message: message,
     );
   }
 }

@@ -13,16 +13,26 @@ import 'section_heading.dart';
 ///
 /// [header] is the post itself (author, media and body), rendered at the top of
 /// the scroll view. Each comment and the post support emoji reactions via
-/// [ReactionBar].
+/// [ReactionBar]. The parent owns the list and refreshes it when its store
+/// changes; [onSubmit] posts a new comment.
 class CommentThread extends StatefulWidget {
   const CommentThread({
     super.key,
     required this.header,
-    this.initialComments = const [],
+    required this.onSubmit,
+    this.comments = const [],
+    this.loading = false,
+    this.reactionsBasePath,
   });
 
   final Widget header;
-  final List<Comment> initialComments;
+  final List<Comment> comments;
+  final bool loading;
+  final Future<void> Function(String text) onSubmit;
+
+  /// Parent document path for persisted reactions, e.g. `trends/<id>`.
+  /// Comments react under `<path>/comments/<commentId>` when this is set.
+  final String? reactionsBasePath;
 
   @override
   State<CommentThread> createState() => _CommentThreadState();
@@ -32,7 +42,7 @@ class _CommentThreadState extends State<CommentThread> {
   final _commentController = TextEditingController();
   final _scrollController = ScrollController();
 
-  late final List<Comment> _comments = List.of(widget.initialComments);
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -41,22 +51,28 @@ class _CommentThreadState extends State<CommentThread> {
     super.dispose();
   }
 
-  void _addComment() {
+  Future<void> _addComment() async {
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _comments.add(
-        Comment(
-          name: 'Odeh Solomon',
-          handle: '@_wayne',
-          time: 'now',
-          text: text,
-          initials: 'OS',
-        ),
-      );
-      _commentController.clear();
-    });
+    if (text.isEmpty || _sending) return;
+
     FocusScope.of(context).unfocus();
+    _commentController.clear();
+    setState(() => _sending = true);
+
+    try {
+      await widget.onSubmit(text);
+    } catch (_) {
+      if (!mounted) return;
+      if (_commentController.text.trim().isEmpty) {
+        _commentController.text = text;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not post your comment.')),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       _scrollController.animateTo(
@@ -90,20 +106,49 @@ class _CommentThreadState extends State<CommentThread> {
                   children: [
                     const SectionHeading('Comments'),
                     const Spacer(),
-                    Text('${_comments.length}', style: AppType.meta(scheme)),
+                    Text(
+                      '${widget.comments.length}',
+                      style: AppType.meta(scheme),
+                    ),
                   ],
                 ),
               ),
-              for (var i = 0; i < _comments.length; i++) ...[
-                if (i > 0)
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    indent: 68,
-                    color: SpotifyColors.border,
+              if (widget.loading && widget.comments.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
-                _CommentTile(comment: _comments[i]),
-              ],
+                )
+              else if (widget.comments.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'No comments yet',
+                      style: AppType.subtitle(scheme),
+                    ),
+                  ),
+                )
+              else
+                for (var i = 0; i < widget.comments.length; i++) ...[
+                  if (i > 0)
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      indent: 68,
+                      color: SpotifyColors.border,
+                    ),
+                  _CommentTile(
+                    key: ValueKey(widget.comments[i].id),
+                    comment: widget.comments[i],
+                    reactionsBasePath: widget.reactionsBasePath,
+                  ),
+                ],
               const SizedBox(height: 12),
             ],
           ),
@@ -116,7 +161,7 @@ class _CommentThreadState extends State<CommentThread> {
   /// Reply bar mirroring the direct chat input: a rounded surface pill holding
   /// the field and a trailing send button.
   Widget _buildInputBar(ColorScheme scheme) {
-    final canSend = _commentController.text.trim().isNotEmpty;
+    final canSend = _commentController.text.trim().isNotEmpty && !_sending;
 
     return Container(
       color: SpotifyColors.background,
@@ -176,13 +221,19 @@ class _CommentThreadState extends State<CommentThread> {
                   ),
                   IconButton(
                     key: const ValueKey('comment-send-button'),
-                    icon: Icon(
-                      Icons.arrow_upward_rounded,
-                      color: canSend
-                          ? SpotifyColors.accent
-                          : scheme.onSurfaceVariant,
-                      size: 22,
-                    ),
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            Icons.arrow_upward_rounded,
+                            color: canSend
+                                ? SpotifyColors.accent
+                                : scheme.onSurfaceVariant,
+                            size: 22,
+                          ),
                     tooltip: 'Post comment',
                     onPressed: canSend ? _addComment : null,
                   ),
@@ -198,9 +249,22 @@ class _CommentThreadState extends State<CommentThread> {
 
 /// A Twitter-style comment row: avatar, author line, body and reactions.
 class _CommentTile extends StatelessWidget {
-  const _CommentTile({required this.comment});
+  const _CommentTile({
+    super.key,
+    required this.comment,
+    this.reactionsBasePath,
+  });
 
   final Comment comment;
+  final String? reactionsBasePath;
+
+  String? get _reactionsPath {
+    final base = reactionsBasePath;
+    if (base == null || comment.id.isEmpty || comment.id.startsWith('local-')) {
+      return null;
+    }
+    return '$base/comments/${comment.id}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +312,10 @@ class _CommentTile extends StatelessWidget {
                   style: AppType.body(scheme).copyWith(fontSize: 13),
                 ),
                 const SizedBox(height: 8),
-                ReactionBar(initial: comment.reactions),
+                ReactionBar(
+                  initial: comment.reactions,
+                  reactionsPath: _reactionsPath,
+                ),
               ],
             ),
           ),

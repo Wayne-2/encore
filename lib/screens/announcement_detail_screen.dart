@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/announcement.dart';
-import '../models/comment.dart';
 import '../services/announcement_store.dart';
 import '../services/auth_service.dart';
+import '../services/comment_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
@@ -14,7 +14,7 @@ import '../widgets/reaction_bar.dart';
 
 /// Full-page view of a single announcement: sender, time, priority and the
 /// complete message — followed by a Twitter-style comment thread.
-class AnnouncementDetailScreen extends StatelessWidget {
+class AnnouncementDetailScreen extends StatefulWidget {
   const AnnouncementDetailScreen({
     super.key,
     required this.announcement,
@@ -26,37 +26,35 @@ class AnnouncementDetailScreen extends StatelessWidget {
   /// Overrides the signed-in user when resolving delete permission.
   final String? viewerId;
 
-  static const List<Comment> _comments = [
-    Comment(
-      name: 'Ama Boateng',
-      handle: '_ama_boateng',
-      time: '2h',
-      text:
-          'Thanks for the heads up! Will the lab report template be shared '
-          'too?',
-      initials: 'AB',
-      reactions: {'👍': 4, '🙌': 1},
-    ),
-    Comment(
-      name: 'Kwame Mensah',
-      handle: '_kwame_m',
-      time: '1h',
-      text: 'Noted, submitting mine tonight.',
-      initials: 'KM',
-      reactions: {'🎉': 2},
-    ),
-    Comment(
-      name: 'Efua Owusu',
-      handle: '_efua.o',
-      time: '45m',
-      text: 'Could we get a short extension? Some of us have labs that day.',
-      initials: 'EO',
-    ),
-  ];
+  @override
+  State<AnnouncementDetailScreen> createState() =>
+      _AnnouncementDetailScreenState();
+}
+
+class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
+  late final String _postId = widget.announcement.id.isNotEmpty
+      ? widget.announcement.id
+      : 'local-${identityHashCode(widget.announcement)}';
 
   String? get _viewer =>
-      viewerId ??
+      widget.viewerId ??
       (AuthService.isAvailable ? AuthService.instance.currentUser?.uid : null);
+
+  String? get _reactionsPath => widget.announcement.id.isEmpty
+      ? null
+      : 'announcements/${widget.announcement.id}';
+
+  @override
+  void initState() {
+    super.initState();
+    CommentStore.instance.listen(_postId);
+  }
+
+  @override
+  void dispose() {
+    CommentStore.instance.stopListening(_postId);
+    super.dispose();
+  }
 
   Future<void> _confirmDelete(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -79,7 +77,7 @@ class AnnouncementDetailScreen extends StatelessWidget {
     );
 
     if (confirmed != true) return;
-    AnnouncementStore.instance.delete(announcement);
+    AnnouncementStore.instance.delete(widget.announcement);
     if (context.mounted) Navigator.of(context).maybePop();
   }
 
@@ -107,7 +105,7 @@ class AnnouncementDetailScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          if (announcement.canBeDeletedBy(_viewer))
+          if (widget.announcement.canBeDeletedBy(_viewer))
             IconButton(
               tooltip: 'Delete announcement',
               icon: const Icon(Icons.delete_outline),
@@ -116,9 +114,18 @@ class AnnouncementDetailScreen extends StatelessWidget {
             ),
         ],
       ),
-      body: CommentThread(
-        header: _AnnouncementHeader(announcement: announcement),
-        initialComments: _comments,
+      body: AnimatedBuilder(
+        animation: CommentStore.instance,
+        builder: (context, _) => CommentThread(
+          header: _AnnouncementHeader(
+            announcement: widget.announcement,
+            reactionsPath: _reactionsPath,
+          ),
+          comments: CommentStore.instance.commentsFor(_postId),
+          loading: CommentStore.instance.isLoading(_postId),
+          reactionsBasePath: _reactionsPath,
+          onSubmit: (text) => CommentStore.instance.add(_postId, text),
+        ),
       ),
     );
   }
@@ -126,9 +133,10 @@ class AnnouncementDetailScreen extends StatelessWidget {
 
 /// The announcement post shown above its comment thread.
 class _AnnouncementHeader extends StatelessWidget {
-  const _AnnouncementHeader({required this.announcement});
+  const _AnnouncementHeader({required this.announcement, this.reactionsPath});
 
   final Announcement announcement;
+  final String? reactionsPath;
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +168,7 @@ class _AnnouncementHeader extends StatelessWidget {
           const SizedBox(height: 12),
           Text(announcement.body, style: SlackType.body(scheme)),
           const SizedBox(height: 12),
-          const ReactionBar(initial: {'👍': 8, '🎉': 2}),
+          ReactionBar(reactionsPath: reactionsPath),
         ],
       ),
     );

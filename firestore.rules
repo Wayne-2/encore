@@ -2,6 +2,17 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Emoji reactions are stored per user under an item's `reactions`
+    // subcollection: { emojis: ['👍', '🔥'] }.
+    function validReactionEmojis() {
+      return request.resource.data.emojis is list
+        && request.resource.data.emojis.size() > 0
+        && request.resource.data.emojis.size() <= 9
+        && request.resource.data.emojis.hasOnly([
+          '👍', '❤️', '😂', '🎉', '👏', '🙌', '🔥', '😮', '😢'
+        ]);
+    }
+
     // Every user owns a single profile document at users/{uid}.
     // Level (a field on this doc) is the grouping key used across the app,
     // so any signed-in user may read profiles; only the owner may write.
@@ -36,6 +47,15 @@ service cloud.firestore {
       function hasGroup() {
         return departmentCode() != '' && groupLevel() != '';
       }
+      function announcementData() {
+        return get(/databases/$(database)/documents/announcements/$(announcementId)).data;
+      }
+      function inGroup() {
+        return request.auth != null
+          && hasGroup()
+          && announcementData().department == departmentCode()
+          && announcementData().level == groupLevel();
+      }
       allow read: if request.auth != null
         && hasGroup()
         && resource.data.department == departmentCode()
@@ -47,6 +67,113 @@ service cloud.firestore {
         && request.resource.data.level == groupLevel()
         && request.resource.data.author is string
         && request.resource.data.body is string
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+
+      match /reactions/{userId} {
+        allow read: if inGroup();
+        allow create, update: if inGroup()
+          && userId == request.auth.uid
+          && validReactionEmojis();
+        allow delete: if inGroup() && userId == request.auth.uid;
+      }
+
+      // Comments inherit the announcement's group. Only members of the same
+      // department + level may read or post; authors delete their own replies.
+      match /comments/{commentId} {
+        function announcement() {
+          return get(/databases/$(database)/documents/announcements/$(announcementId)).data;
+        }
+        allow read: if request.auth != null
+          && hasGroup()
+          && announcement().department == departmentCode()
+          && announcement().level == groupLevel();
+        allow create: if request.auth != null
+          && hasGroup()
+          && announcement().department == departmentCode()
+          && announcement().level == groupLevel()
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.author is string
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if request.auth != null
+          && resource.data.authorId == request.auth.uid;
+
+        match /reactions/{userId} {
+          allow read: if inGroup();
+          allow create, update: if inGroup()
+            && userId == request.auth.uid
+            && validReactionEmojis();
+          allow delete: if inGroup() && userId == request.auth.uid;
+        }
+      }
+    }
+
+    // Trends are campus-wide: any signed-in user can read them. Comments and
+    // emoji reactions live in subcollections and persist for everyone.
+    match /trends/{trendId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.author is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.media is list
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.author is string
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if request.auth != null
+          && resource.data.authorId == request.auth.uid;
+
+        match /reactions/{userId} {
+          allow read: if request.auth != null;
+          allow create, update: if request.auth != null
+            && userId == request.auth.uid
+            && validReactionEmojis();
+          allow delete: if request.auth != null
+            && userId == request.auth.uid;
+        }
+      }
+
+      match /reactions/{userId} {
+        allow read: if request.auth != null;
+        allow create, update: if request.auth != null
+          && userId == request.auth.uid
+          && validReactionEmojis();
+        allow delete: if request.auth != null
+          && userId == request.auth.uid;
+      }
+    }
+
+    // Activities are visible to every signed-in user. The date is a calendar
+    // day; the client greys out activities whose date has passed.
+    match /activities/{activityId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.date is timestamp
         && request.resource.data.createdAt == request.time;
       allow update: if false;
       allow delete: if request.auth != null

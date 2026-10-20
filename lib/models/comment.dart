@@ -1,6 +1,8 @@
 /// A comment in a post's thread (announcement or trending).
 class Comment {
   const Comment({
+    this.id = '',
+    this.authorId = '',
     required this.name,
     required this.handle,
     required this.time,
@@ -9,6 +11,8 @@ class Comment {
     this.reactions = const {},
   });
 
+  final String id;
+  final String authorId;
   final String name;
   final String handle;
   final String time;
