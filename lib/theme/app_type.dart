@@ -14,6 +14,7 @@ import 'app_theme.dart';
 /// | card title | 15   | w700   | primary     |
 /// | body       | 15   | w400   | subdued     |
 /// | subtitle   | 13   | w400   | subdued     |
+/// | timestamp  | 12   | w400   | lifted      |
 /// | meta / tag | 11   | w400/600 | faint/subdued |
 abstract final class AppType {
   /// Opacity step between adjacent hierarchy tiers.
@@ -108,6 +109,15 @@ abstract final class AppType {
       fontWeight: FontWeight.w400,
       color: s.onSurfaceVariant,
     ),
+  );
+
+  /// Timestamps and compact supporting copy — 12sp, lifted above the
+  /// size-based opacity ramp so dates and captions stay legible everywhere.
+  static TextStyle timestamp(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: s.onSurfaceVariant.withValues(alpha: 0.7),
   );
 
   /// Timestamps — the faintest tier.

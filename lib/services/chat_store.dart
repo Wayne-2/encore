@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,6 +9,7 @@ import '../config/app_config.dart';
 import '../models/direct_chat.dart';
 import '../models/group_chat.dart';
 import 'auth_service.dart';
+import 'chat_media_cache.dart';
 import 'local_cache.dart';
 import 'media_storage.dart';
 import 'notification_service.dart';
@@ -93,6 +95,7 @@ class ChatStore {
         if (controller.isClosed) return;
         if (cached != null) {
           controller.add(_conversationsFromCache(cached, uid));
+          _prefetchInboxAttachments(cached);
         }
 
         sub = _firestore
@@ -104,6 +107,7 @@ class ChatStore {
                 for (final doc in snapshot.docs) {'id': doc.id, ...doc.data()},
               ];
               controller.add(_conversationsFromCache(raw, uid));
+              _prefetchInboxAttachments(raw);
               unawaited(LocalCache.instance.saveChats(uid, raw));
             }, onError: controller.addError);
       },
@@ -131,6 +135,7 @@ class ChatStore {
         if (controller.isClosed) return;
         if (cached != null) {
           controller.add(_inboxFromCache(cached, uid));
+          _prefetchInboxAttachments(cached);
         }
 
         sub = _firestore
@@ -142,6 +147,7 @@ class ChatStore {
                 for (final doc in snapshot.docs) {'id': doc.id, ...doc.data()},
               ];
               controller.add(_inboxFromRaw(raw, uid));
+              _prefetchInboxAttachments(raw);
               unawaited(LocalCache.instance.saveChats(uid, raw));
             }, onError: controller.addError);
       },
@@ -277,7 +283,11 @@ class ChatStore {
       onListen: () async {
         final cached = await LocalCache.instance.messages(uid, chatId);
         if (controller.isClosed) return;
-        if (cached != null) controller.add(_messagesFromCache(cached));
+        if (cached != null) {
+          final messages = _messagesFromCache(cached);
+          controller.add(messages);
+          _prefetchAttachments(messages);
+        }
 
         sub = _firestore
             .collection(_chats)
@@ -299,6 +309,7 @@ class ChatStore {
                 ),
               );
               controller.add(messages);
+              _prefetchAttachments(messages);
               unawaited(LocalCache.instance.saveMessages(uid, chatId, raw));
             }, onError: controller.addError);
       },
@@ -376,6 +387,37 @@ class ChatStore {
     final me = await currentChatUser();
     final url = await _uploadImage(bytes, filename);
     await _send(me: me, peer: peer, text: '', type: 'image', imageUrl: url);
+  }
+
+  /// Uploads a recorded voice note and adds it to a direct conversation.
+  ///
+  /// The file is kept in the local media cache under the returned URL so the
+  /// sender can replay it immediately, even without a connection.
+  Future<void> sendVoice({
+    required ChatUser peer,
+    required String filePath,
+    required int durationMs,
+    List<int> waveform = const [],
+    ReplyPreview? replyTo,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists() || durationMs <= 0) {
+      throw StateError('That voice note could not be read.');
+    }
+    final bytes = await file.readAsBytes();
+    final me = await currentChatUser();
+    final url = await _uploadVoice(bytes, durationMs);
+    await ChatMediaCache.instance.saveLocalFile(url, filePath);
+    await _send(
+      me: me,
+      peer: peer,
+      text: '',
+      type: 'voice',
+      voiceUrl: url,
+      voiceDurationMs: durationMs,
+      voiceWaveform: waveform,
+      replyTo: replyTo,
+    );
   }
 
   /// Creates a group with the current user as its first admin.
@@ -501,6 +543,45 @@ class ChatStore {
       text: '',
       type: 'image',
       imageUrl: url,
+    );
+  }
+
+  /// Uploads a recorded voice note and adds it to a group conversation.
+  Future<void> sendGroupVoice({
+    required String chatId,
+    required String filePath,
+    required int durationMs,
+    List<int> waveform = const [],
+    ReplyPreview? replyTo,
+    bool anonymous = false,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists() || durationMs <= 0) {
+      throw StateError('That voice note could not be read.');
+    }
+    final bytes = await file.readAsBytes();
+    final me = await currentChatUser();
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, me.id);
+    if (!group.canPost(me.id)) {
+      throw StateError('Only admins can send messages in this group.');
+    }
+    if (anonymous && !group.anonymousMessagesEnabled) {
+      throw StateError('Anonymous messages are not enabled in this group.');
+    }
+    final url = await _uploadVoice(bytes, durationMs);
+    await ChatMediaCache.instance.saveLocalFile(url, filePath);
+    await _sendToChat(
+      chatRef: chatRef,
+      me: me,
+      recipientIds: group.members.where((uid) => uid != me.id).toList(),
+      text: '',
+      type: 'voice',
+      voiceUrl: url,
+      voiceDurationMs: durationMs,
+      voiceWaveform: waveform,
+      replyTo: replyTo,
+      anonymous: anonymous,
     );
   }
 
@@ -722,6 +803,20 @@ class ChatStore {
     return group;
   }
 
+  Future<String> _uploadVoice(Uint8List bytes, int durationMs) async {
+    final storage = MediaStorage(workerUrl: AppConfig.r2WorkerUrl);
+    try {
+      return await storage.upload(
+        bytes: bytes,
+        filename:
+            'voice-${DateTime.now().microsecondsSinceEpoch}-$durationMs.m4a',
+        contentType: 'audio/mp4',
+      );
+    } finally {
+      storage.dispose();
+    }
+  }
+
   Future<String> _uploadImage(Uint8List bytes, String filename) async {
     final type = _mediaType(bytes);
     final dot = filename.lastIndexOf('.');
@@ -747,6 +842,9 @@ class ChatStore {
     required String text,
     required String type,
     String? imageUrl,
+    String? voiceUrl,
+    int voiceDurationMs = 0,
+    List<int> voiceWaveform = const [],
     ReplyPreview? replyTo,
   }) async {
     final chatRef = await _ensureChat(me: me, peer: peer);
@@ -757,6 +855,9 @@ class ChatStore {
       text: text,
       type: type,
       imageUrl: imageUrl,
+      voiceUrl: voiceUrl,
+      voiceDurationMs: voiceDurationMs,
+      voiceWaveform: voiceWaveform,
       replyTo: replyTo,
     );
   }
@@ -768,6 +869,9 @@ class ChatStore {
     required String text,
     required String type,
     String? imageUrl,
+    String? voiceUrl,
+    int voiceDurationMs = 0,
+    List<int> voiceWaveform = const [],
     ReplyPreview? replyTo,
     bool anonymous = false,
   }) async {
@@ -785,12 +889,19 @@ class ChatStore {
       'localCreatedAt': DateTime.now(),
     };
     if (imageUrl != null) message['imageUrl'] = imageUrl;
+    if (voiceUrl != null) {
+      message['voiceUrl'] = voiceUrl;
+      message['voiceDurationMs'] = voiceDurationMs;
+      if (voiceWaveform.isNotEmpty) {
+        message['voiceWaveform'] = voiceWaveform;
+      }
+    }
     if (replyTo != null) message['replyTo'] = replyTo.toMap();
 
     final batch = _firestore.batch();
     batch.set(messageRef, message);
     batch.update(chatRef, {
-      'lastMessage': text,
+      'lastMessage': type == 'voice' ? 'Voice note' : text,
       'lastMessageId': messageRef.id,
       'lastMessageType': type,
       'lastMessageAt': now,
@@ -906,6 +1017,9 @@ class ChatStore {
     await messageRef.update({
       'text': '',
       'imageUrl': FieldValue.delete(),
+      'voiceUrl': FieldValue.delete(),
+      'voiceDurationMs': FieldValue.delete(),
+      'voiceWaveform': FieldValue.delete(),
       'deleted': true,
       'deletedAt': FieldValue.serverTimestamp(),
       'type': 'deleted',
@@ -1023,6 +1137,50 @@ class ChatStore {
       return _groupTime(b).compareTo(_groupTime(a));
     });
     return ChatInbox(directChats: directs, groups: groups);
+  }
+
+  void _prefetchAttachments(List<DirectMessage> messages) {
+    unawaited(
+      ChatMediaCache.instance.prefetchVoiceNotes(
+        messages
+            .where((message) => message.type == 'voice' && !message.deleted)
+            .map((message) => message.voiceUrl),
+      ),
+    );
+    unawaited(
+      ChatMediaCache.instance.prefetchImages(
+        messages
+            .where((message) => message.type == 'image' && !message.deleted)
+            .map((message) => message.imageUrl),
+      ),
+    );
+  }
+
+  void _prefetchInboxAttachments(List<Map<String, dynamic>> chats) {
+    for (final chat in chats) {
+      if (chat['lastMessageType'] != 'voice') continue;
+      final chatId = chat['id'];
+      final messageId = chat['lastMessageId'];
+      if (chatId is! String || messageId is! String) continue;
+      unawaited(_prefetchLastVoice(chatId, messageId));
+    }
+  }
+
+  Future<void> _prefetchLastVoice(String chatId, String messageId) async {
+    try {
+      final doc = await _firestore
+          .collection(_chats)
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId)
+          .get();
+      final url = (doc.data()?['voiceUrl'] as String?)?.trim();
+      if (url != null && url.isNotEmpty) {
+        await ChatMediaCache.instance.ensureDownloaded(url);
+      }
+    } catch (_) {
+      // The note will download when the chat is opened.
+    }
   }
 
   List<DirectMessage> _messagesFromCache(List<Map<String, dynamic>> items) {

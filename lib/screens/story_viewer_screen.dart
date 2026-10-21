@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../utils/active_time.dart';
 import '../widgets/chat_avatar.dart';
@@ -160,10 +161,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                           ActiveTimestamp(
                             at: widget.story.createdAt,
                             fallback: widget.story.time,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.75),
+                            style: AppType.timestamp(
+                              Theme.of(context).colorScheme,
+                            ).copyWith(
+                              color: Colors.white.withValues(alpha: 0.7),
                             ),
                           ),
                         ],

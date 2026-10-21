@@ -49,12 +49,7 @@ abstract final class SlackType {
     ),
   );
 
-  /// Message timestamp — Slack's 12sp caption, lifted above the size-based
-  /// opacity ramp so it stays clearly legible.
-  static TextStyle timestamp(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    color: s.onSurfaceVariant.withValues(alpha: 0.7),
-  );
+  /// Message timestamp — Slack's 12sp caption, shared with the rest of the
+  /// app through [AppType.timestamp].
+  static TextStyle timestamp(ColorScheme s) => AppType.timestamp(s);
 }

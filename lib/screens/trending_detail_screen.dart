@@ -167,6 +167,7 @@ class _TrendHeader extends StatelessWidget {
             children: [
               UserAvatar(
                 name: trend.author,
+                userId: trend.authorId,
                 photoUrl: trend.photoUrl,
                 size: 30,
               ),
@@ -192,7 +193,7 @@ class _TrendHeader extends StatelessWidget {
               ActiveTimestamp(
                 at: trend.createdAt,
                 fallback: trend.time,
-                style: AppType.meta(scheme),
+                style: AppType.timestamp(scheme),
               ),
             ],
           ),

@@ -148,7 +148,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                           ).push(sharedAxisRoute(const ViewHistoryScreen())),
                           child: Text(
                             'View History',
-                            style: AppType.subtitle(
+                            style: AppType.timestamp(
                               scheme,
                             ).copyWith(color: scheme.primary),
                           ),
@@ -173,7 +173,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                       children: [
                         Text(
                           '$completed/$total Dues completed',
-                          style: AppType.subtitle(scheme),
+                          style: AppType.timestamp(scheme),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -188,7 +188,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                         const SizedBox(width: 12),
                         Text(
                           '${(progress * 100).round()}%',
-                          style: AppType.subtitle(scheme),
+                          style: AppType.timestamp(scheme),
                         ),
                       ],
                     ),
@@ -217,7 +217,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                     child: Text(
                       'Assigned for computer science - 200lvl',
-                      style: AppType.subtitle(scheme),
+                      style: AppType.timestamp(scheme),
                     ),
                   ),
                   Padding(
@@ -251,7 +251,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: TextField(
-                                    style: AppType.subtitle(scheme),
+                                    style: AppType.timestamp(scheme),
                                     cursorColor: scheme.primary,
                                     cursorHeight: 14,
                                     textAlignVertical: TextAlignVertical.center,
@@ -265,7 +265,7 @@ class _FinanceScreenState extends State<FinanceScreen>
                                       errorBorder: InputBorder.none,
                                       focusedErrorBorder: InputBorder.none,
                                       hintText: 'Search',
-                                      hintStyle: AppType.meta(scheme),
+                                      hintStyle: AppType.timestamp(scheme),
                                     ),
                                   ),
                                 ),
@@ -439,12 +439,7 @@ class _BankBanner extends StatelessWidget {
                       children: [
                         Text(
                           accountNumber,
-                          style: AppType.meta(scheme).copyWith(
-                            fontSize: 14,
-                            color: scheme.onSurfaceVariant.withValues(
-                              alpha: 0.8,
-                            ),
-                          ),
+                          style: AppType.timestamp(scheme),
                         ),
                         const SizedBox(width: 6),
                         Container(
@@ -486,10 +481,7 @@ class _BankBanner extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 'Available Points',
-                style: AppType.meta(scheme).copyWith(
-                  fontSize: 13,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
-                ),
+                style: AppType.timestamp(scheme),
               ),
               const SizedBox(width: 6),
               Text(
@@ -613,7 +605,7 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
               overlayColor: WidgetStatePropertyAll(
                 scheme.primary.withValues(alpha: 0.12),
               ),
-              textStyle: WidgetStatePropertyAll(AppType.subtitle(scheme)),
+              textStyle: WidgetStatePropertyAll(AppType.timestamp(scheme)),
             ),
             child: Text(option),
           ),
@@ -638,7 +630,7 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
                 colorFilter: ColorFilter.mode(labelColor, BlendMode.srcIn),
               ),
               const SizedBox(width: 6),
-              Text(_selected, style: AppType.subtitle(scheme)),
+              Text(_selected, style: AppType.timestamp(scheme)),
               const SizedBox(width: 2),
               AnimatedRotation(
                 turns: controller.isOpen ? 0.5 : 0,
@@ -767,7 +759,7 @@ class _ExpenditureTile extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Text(due.amount, style: AppType.meta(scheme)),
+                    Text(due.amount, style: AppType.timestamp(scheme)),
                     const SizedBox(width: 8),
                     _PaidBadge(paid: due.paid),
                   ],
@@ -850,7 +842,7 @@ class _TileOptionsMenu extends StatelessWidget {
               overlayColor: WidgetStatePropertyAll(
                 scheme.primary.withValues(alpha: 0.12),
               ),
-              textStyle: WidgetStatePropertyAll(AppType.subtitle(scheme)),
+              textStyle: WidgetStatePropertyAll(AppType.timestamp(scheme)),
             ),
             child: Text(option),
           ),

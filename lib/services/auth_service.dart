@@ -271,6 +271,27 @@ class AuthService {
     }
   }
 
+  /// Streams another user's profile document by uid.
+  ///
+  /// Used by avatars on authored content so photos stay current after a
+  /// profile edit. Silently ends if the document cannot be read.
+  Stream<Map<String, dynamic>?> userProfileStreamFor(String uid) async* {
+    final id = uid.trim();
+    if (!isAvailable || id.isEmpty) {
+      yield null;
+      return;
+    }
+
+    try {
+      await for (final snapshot
+          in _firestore.collection('users').doc(id).snapshots()) {
+        yield snapshot.data();
+      }
+    } catch (_) {
+      yield null;
+    }
+  }
+
   /// Updates the editable parts of the signed-in user's profile.
   ///
   /// Returns `false` when there is no signed-in user to update.

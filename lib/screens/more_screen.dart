@@ -132,7 +132,7 @@ class _MoreTile extends StatelessWidget {
                     item.subtitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppType.subtitle(scheme),
+                    style: AppType.timestamp(scheme),
                   ),
                 ],
               ),

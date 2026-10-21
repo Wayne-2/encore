@@ -467,10 +467,16 @@ service cloud.firestore {
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 4000
-          && request.resource.data.type in ['text', 'image']
+          && request.resource.data.type in ['text', 'image', 'voice']
           && request.resource.data.createdAt == request.time
           && (!request.resource.data.keys().hasAny(['imageUrl'])
             || request.resource.data.imageUrl is string)
+          && (request.resource.data.type != 'voice'
+            || (request.resource.data.voiceUrl is string
+              && request.resource.data.voiceUrl.size() > 0
+              && request.resource.data.voiceDurationMs is int
+              && request.resource.data.voiceDurationMs > 0
+              && request.resource.data.voiceDurationMs <= 300000))
           && (!request.resource.data.keys().hasAny(['anonymous'])
             || request.resource.data.anonymous is bool)
           && (request.resource.data.get('anonymous', false) == false
@@ -483,8 +489,8 @@ service cloud.firestore {
           && request.resource.data.text.size() <= 4000
           && request.resource.data.type in ['text', 'image', 'deleted']
           && writeFields().hasOnly([
-            'text', 'editedAt', 'imageUrl', 'deleted', 'deletedAt', 'type',
-            'replyTo'
+            'text', 'editedAt', 'imageUrl', 'voiceUrl', 'voiceDurationMs',
+            'voiceWaveform', 'deleted', 'deletedAt', 'type', 'replyTo'
           ]);
         allow delete: if isChatMember()
           && resource.data.senderId == request.auth.uid;

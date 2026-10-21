@@ -49,6 +49,9 @@ class ChatMessage {
     this.isEdited = false,
     this.isDeleted = false,
     this.imageUrl,
+    this.voiceUrl,
+    this.voiceDurationMs = 0,
+    this.voiceWaveform = const [],
     this.replyToSender,
     this.replyToText,
   });
@@ -87,6 +90,11 @@ class ChatMessage {
   /// Remote photo attached to the message.
   final String? imageUrl;
 
+  /// Remote audio attachment and its recorded duration.
+  final String? voiceUrl;
+  final int voiceDurationMs;
+  final List<int> voiceWaveform;
+
   /// Reply preview shown above the message copy.
   final String? replyToSender;
   final String? replyToText;
@@ -109,6 +117,9 @@ class ChatMessage {
     bool? isEdited,
     bool? isDeleted,
     String? imageUrl,
+    String? voiceUrl,
+    int? voiceDurationMs,
+    List<int>? voiceWaveform,
     String? replyToSender,
     String? replyToText,
   }) {
@@ -130,6 +141,9 @@ class ChatMessage {
       isEdited: isEdited ?? this.isEdited,
       isDeleted: isDeleted ?? this.isDeleted,
       imageUrl: imageUrl ?? this.imageUrl,
+      voiceUrl: voiceUrl ?? this.voiceUrl,
+      voiceDurationMs: voiceDurationMs ?? this.voiceDurationMs,
+      voiceWaveform: voiceWaveform ?? this.voiceWaveform,
       replyToSender: replyToSender ?? this.replyToSender,
       replyToText: replyToText ?? this.replyToText,
     );

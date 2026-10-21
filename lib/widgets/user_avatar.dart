@@ -31,10 +31,15 @@ Color avatarColorFor(String seed) {
 }
 
 /// A consistent profile avatar: photo first, initials as the fallback.
-class UserAvatar extends StatelessWidget {
+///
+/// Pass [userId] for content authored by another account (comments, posts,
+/// messages) so the avatar resolves that account's current profile photo
+/// rather than relying on a URL snapshot stored with the content.
+class UserAvatar extends StatefulWidget {
   const UserAvatar({
     super.key,
     required this.name,
+    this.userId,
     this.photoUrl,
     this.initials,
     this.size = 36,
@@ -42,20 +47,74 @@ class UserAvatar extends StatelessWidget {
   });
 
   final String name;
+  final String? userId;
   final String? photoUrl;
   final String? initials;
   final double size;
   final bool showOnlineDot;
 
   @override
+  State<UserAvatar> createState() => _UserAvatarState();
+}
+
+class _UserAvatarState extends State<UserAvatar> {
+  Stream<Map<String, dynamic>?>? _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindProfile();
+  }
+
+  @override
+  void didUpdateWidget(covariant UserAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) _bindProfile();
+  }
+
+  void _bindProfile() {
+    final uid = widget.userId?.trim();
+    _profile = AuthService.isAvailable && uid != null && uid.isNotEmpty
+        ? AuthService.instance.userProfileStreamFor(uid)
+        : null;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final stream = _profile;
+    if (stream == null) {
+      return _avatar(widget.name, widget.photoUrl, widget.initials);
+    }
+
+    return StreamBuilder<Map<String, dynamic>?>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        final fullName = (data?['fullName'] as String?)?.trim();
+        final username = (data?['username'] as String?)?.trim();
+        final resolvedName = fullName != null && fullName.isNotEmpty
+            ? fullName
+            : username != null && username.isNotEmpty
+            ? username
+            : widget.name;
+        final storedPhoto = (data?['photoUrl'] as String?)?.trim();
+        final resolvedPhoto = storedPhoto != null && storedPhoto.isNotEmpty
+            ? storedPhoto
+            : widget.photoUrl;
+
+        return _avatar(resolvedName, resolvedPhoto, widget.initials);
+      },
+    );
+  }
+
+  Widget _avatar(String name, String? photoUrl, String? initials) {
     return ChatAvatar(
       avatarUrl: photoUrl,
       avatarInitials: initials ?? initialsForName(name),
       avatarColor: avatarColorFor(name),
-      size: size,
+      size: widget.size,
       borderRadius: BorderRadius.circular(4),
-      showOnlineDot: showOnlineDot,
+      showOnlineDot: widget.showOnlineDot,
     );
   }
 }

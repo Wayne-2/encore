@@ -118,7 +118,7 @@ class _AddFundsSheetState extends State<AddFundsSheet> {
             const SizedBox(height: 4),
             Text(
               'Transfer to your Encore account using the details below.',
-              style: AppType.subtitle(scheme),
+              style: AppType.timestamp(scheme),
             ),
             const SizedBox(height: 18),
             _DetailsPanel(
@@ -165,7 +165,7 @@ class _AddFundsSheetState extends State<AddFundsSheet> {
             Text(
               'Use your full name as the transfer description so the payment '
               'can be matched to your account.',
-              style: AppType.meta(scheme),
+              style: AppType.timestamp(scheme),
             ),
             const SizedBox(height: 14),
             SizedBox(
@@ -230,7 +230,7 @@ class _DetailRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: AppType.subtitle(scheme))),
+          Expanded(child: Text(label, style: AppType.timestamp(scheme))),
           const SizedBox(width: 12),
           Flexible(
             child: Text(

@@ -291,6 +291,7 @@ function truncate(value, max = 140) {
 
 function messagePreview(message) {
   if (message.type === 'image') return 'Sent you a photo';
+  if (message.type === 'voice') return 'Sent you a voice note';
   return truncate(message.text) || 'Sent you a message';
 }
 

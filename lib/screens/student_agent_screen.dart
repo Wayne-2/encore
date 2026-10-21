@@ -320,11 +320,11 @@ class _AgentCard extends StatelessWidget {
             children: [
               Icon(LucideIcons.clock, size: 13, color: scheme.onSurfaceVariant),
               const SizedBox(width: 6),
-              Text('Last update ', style: AppType.meta(scheme)),
+              Text('Last update ', style: AppType.timestamp(scheme)),
               ActiveTimestamp(
                 at: agent.lastUpdateAt,
                 fallback: agent.lastUpdate,
-                style: AppType.meta(scheme),
+                style: AppType.timestamp(scheme),
               ),
             ],
           ),

@@ -131,7 +131,7 @@ class _AddExpenditureSheetState extends State<AddExpenditureSheet> {
               const SizedBox(height: 18),
               Text(
                 'This item will be added to your semester expenditure list.',
-                style: AppType.meta(scheme),
+                style: AppType.timestamp(scheme),
               ),
               const SizedBox(height: 18),
               ValueListenableBuilder<TextEditingValue>(

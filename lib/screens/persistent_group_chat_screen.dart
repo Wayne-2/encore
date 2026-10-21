@@ -11,12 +11,14 @@ import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/chat_emoji_picker.dart';
 import '../widgets/floating_empty_state.dart';
+import '../widgets/hold_to_record_button.dart';
 import 'group_settings_screen.dart';
 
 /// Telegram-style group chat backed by Firestore.
@@ -216,6 +218,42 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
             ? error.message
             : 'Could not send that message. Check your connection.',
       );
+    }
+  }
+
+  Future<void> _sendVoice(VoiceRecording recording) async {
+    if (_uploading) return;
+    if (_group != null && !_canPost) {
+      _showSnack('Only admins can send messages in this group.');
+      return;
+    }
+
+    final group = _group;
+    final anonymous =
+        _sendAnonymously && (group?.anonymousMessagesEnabled ?? false);
+    final reply = _replyTo;
+    setState(() => _uploading = true);
+    try {
+      await ChatStore.instance.sendGroupVoice(
+        chatId: widget.chatId,
+        filePath: recording.path,
+        durationMs: recording.durationMs,
+        waveform: recording.waveform,
+        replyTo: reply?.toReplyPreview(),
+        anonymous: anonymous,
+      );
+      if (!mounted) return;
+      setState(() {
+        _replyTo = null;
+        _sendAnonymously = false;
+      });
+      _scrollToBottom();
+    } on StateError catch (error) {
+      _showSnack(error.message);
+    } catch (_) {
+      _showSnack('Could not send that voice note. Check your connection.');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
@@ -465,7 +503,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-              backgroundColor: SpotifyColors.danger,
+              backgroundColor: SpotifyColors.accent,
             ),
             child: const Text('Clear'),
           ),
@@ -550,11 +588,9 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Created ${formatShortDate(group.createdAt!)}',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
+                  style: AppType.timestamp(
+                    Theme.of(context).colorScheme,
+                  ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
                 ),
               ],
               const SizedBox(height: 10),
@@ -757,7 +793,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                 value: 'clear',
                 child: Text(
                   'Clear chat',
-                  style: TextStyle(color: SpotifyColors.danger),
+                  style: TextStyle(color: SpotifyColors.accent),
                 ),
               ),
             ],
@@ -1107,15 +1143,11 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                           onPressed: _send,
                         )
                       else
-                        IconButton(
-                          icon: Icon(
-                            LucideIcons.mic,
-                            color: scheme.onSurfaceVariant,
-                            size: 22,
-                          ),
-                          tooltip: 'Voice message',
-                          onPressed: () =>
-                              _showSnack('Voice messages are coming soon.'),
+                        HoldToRecordButton(
+                          key: const ValueKey('group-voice-button'),
+                          onRecorded: _sendVoice,
+                          onMessage: _showSnack,
+                          color: scheme.onSurfaceVariant,
                         ),
                     ],
                   ),
@@ -1329,12 +1361,9 @@ class _DateSeparator extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
+            style: AppType.timestamp(
+              Theme.of(context).colorScheme,
+            ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ),
       ),

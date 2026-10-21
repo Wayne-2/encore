@@ -942,7 +942,7 @@ class _HighlightsTab extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       _relativeTime(highlight.createdAt),
-                      style: AppType.meta(scheme),
+                      style: AppType.timestamp(scheme),
                     ),
                   ],
                 ),
@@ -1026,7 +1026,7 @@ class _ReadingHistoryTab extends StatelessWidget {
                             ? 'Finished · ${_relativeTime(entry.lastReadAt)}'
                             : '${(entry.progress * 100).round()}% read · '
                                   '${_relativeTime(entry.lastReadAt)}',
-                        style: AppType.subtitle(scheme),
+                        style: AppType.timestamp(scheme),
                       ),
                       const SizedBox(height: 8),
                       ClipRRect(

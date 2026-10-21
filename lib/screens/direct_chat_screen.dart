@@ -518,7 +518,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     Icon(
                       LucideIcons.trash2,
                       size: 20,
-                      color: SpotifyColors.danger,
+                      color: SpotifyColors.accent,
                     ),
                     SizedBox(width: 12),
                     Expanded(
@@ -528,7 +528,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 14.5,
                           fontWeight: FontWeight.w500,
-                          color: SpotifyColors.danger,
+                          color: SpotifyColors.accent,
                         ),
                       ),
                     ),

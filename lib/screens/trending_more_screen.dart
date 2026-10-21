@@ -144,7 +144,12 @@ class _ForYouCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                UserAvatar(name: author, photoUrl: trend.photoUrl, size: 34),
+                UserAvatar(
+                  name: author,
+                  userId: trend.authorId,
+                  photoUrl: trend.photoUrl,
+                  size: 34,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -162,7 +167,7 @@ class _ForYouCard extends StatelessWidget {
                         fallback: trend.time,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppType.meta(scheme),
+                        style: AppType.timestamp(scheme),
                       ),
                     ],
                   ),

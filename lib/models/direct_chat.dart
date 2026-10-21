@@ -190,6 +190,7 @@ class DirectChat {
     if (isCleared) return 'No messages yet';
     final text = switch (lastMessageType) {
       'image' => 'Photo',
+      'voice' => 'Voice note',
       'deleted' => 'This message was deleted',
       _ => lastMessage.trim().isEmpty ? 'No messages yet' : lastMessage,
     };
@@ -240,6 +241,7 @@ class ReplyPreview {
 
   String get preview => switch (type) {
     'image' => 'Photo',
+    'voice' => 'Voice note',
     'deleted' => 'This message was deleted',
     _ => text,
   };
@@ -278,6 +280,9 @@ class DirectMessage {
     required this.createdAt,
     required this.type,
     this.imageUrl,
+    this.voiceUrl,
+    this.voiceDurationMs = 0,
+    this.voiceWaveform = const [],
     this.editedAt,
     this.deleted = false,
     this.anonymous = false,
@@ -293,6 +298,9 @@ class DirectMessage {
   final DateTime? createdAt;
   final String type;
   final String? imageUrl;
+  final String? voiceUrl;
+  final int voiceDurationMs;
+  final List<int> voiceWaveform;
   final DateTime? editedAt;
   final bool deleted;
   final bool anonymous;
@@ -312,6 +320,9 @@ class DirectMessage {
     bool? anonymous,
     bool? pending,
     String? imageUrl,
+    String? voiceUrl,
+    int? voiceDurationMs,
+    List<int>? voiceWaveform,
   }) {
     return DirectMessage(
       id: id,
@@ -322,6 +333,9 @@ class DirectMessage {
       createdAt: createdAt,
       type: deleted == true ? 'deleted' : type,
       imageUrl: imageUrl ?? this.imageUrl,
+      voiceUrl: voiceUrl ?? this.voiceUrl,
+      voiceDurationMs: voiceDurationMs ?? this.voiceDurationMs,
+      voiceWaveform: voiceWaveform ?? this.voiceWaveform,
       editedAt: editedAt ?? this.editedAt,
       deleted: deleted ?? this.deleted,
       anonymous: anonymous ?? this.anonymous,
@@ -358,6 +372,9 @@ class DirectMessage {
           parseTimestamp(data['localCreatedAt']),
       type: data['type'] as String? ?? 'text',
       imageUrl: (data['imageUrl'] as String?)?.trim(),
+      voiceUrl: (data['voiceUrl'] as String?)?.trim(),
+      voiceDurationMs: _asInt(data['voiceDurationMs']),
+      voiceWaveform: _asIntList(data['voiceWaveform']),
       editedAt: parseTimestamp(data['editedAt']),
       deleted: deleted,
       anonymous: data['anonymous'] == true,
@@ -413,12 +430,29 @@ class DirectMessage {
       isDeleted: deleted,
       isEdited: editedAt != null,
       imageUrl: imageUrl,
+      voiceUrl: voiceUrl,
+      voiceDurationMs: voiceDurationMs,
+      voiceWaveform: voiceWaveform,
       replyToSender: deleted
           ? null
           : (replyTo?.senderId == myUid ? 'You' : replyTo?.senderName),
       replyToText: deleted ? null : replyTo?.preview,
     );
   }
+}
+
+int _asInt(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return 0;
+}
+
+List<int> _asIntList(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<num>()
+      .map((item) => item.toInt())
+      .toList(growable: false);
 }
 
 DateTime? parseTimestamp(Object? value) {

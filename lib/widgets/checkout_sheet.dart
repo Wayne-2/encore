@@ -93,14 +93,14 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Items', style: AppType.subtitle(scheme)),
+                  Text('Items', style: AppType.timestamp(scheme)),
                   TextButton(
                     onPressed: () {
                       setState(() => _items = List.of(widget.items));
                     },
                     child: Text(
                       'Add all',
-                      style: AppType.subtitle(
+                      style: AppType.timestamp(
                         scheme,
                       ).copyWith(color: scheme.primary),
                     ),
@@ -191,7 +191,7 @@ class _CheckoutTile extends StatelessWidget {
                   style: AppType.cardTitle(scheme),
                 ),
                 const SizedBox(height: 2),
-                Text(item.amount, style: AppType.meta(scheme)),
+                Text(item.amount, style: AppType.timestamp(scheme)),
               ],
             ),
           ),

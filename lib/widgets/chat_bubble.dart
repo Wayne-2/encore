@@ -3,9 +3,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../utils/active_time.dart';
+import 'chat_media_image.dart';
 import 'swipe_to_reply.dart';
+import 'voice_note_player.dart';
 
 /// A chat bubble shared by the 1-on-1 and group chat screens.
 ///
@@ -66,6 +69,8 @@ class ChatBubble extends StatelessWidget {
     final header = _header(context);
     final hasImage =
         message.imageUrl != null && message.imageUrl!.isNotEmpty && !isDeleted;
+    final hasVoice =
+        message.voiceUrl != null && message.voiceUrl!.isNotEmpty && !isDeleted;
     final hasText = message.text.trim().isNotEmpty;
     final showReply = !isDeleted && message.replyToText != null;
     final bubbleColor = isDeleted
@@ -95,21 +100,17 @@ class ChatBubble extends StatelessWidget {
           if (trailingTime != null)
             Text(
               trailingTime!,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 10.5,
-                color: metaColor,
-              ),
+              style: AppType.timestamp(
+                scheme,
+              ).copyWith(color: metaColor.withValues(alpha: 0.7)),
             )
           else
             ActiveTimestamp(
               at: message.createdAt,
               fallback: message.time,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 10.5,
-                color: metaColor,
-              ),
+              style: AppType.timestamp(
+                scheme,
+              ).copyWith(color: metaColor.withValues(alpha: 0.7)),
             ),
           if (isMe && !isDeleted) ...[
             const SizedBox(width: 4),
@@ -212,10 +213,25 @@ class ChatBubble extends StatelessWidget {
                             width: double.infinity,
                             child: _imageWidget(),
                           ),
+                        if (hasVoice)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              8,
+                              header == null && !showReply ? 8 : 4,
+                              8,
+                              0,
+                            ),
+                            child: VoiceNotePlayer(
+                              url: message.voiceUrl!,
+                              durationMs: message.voiceDurationMs,
+                              waveform: message.voiceWaveform,
+                              isMe: isMe,
+                            ),
+                          ),
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             12,
-                            hasImage ? 7 : 8,
+                            hasImage ? 7 : (hasVoice ? 2 : 8),
                             12,
                             8,
                           ),
@@ -261,30 +277,7 @@ class ChatBubble extends StatelessWidget {
   Widget _imageWidget() {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 260, maxHeight: 260),
-      child: Image.network(
-        message.imageUrl!,
-        width: 250,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return const SizedBox(
-            width: 250,
-            height: 160,
-            child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white70,
-              ),
-            ),
-          );
-        },
-        errorBuilder: (_, _, _) => Container(
-          width: 250,
-          height: 160,
-          color: Colors.black26,
-          child: const Icon(LucideIcons.imageOff, color: Colors.white70),
-        ),
-      ),
+      child: ChatMediaImage(url: message.imageUrl!),
     );
   }
 

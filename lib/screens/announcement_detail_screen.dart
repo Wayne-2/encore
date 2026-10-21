@@ -154,6 +154,7 @@ class _AnnouncementHeader extends StatelessWidget {
             children: [
               AnnouncementAvatar(
                 name: announcement.author,
+                userId: announcement.authorId,
                 photoUrl: announcement.photoUrl,
                 size: 48,
               ),
@@ -167,7 +168,7 @@ class _AnnouncementHeader extends StatelessWidget {
                     ActiveTimestamp(
                       at: announcement.createdAt,
                       fallback: announcement.time,
-                      style: SlackType.timestamp(scheme),
+                      style: AppType.timestamp(scheme),
                     ),
                   ],
                 ),

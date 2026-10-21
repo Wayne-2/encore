@@ -9,12 +9,14 @@ import '../models/direct_chat.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/chat_emoji_picker.dart';
 import '../widgets/floating_empty_state.dart';
+import '../widgets/hold_to_record_button.dart';
 
 /// Telegram-style direct message screen backed by Firestore.
 ///
@@ -259,6 +261,30 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
       );
       setState(() => _replyTo = reply);
       _showSnack('Could not send that message. Check your connection.');
+    }
+  }
+
+  Future<void> _sendVoice(VoiceRecording recording) async {
+    if (_uploading) return;
+    final reply = _replyTo;
+    setState(() => _uploading = true);
+    try {
+      await ChatStore.instance.sendVoice(
+        peer: widget.peer,
+        filePath: recording.path,
+        durationMs: recording.durationMs,
+        waveform: recording.waveform,
+        replyTo: reply?.toReplyPreview(),
+      );
+      if (!mounted) return;
+      setState(() => _replyTo = null);
+      _scrollToBottom();
+    } on StateError catch (error) {
+      _showSnack(error.message);
+    } catch (_) {
+      _showSnack('Could not send that voice note. Check your connection.');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
@@ -511,7 +537,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-              backgroundColor: SpotifyColors.danger,
+              backgroundColor: SpotifyColors.accent,
             ),
             child: const Text('Clear'),
           ),
@@ -701,7 +727,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                 value: 'clear',
                 child: Text(
                   'Clear chat',
-                  style: TextStyle(color: SpotifyColors.danger),
+                  style: TextStyle(color: SpotifyColors.accent),
                 ),
               ),
             ],
@@ -965,15 +991,11 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                           onPressed: _send,
                         )
                       else
-                        IconButton(
-                          icon: Icon(
-                            LucideIcons.mic,
-                            color: scheme.onSurfaceVariant,
-                            size: 22,
-                          ),
-                          tooltip: 'Voice message',
-                          onPressed: () =>
-                              _showSnack('Voice messages are coming soon.'),
+                        HoldToRecordButton(
+                          key: const ValueKey('direct-voice-button'),
+                          onRecorded: _sendVoice,
+                          onMessage: _showSnack,
+                          color: scheme.onSurfaceVariant,
                         ),
                     ],
                   ),
@@ -1048,11 +1070,9 @@ class _ProfileHeader extends StatelessWidget {
           started == null
               ? peer.presenceLabel(now)
               : 'Chat started ${formatShortDate(started)}',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 12.5,
-            color: Colors.white.withValues(alpha: 0.5),
-          ),
+          style: AppType.timestamp(
+            Theme.of(context).colorScheme,
+          ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
         ),
         const SizedBox(height: 12),
         OutlinedButton(
@@ -1100,12 +1120,9 @@ class _DateSeparator extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
+            style: AppType.timestamp(
+              Theme.of(context).colorScheme,
+            ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ),
       ),

@@ -11,6 +11,7 @@ import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
@@ -623,11 +624,9 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Created ${formatShortDate(group.createdAt!)}',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.4),
-                    ),
+                    style: AppType.timestamp(
+                      Theme.of(context).colorScheme,
+                    ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
                   ),
                 ],
               ],

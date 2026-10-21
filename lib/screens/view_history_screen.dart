@@ -32,7 +32,7 @@ class ViewHistoryScreen extends StatelessWidget {
             Text(
               'No history yet',
               key: const ValueKey('no-history-message'),
-              style: AppType.subtitle(scheme),
+              style: AppType.timestamp(scheme),
             ),
           ],
         ),

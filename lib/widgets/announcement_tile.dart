@@ -47,6 +47,7 @@ class AnnouncementTile extends StatelessWidget {
             children: [
               AnnouncementAvatar(
                 name: announcement.author,
+                userId: announcement.authorId,
                 photoUrl: announcement.photoUrl,
               ),
               const SizedBox(width: 8),
@@ -68,7 +69,7 @@ class AnnouncementTile extends StatelessWidget {
                         ActiveTimestamp(
                           at: announcement.createdAt,
                           fallback: announcement.time,
-                          style: SlackType.timestamp(scheme),
+                          style: AppType.timestamp(scheme),
                         ),
                         if (announcement.unread) ...[
                           const SizedBox(width: 6),
@@ -159,17 +160,24 @@ class AnnouncementAvatar extends StatelessWidget {
   const AnnouncementAvatar({
     super.key,
     required this.name,
+    this.userId,
     this.photoUrl,
     this.size = 36,
   });
 
   final String name;
+  final String? userId;
   final String? photoUrl;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return UserAvatar(name: name, photoUrl: photoUrl, size: size);
+    return UserAvatar(
+      name: name,
+      userId: userId,
+      photoUrl: photoUrl,
+      size: size,
+    );
   }
 }
 

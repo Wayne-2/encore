@@ -298,7 +298,7 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-              backgroundColor: SpotifyColors.danger,
+              backgroundColor: SpotifyColors.accent,
             ),
             child: const Text('Delete'),
           ),
@@ -655,7 +655,7 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
                 confirmDismiss: (_) => onDelete(conversations[i]),
                 onDismissed: (_) => onDismissed?.call(conversations[i]),
                 background: Container(
-                  color: SpotifyColors.danger,
+                  color: SpotifyColors.accent,
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: const Row(
@@ -742,7 +742,7 @@ class _ConversationTile extends StatelessWidget {
                         ActiveTimestamp(
                           at: item.updatedAt,
                           fallback: item.time,
-                          style: SlackType.timestamp(scheme).copyWith(
+                          style: AppType.timestamp(scheme).copyWith(
                             color: item.hasUnread ? SpotifyColors.accent : null,
                           ),
                         ),

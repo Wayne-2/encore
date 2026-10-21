@@ -8,6 +8,7 @@ import 'package:encore/screens/persistent_direct_chat_screen.dart';
 import 'package:encore/services/chat_store.dart';
 import 'package:encore/theme/spotify_colors.dart';
 import 'package:encore/widgets/chat_bubble.dart';
+import 'package:encore/widgets/voice_note_player.dart';
 
 const _peer = ChatUser(
   id: 'peer-1',
@@ -52,6 +53,18 @@ void main() {
         lastMessageType: 'image',
       ).preview(myUid: 'ama'),
       'Photo',
+    );
+    expect(
+      DirectChat(
+        id: base.id,
+        peer: base.peer,
+        members: base.members,
+        lastMessage: '',
+        lastMessageAt: base.lastMessageAt,
+        lastSenderId: base.lastSenderId,
+        lastMessageType: 'voice',
+      ).preview(myUid: 'ama'),
+      'Voice note',
     );
     expect(
       DirectChat(
@@ -370,6 +383,32 @@ void main() {
         .whereType<BoxDecoration>()
         .map((decoration) => decoration.color);
     expect(colours, contains(SpotifyColors.chatOutgoing));
+  });
+
+  testWidgets('voice messages render an inline waveform player', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ChatBubble(
+            message: ChatMessage(
+              id: 'voice',
+              text: '',
+              time: '4:02 pm',
+              isMe: true,
+              voiceUrl: 'https://media.example.com/voice.m4a',
+              voiceDurationMs: 4000,
+              voiceWaveform: [20, 60, 35, 90, 45],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(VoiceNotePlayer), findsOneWidget);
+    expect(find.text('0:04'), findsOneWidget);
+    expect(find.byIcon(LucideIcons.play), findsOneWidget);
   });
 
   testWidgets('deleted bubble only shows the inactive placeholder', (

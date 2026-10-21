@@ -362,6 +362,7 @@ class _CommentTile extends StatelessWidget {
           children: [
             UserAvatar(
               name: comment.name,
+              userId: comment.authorId,
               photoUrl: comment.photoUrl,
               initials: comment.initials,
               size: 40,
@@ -387,20 +388,17 @@ class _CommentTile extends StatelessWidget {
                           comment.handle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppType.meta(scheme).copyWith(fontSize: 10),
+                          style: AppType.timestamp(scheme),
                         ),
                       ),
-                      Text(
-                        ' · ',
-                        style: AppType.meta(scheme).copyWith(fontSize: 10),
-                      ),
+                      Text(' · ', style: AppType.timestamp(scheme)),
                       Flexible(
                         child: ActiveTimestamp(
                           at: comment.createdAt,
                           fallback: comment.time,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppType.meta(scheme).copyWith(fontSize: 10),
+                          style: AppType.timestamp(scheme),
                         ),
                       ),
                     ],
