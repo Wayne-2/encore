@@ -21,6 +21,114 @@ service cloud.firestore {
       allow create, update: if request.auth != null
         && request.auth.uid == userId;
       allow delete: if false;
+
+      // Personal library collections. Only the owner can read or write them.
+      match /savedMaterials/{materialId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.materialId == materialId
+          && request.resource.data.title is string
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.kind in ['pdf', 'image']
+          && request.resource.data.savedAt == request.time
+          && request.resource.data.keys().hasOnly([
+            'materialId', 'title', 'kind', 'savedAt'
+          ]);
+        allow update: if false;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /libraryHighlights/{highlightId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.materialId is string
+          && request.resource.data.materialId.size() > 0
+          && request.resource.data.materialTitle is string
+          && request.resource.data.materialTitle.size() <= 200
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.keys().hasOnly([
+            'materialId', 'materialTitle', 'text', 'createdAt'
+          ]);
+        allow update: if false;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /libraryHistory/{materialId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.materialId == materialId
+          && request.resource.data.title is string
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.kind in ['pdf', 'image']
+          && request.resource.data.readCount == 1
+          && request.resource.data.progress == 0
+          && request.resource.data.lastReadAt == request.time
+          && request.resource.data.keys().hasOnly([
+            'materialId', 'title', 'kind', 'readCount', 'progress',
+            'lastReadAt'
+          ]);
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.materialId == materialId
+          && request.resource.data.progress is number
+          && request.resource.data.progress >= 0
+          && request.resource.data.progress <= 1
+          && (
+            (
+              request.resource.data.readCount == resource.data.readCount + 1
+              && request.resource.data.lastReadAt == request.time
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['readCount', 'lastReadAt', 'progress'])
+            ) || (
+              request.resource.data.readCount == resource.data.readCount
+              && request.resource.data.lastReadAt == resource.data.lastReadAt
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['progress'])
+            )
+          );
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Public library documents. Any signed-in user can read; the uploader
+    // creates an immutable text document. Original files are never stored.
+    match /libraryMaterials/{materialId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.uploaderId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() <= 80
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() > 0
+        && request.resource.data.fileName.size() <= 200
+        && request.resource.data.kind in ['pdf', 'image']
+        && request.resource.data.extractedText is string
+        && request.resource.data.extractedText.size() > 0
+        && request.resource.data.extractedText.size() <= 800000
+        && request.resource.data.textUrl is string
+        && request.resource.data.textUrl.size() > 0
+        && request.resource.data.textUrl.size() <= 2048
+        && request.resource.data.textFileName is string
+        && request.resource.data.textFileName.size() > 0
+        && request.resource.data.textFileName.size() <= 200
+        && request.resource.data.uploaderName is string
+        && request.resource.data.uploaderName.size() <= 100
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly([
+          'title', 'subject', 'fileName', 'kind', 'extractedText',
+          'textUrl', 'textFileName', 'uploaderId', 'uploaderName',
+          'createdAt'
+        ]);
+      allow update, delete: if false;
     }
 
     // Announcements are scoped to a department + level group. Only users in
@@ -118,7 +226,13 @@ service cloud.firestore {
     // their sorted UIDs, so reciprocal requests cannot create duplicates.
     // Only the recipient can accept, and accepting also creates the chat.
     match /contactRequests/{requestId} {
-      allow read: if request.auth != null
+      // A get for the deterministic request ID is how senders check whether
+      // the pair already has a request. A missing document has no resource,
+      // so allow that lookup while keeping existing requests private.
+      allow get: if request.auth != null
+        && (resource == null
+          || request.auth.uid in resource.data.participants);
+      allow list: if request.auth != null
         && request.auth.uid in resource.data.participants;
       allow create: if request.auth != null
         && request.resource.data.fromUid is string
@@ -208,9 +322,97 @@ service cloud.firestore {
           && data.memberProfiles is map
           && data.admins is list
           && data.admins.size() > 0
+          && data.admins.hasOnly(data.members)
           && request.auth.uid in data.admins
           && data.createdBy == request.auth.uid
           && data.createdAt == request.time;
+      }
+      function isAdmin() {
+        return request.auth != null
+          && request.auth.uid in resource.data.admins;
+      }
+      function isGroup() {
+        return resource.data.type == 'group';
+      }
+      function chatActivityFields() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+      function onlyChatActivity() {
+        return chatActivityFields().hasOnly([
+          'lastMessage', 'lastMessageId', 'lastMessageType', 'lastMessageAt',
+          'lastSenderId', 'lastSenderAnonymous', 'updatedAt', 'lastReadAt',
+          'unread', 'typing', 'clearedAt', 'memberProfiles'
+        ]);
+      }
+      function validAdminGroupUpdate() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return after.type == 'group'
+          && after.createdBy == before.createdBy
+          && after.title is string
+          && after.title.size() > 0
+          && after.title.size() <= 80
+          && after.get('description', '') is string
+          && after.get('description', '').size() <= 500
+          && after.members is list
+          && after.members.size() <= 100
+          && after.admins is list
+          && after.admins.hasOnly(after.members)
+          && (after.members.size() == 0 || after.admins.size() > 0)
+          && after.memberProfiles is map
+          && after.unread is map
+          && after.lastReadAt is map
+          && after.typing is map
+          && after.clearedAt is map
+          && after.get('membersCanPost', true) is bool
+          && after.get('anonymousMessagesEnabled', false) is bool
+          && after.get('membersCanAddMembers', true) is bool;
+      }
+      function validMemberGroupAdd() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return after.type == 'group'
+          && before.get('membersCanAddMembers', true) == true
+          && after.members is list
+          && after.members.size() > before.members.size()
+          && after.members.size() <= 100
+          && after.members.hasAll(before.members)
+          && after.admins == before.admins
+          && after.createdBy == before.createdBy
+          && after.title == before.title
+          && after.get('description', '') == before.get('description', '')
+          && after.get('membersCanPost', true)
+            == before.get('membersCanPost', true)
+          && after.get('anonymousMessagesEnabled', false)
+            == before.get('anonymousMessagesEnabled', false)
+          && after.get('membersCanAddMembers', true)
+            == before.get('membersCanAddMembers', true)
+          && after.memberProfiles is map
+          && after.unread is map;
+      }
+      function validGroupLeave() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return after.type == 'group'
+          && !(request.auth.uid in after.members)
+          && before.members.hasAll(after.members)
+          && after.members.size() == before.members.size() - 1
+          && after.admins is list
+          && after.admins.hasOnly(after.members)
+          && (after.members.size() == 0 || after.admins.size() > 0)
+          && after.createdBy == before.createdBy
+          && after.title == before.title
+          && after.get('description', '') == before.get('description', '')
+          && after.get('photoUrl', '') == before.get('photoUrl', '')
+          && after.get('membersCanPost', true)
+            == before.get('membersCanPost', true)
+          && after.get('anonymousMessagesEnabled', false)
+            == before.get('anonymousMessagesEnabled', false)
+          && after.get('membersCanAddMembers', true)
+            == before.get('membersCanAddMembers', true)
+          && after.memberProfiles is map
+          && (request.auth.uid in before.admins
+            || after.admins == before.admins);
       }
 
       // A read of a not-yet-created chat (opening a new DM) must succeed so
@@ -221,13 +423,25 @@ service cloud.firestore {
       allow create: if request.auth != null
         && (validDmCreate() || validGroupCreate());
       allow update: if isMember()
-        && request.resource.data.members == resource.data.members
         && request.resource.data.type == resource.data.type
-        && (resource.data.type == 'dm' || (
-          request.resource.data.createdBy == resource.data.createdBy
-          && (request.resource.data.title == resource.data.title
-            || request.auth.uid in resource.data.admins)
-        ));
+        && (
+          // Normal sending, read receipts, typing and clearing activity.
+          (request.resource.data.members == resource.data.members
+            && request.resource.data.get('admins', [])
+              == resource.data.get('admins', [])
+            && request.resource.data.get('createdBy', null)
+              == resource.data.get('createdBy', null)
+            && (resource.data.type == 'dm'
+              || request.resource.data.title == resource.data.title
+              || isAdmin())
+            && onlyChatActivity())
+          // Admins manage members, admins, permissions and group info.
+          || (isGroup() && isAdmin() && validAdminGroupUpdate())
+          // Members may add people when the admin allows it.
+          || (isGroup() && validMemberGroupAdd())
+          // Members may remove only themselves from the group.
+          || (isGroup() && validGroupLeave())
+        );
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -238,26 +452,39 @@ service cloud.firestore {
           return request.auth != null
             && request.auth.uid in chat().members;
         }
+        function canPost() {
+          return chat().type == 'dm'
+            || chat().get('membersCanPost', true) == true
+            || request.auth.uid in chat().admins;
+        }
         function writeFields() {
           return request.resource.data.diff(resource.data).affectedKeys();
         }
 
         allow read: if isChatMember();
         allow create: if isChatMember()
+          && canPost()
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 4000
           && request.resource.data.type in ['text', 'image']
           && request.resource.data.createdAt == request.time
           && (!request.resource.data.keys().hasAny(['imageUrl'])
-            || request.resource.data.imageUrl is string);
+            || request.resource.data.imageUrl is string)
+          && (!request.resource.data.keys().hasAny(['anonymous'])
+            || request.resource.data.anonymous is bool)
+          && (request.resource.data.get('anonymous', false) == false
+            || (chat().get('anonymousMessagesEnabled', false) == true
+              && request.resource.data.senderName == 'Anonymous Sender'
+              && request.resource.data.senderUsername == ''));
         allow update: if isChatMember()
           && resource.data.senderId == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 4000
           && request.resource.data.type in ['text', 'image', 'deleted']
           && writeFields().hasOnly([
-            'text', 'editedAt', 'imageUrl', 'deleted', 'deletedAt', 'type'
+            'text', 'editedAt', 'imageUrl', 'deleted', 'deletedAt', 'type',
+            'replyTo'
           ]);
         allow delete: if isChatMember()
           && resource.data.senderId == request.auth.uid;

@@ -171,7 +171,11 @@ class _ComposeAnnouncementSheetState extends State<ComposeAnnouncementSheet> {
               const SizedBox(height: 20),
               Row(
                 children: [
-                  AnnouncementAvatar(photoUrl: _photoUrl, size: 32),
+                  AnnouncementAvatar(
+                    name: _author,
+                    photoUrl: _photoUrl,
+                    size: 32,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

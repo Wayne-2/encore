@@ -292,9 +292,12 @@ class ChatStore {
               ];
               final messages = snapshot.docs
                   .map(DirectMessage.fromDoc)
-                  .toList(growable: false)
-                  .reversed
-                  .toList(growable: false);
+                  .toList();
+              messages.sort(
+                (a, b) => (a.createdAt ?? DateTime(0)).compareTo(
+                  b.createdAt ?? DateTime(0),
+                ),
+              );
               controller.add(messages);
               unawaited(LocalCache.instance.saveMessages(uid, chatId, raw));
             }, onError: controller.addError);
@@ -379,6 +382,7 @@ class ChatStore {
   Future<GroupChat> createGroup({
     required String title,
     required List<ChatUser> members,
+    Uint8List? photoBytes,
   }) async {
     final uid = _uid;
     if (!isEnabled || uid == null) {
@@ -398,6 +402,18 @@ class ChatStore {
       throw StateError('Choose at least one other member.');
     }
 
+    String? photoUrl;
+    if (photoBytes != null) {
+      try {
+        photoUrl = await _uploadImage(
+          photoBytes,
+          'group-${DateTime.now().microsecondsSinceEpoch}',
+        );
+      } catch (_) {
+        throw StateError('Could not upload the group photo.');
+      }
+    }
+
     final ref = _firestore.collection(_chats).doc();
     final now = DateTime.now();
     final profiles = {
@@ -412,12 +428,17 @@ class ChatStore {
       'memberProfiles': profiles,
       'admins': [me.id],
       'createdBy': me.id,
+      'description': '',
+      'anonymousMessagesEnabled': false,
+      'membersCanPost': true,
+      'membersCanAddMembers': true,
       'unread': {for (final id in memberIds) id: 0},
       'lastReadAt': {},
       'typing': {},
       'clearedAt': {},
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'photoUrl': photoUrl,
     });
 
     return GroupChat(
@@ -428,6 +449,7 @@ class ChatStore {
       adminIds: [me.id],
       createdBy: me.id,
       createdAt: now,
+      photoUrl: photoUrl,
     );
   }
 
@@ -435,6 +457,7 @@ class ChatStore {
     required String chatId,
     required String text,
     ReplyPreview? replyTo,
+    bool anonymous = false,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -442,6 +465,12 @@ class ChatStore {
     final me = await currentChatUser();
     final chatRef = _firestore.collection(_chats).doc(chatId);
     final group = await _requireGroup(chatRef, me.id);
+    if (!group.canPost(me.id)) {
+      throw StateError('Only admins can send messages in this group.');
+    }
+    if (anonymous && !group.anonymousMessagesEnabled) {
+      throw StateError('Anonymous messages are not enabled in this group.');
+    }
     await _sendToChat(
       chatRef: chatRef,
       me: me,
@@ -449,6 +478,7 @@ class ChatStore {
       text: trimmed,
       type: 'text',
       replyTo: replyTo,
+      anonymous: anonymous,
     );
   }
 
@@ -461,6 +491,9 @@ class ChatStore {
     final url = await _uploadImage(bytes, filename);
     final chatRef = _firestore.collection(_chats).doc(chatId);
     final group = await _requireGroup(chatRef, me.id);
+    if (!group.canPost(me.id)) {
+      throw StateError('Only admins can send messages in this group.');
+    }
     await _sendToChat(
       chatRef: chatRef,
       me: me,
@@ -469,6 +502,213 @@ class ChatStore {
       type: 'image',
       imageUrl: url,
     );
+  }
+
+  /// Updates group permissions and basic information. Admins only.
+  Future<void> updateGroupSettings({
+    required String chatId,
+    bool? anonymousMessagesEnabled,
+    bool? membersCanPost,
+    bool? membersCanAddMembers,
+    String? description,
+    String? title,
+  }) async {
+    final uid = _uid;
+    if (!isEnabled || uid == null) {
+      throw StateError('Sign in to change group settings.');
+    }
+
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, uid);
+    if (!group.isAdmin(uid)) {
+      throw StateError('Only group admins can change these settings.');
+    }
+
+    final updates = <String, dynamic>{
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (anonymousMessagesEnabled != null) {
+      updates['anonymousMessagesEnabled'] = anonymousMessagesEnabled;
+    }
+    if (membersCanPost != null) updates['membersCanPost'] = membersCanPost;
+    if (membersCanAddMembers != null) {
+      updates['membersCanAddMembers'] = membersCanAddMembers;
+    }
+    if (description != null) {
+      updates['description'] = description.trim();
+    }
+    if (title != null) {
+      final name = title.trim();
+      if (name.isEmpty) throw StateError('Give the group a name.');
+      if (name.length > 80) throw StateError('That group name is too long.');
+      updates['title'] = name;
+    }
+    await chatRef.update(updates);
+  }
+
+  /// Replaces the group photo. Admins only.
+  Future<void> updateGroupPhoto({
+    required String chatId,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final uid = _uid;
+    if (!isEnabled || uid == null) {
+      throw StateError('Sign in to change the group photo.');
+    }
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, uid);
+    if (!group.isAdmin(uid)) {
+      throw StateError('Only group admins can change the group photo.');
+    }
+    final url = await _uploadImage(bytes, filename);
+    await chatRef.update({
+      'photoUrl': url,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Adds people to a group. Admins can always add; members only when the
+  /// admin has allowed it.
+  Future<void> addGroupMembers({
+    required String chatId,
+    required List<ChatUser> members,
+  }) async {
+    final uid = _uid;
+    if (!isEnabled || uid == null) {
+      throw StateError('Sign in to add group members.');
+    }
+    final additions = <String, ChatUser>{
+      for (final member in members) member.id: member,
+    };
+    if (additions.isEmpty) return;
+
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, uid);
+    if (!group.isAdmin(uid) && !group.membersCanAddMembers) {
+      throw StateError('Only admins can add people to this group.');
+    }
+
+    final nextMembers = [...group.members];
+    final nextProfiles = <String, dynamic>{
+      for (final entry in group.memberProfiles.entries)
+        entry.key: entry.value.toMap(),
+    };
+    for (final addition in additions.values) {
+      if (nextMembers.contains(addition.id)) continue;
+      if (nextMembers.length >= 100) {
+        throw StateError('This group already has the maximum 100 members.');
+      }
+      nextMembers.add(addition.id);
+      nextProfiles[addition.id] = addition.toMap();
+    }
+    if (nextMembers.length == group.members.length) return;
+
+    final updates = <String, dynamic>{
+      'members': nextMembers,
+      'memberProfiles': nextProfiles,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    for (final id in nextMembers.where((id) => !group.members.contains(id))) {
+      updates['unread.$id'] = 0;
+      updates['typing.$id'] = FieldValue.delete();
+      updates['clearedAt.$id'] = FieldValue.delete();
+    }
+    await chatRef.update(updates);
+  }
+
+  /// Promotes or demotes a group member. Admins only.
+  Future<void> setGroupAdmin({
+    required String chatId,
+    required String memberId,
+    required bool admin,
+  }) async {
+    final uid = _uid;
+    if (!isEnabled || uid == null) {
+      throw StateError('Sign in to manage group admins.');
+    }
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, uid);
+    if (!group.isAdmin(uid)) {
+      throw StateError('Only group admins can manage admins.');
+    }
+    if (!group.members.contains(memberId)) {
+      throw StateError('That person is not in this group.');
+    }
+
+    final nextAdmins = [...group.adminIds];
+    if (admin) {
+      if (!nextAdmins.contains(memberId)) nextAdmins.add(memberId);
+    } else {
+      nextAdmins.remove(memberId);
+      if (nextAdmins.isEmpty) {
+        throw StateError('A group needs at least one admin.');
+      }
+    }
+    if (nextAdmins.length == group.adminIds.length &&
+        nextAdmins.toSet().containsAll(group.adminIds)) {
+      return;
+    }
+    await chatRef.update({
+      'admins': nextAdmins,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Removes someone from the group. Admins only.
+  Future<void> removeGroupMember(String chatId, String memberId) async {
+    final uid = _uid;
+    if (!isEnabled || uid == null) {
+      throw StateError('Sign in to remove group members.');
+    }
+    if (memberId == uid) {
+      return leaveGroup(chatId);
+    }
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, uid);
+    if (!group.isAdmin(uid)) {
+      throw StateError('Only group admins can remove members.');
+    }
+    if (!group.members.contains(memberId)) return;
+
+    await chatRef.update({
+      'members': group.members.where((id) => id != memberId).toList(),
+      'admins': group.adminIds.where((id) => id != memberId).toList(),
+      'memberProfiles.$memberId': FieldValue.delete(),
+      'unread.$memberId': FieldValue.delete(),
+      'lastReadAt.$memberId': FieldValue.delete(),
+      'typing.$memberId': FieldValue.delete(),
+      'clearedAt.$memberId': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Leaves a group. If the departing member was the last admin, the first
+  /// remaining member is promoted so the group stays manageable.
+  Future<void> leaveGroup(String chatId) async {
+    final uid = _uid;
+    if (!isEnabled || uid == null) {
+      throw StateError('Sign in to leave a group.');
+    }
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, uid);
+
+    final remaining = group.members.where((id) => id != uid).toList();
+    final nextAdmins = group.adminIds.where((id) => id != uid).toList();
+    if (remaining.isNotEmpty && nextAdmins.isEmpty) {
+      nextAdmins.add(remaining.first);
+    }
+
+    await chatRef.update({
+      'members': remaining,
+      'admins': nextAdmins,
+      'memberProfiles.$uid': FieldValue.delete(),
+      'unread.$uid': FieldValue.delete(),
+      'lastReadAt.$uid': FieldValue.delete(),
+      'typing.$uid': FieldValue.delete(),
+      'clearedAt.$uid': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<GroupChat> _requireGroup(
@@ -529,17 +769,20 @@ class ChatStore {
     required String type,
     String? imageUrl,
     ReplyPreview? replyTo,
+    bool anonymous = false,
   }) async {
     final messageRef = chatRef.collection('messages').doc();
     final now = FieldValue.serverTimestamp();
 
     final message = <String, dynamic>{
       'senderId': me.id,
-      'senderName': me.displayName,
-      'senderUsername': me.username,
+      'senderName': anonymous ? 'Anonymous Sender' : me.displayName,
+      'senderUsername': anonymous ? '' : me.username,
+      'anonymous': anonymous,
       'text': text,
       'type': type,
       'createdAt': now,
+      'localCreatedAt': DateTime.now(),
     };
     if (imageUrl != null) message['imageUrl'] = imageUrl;
     if (replyTo != null) message['replyTo'] = replyTo.toMap();
@@ -552,6 +795,7 @@ class ChatStore {
       'lastMessageType': type,
       'lastMessageAt': now,
       'lastSenderId': me.id,
+      'lastSenderAnonymous': anonymous,
       'updatedAt': now,
       'lastReadAt.${me.id}': now,
       'unread.${me.id}': 0,
@@ -600,16 +844,20 @@ class ChatStore {
   }
 
   /// Clears this user's copy of the history. The peer keeps their messages.
-  Future<void> clearChat(String chatId) async {
+  ///
+  /// Returns false when the clear could not be persisted, so the caller can
+  /// keep the conversation visible instead of hiding it only locally.
+  Future<bool> clearChat(String chatId) async {
     final uid = _uid;
-    if (!isEnabled || uid == null) return;
+    if (!isEnabled || uid == null) return false;
     try {
       await _firestore.collection(_chats).doc(chatId).update({
         'clearedAt.$uid': FieldValue.serverTimestamp(),
         'unread.$uid': 0,
       });
+      return true;
     } catch (_) {
-      // Ignore if the chat has not been written yet.
+      return false;
     }
   }
 
@@ -661,6 +909,7 @@ class ChatStore {
       'deleted': true,
       'deletedAt': FieldValue.serverTimestamp(),
       'type': 'deleted',
+      'replyTo': FieldValue.delete(),
     });
 
     final chat = await chatRef.get();
@@ -685,13 +934,15 @@ class ChatStore {
   /// Profile used for the signed-in participant in chats.
   Future<ChatUser> currentChatUser() async {
     final user = AuthService.instance.currentUser!;
-    Map<String, dynamic>? profile;
-    try {
-      profile = await AuthService.instance.currentUserProfile(
-        fallbackToCache: false,
-      );
-    } catch (_) {
-      profile = await AuthService.instance.cachedProfile();
+    Map<String, dynamic>? profile = await AuthService.instance.cachedProfile();
+    if (profile == null) {
+      try {
+        profile = await AuthService.instance.currentUserProfile(
+          fallbackToCache: false,
+        );
+      } catch (_) {
+        profile = null;
+      }
     }
 
     final fullName = (profile?['fullName'] as String?)?.trim();
@@ -741,7 +992,7 @@ class ChatStore {
       final id = item['id'];
       if (id is! String) continue;
       final chat = _chatFromData(id, uid, item);
-      if (chat != null) chats.add(chat);
+      if (chat != null && !chat.isCleared) chats.add(chat);
     }
     chats.sort((a, b) => _conversationTime(b).compareTo(_conversationTime(a)));
     return chats;
@@ -762,7 +1013,7 @@ class ChatStore {
         if (group != null) groups.add(group);
       } else {
         final chat = _chatFromData(id, uid, item);
-        if (chat != null) directs.add(chat);
+        if (chat != null && !chat.isCleared) directs.add(chat);
       }
     }
     directs.sort(
@@ -779,7 +1030,9 @@ class ChatStore {
     for (final item in items) {
       final id = item['id'];
       if (id is! String) continue;
-      messages.add(DirectMessage.fromMap(id, item));
+      messages.add(
+        DirectMessage.fromMap(id, item, pending: item['createdAt'] == null),
+      );
     }
     messages.sort(
       (a, b) =>
@@ -847,7 +1100,7 @@ class ChatStore {
     final members = (data['members'] as List?)?.whereType<String>().toList(
       growable: false,
     );
-    if (members == null || members.length < 2 || !members.contains(myUid)) {
+    if (members == null || members.isEmpty || !members.contains(myUid)) {
       return null;
     }
     return GroupChat.fromMap(chatId, data, myUid: myUid);

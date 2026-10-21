@@ -15,15 +15,21 @@ class GroupChat {
     required this.memberProfiles,
     required this.adminIds,
     this.createdBy,
+    this.description = '',
+    this.anonymousMessagesEnabled = false,
+    this.membersCanPost = true,
+    this.membersCanAddMembers = true,
     this.lastMessage = '',
     this.lastMessageId,
     this.lastMessageType = 'text',
     this.lastSenderId,
+    this.lastSenderAnonymous = false,
     this.lastMessageAt,
     this.unreadCount = 0,
     this.lastReadAt = const {},
     this.clearedAt,
     this.createdAt,
+    this.photoUrl,
   });
 
   final String id;
@@ -32,19 +38,27 @@ class GroupChat {
   final Map<String, ChatUser> memberProfiles;
   final List<String> adminIds;
   final String? createdBy;
+  final String description;
+  final bool anonymousMessagesEnabled;
+  final bool membersCanPost;
+  final bool membersCanAddMembers;
   final String lastMessage;
   final String? lastMessageId;
   final String lastMessageType;
   final String? lastSenderId;
+  final bool lastSenderAnonymous;
   final DateTime? lastMessageAt;
   final int unreadCount;
   final Map<String, DateTime> lastReadAt;
   final DateTime? clearedAt;
   final DateTime? createdAt;
+  final String? photoUrl;
 
   int get memberCount => members.length;
 
   bool isAdmin(String uid) => adminIds.contains(uid);
+
+  bool canPost(String uid) => membersCanPost || isAdmin(uid);
 
   ChatUser? profileFor(String uid) => memberProfiles[uid];
 
@@ -68,6 +82,7 @@ class GroupChat {
   /// Username of the last message's sender, shown before group previews.
   String? get lastMessageSender {
     if (lastSenderId == null) return null;
+    if (lastSenderAnonymous) return 'Anonymous Sender';
     final sender = memberProfiles[lastSenderId];
     final username = sender?.username.trim() ?? '';
     if (username.isNotEmpty) return username;
@@ -115,6 +130,7 @@ class GroupChat {
       id: id,
       title: title,
       isGroup: true,
+      avatarUrl: photoUrl,
       avatarColor: avatarColor,
       avatarInitials: initials,
       lastMessage: preview(),
@@ -129,6 +145,7 @@ class GroupChat {
       isTyping: false,
       isOnline: false,
       peerUid: null,
+      updatedAt: lastMessageAt ?? createdAt,
       followersCount: null,
     );
   }
@@ -140,6 +157,7 @@ class GroupChat {
       members: [myUid],
       memberProfiles: const {},
       adminIds: const [],
+      description: '',
     );
   }
 
@@ -166,6 +184,7 @@ class GroupChat {
     final rawReadAt = _map(data['lastReadAt']);
     final rawCleared = _map(data['clearedAt']);
     final rawUnread = _map(data['unread']);
+    final photoUrl = (data['photoUrl'] as String?)?.trim();
 
     return GroupChat(
       id: id,
@@ -180,10 +199,15 @@ class GroupChat {
           ) ??
           const <String>[],
       createdBy: (data['createdBy'] as String?)?.trim(),
+      description: (data['description'] as String?)?.trim() ?? '',
+      anonymousMessagesEnabled: data['anonymousMessagesEnabled'] == true,
+      membersCanPost: data['membersCanPost'] != false,
+      membersCanAddMembers: data['membersCanAddMembers'] != false,
       lastMessage: data['lastMessage'] as String? ?? '',
       lastMessageId: (data['lastMessageId'] as String?)?.trim(),
       lastMessageType: data['lastMessageType'] as String? ?? 'text',
       lastSenderId: (data['lastSenderId'] as String?)?.trim(),
+      lastSenderAnonymous: data['lastSenderAnonymous'] == true,
       lastMessageAt: parseTimestamp(data['lastMessageAt']),
       unreadCount: _asInt(rawUnread[myUid]),
       lastReadAt: {
@@ -193,6 +217,7 @@ class GroupChat {
       },
       clearedAt: parseTimestamp(rawCleared[myUid]),
       createdAt: parseTimestamp(data['createdAt']),
+      photoUrl: photoUrl == null || photoUrl.isEmpty ? null : photoUrl,
     );
   }
 

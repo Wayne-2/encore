@@ -138,6 +138,7 @@ class TrendStore extends ChangeNotifier {
     required String author,
     List<TrendMedia> media = const [],
     String? authorId,
+    String? photoUrl,
   }) {
     final firestore = AuthService.isAvailable
         ? FirebaseFirestore.instance
@@ -149,8 +150,9 @@ class TrendStore extends ChangeNotifier {
 
     final text = body.trim();
     final name = author.trim();
+    final now = DateTime.now();
     final trend = Trend(
-      id: doc?.id ?? 'trend-${DateTime.now().microsecondsSinceEpoch}',
+      id: doc?.id ?? 'trend-${now.microsecondsSinceEpoch}',
       authorId: authorId ?? user?.uid ?? '',
       title: title.trim(),
       subtitle: _excerpt(text),
@@ -158,10 +160,12 @@ class TrendStore extends ChangeNotifier {
       time: 'Just now',
       body: text,
       media: List.unmodifiable(media),
+      photoUrl: photoUrl,
+      createdAt: now,
     );
 
     _items.insert(0, trend);
-    _createdAtMillis[trend.id] = DateTime.now().millisecondsSinceEpoch;
+    _createdAtMillis[trend.id] = now.millisecondsSinceEpoch;
     if (doc != null) {
       _pendingIds.add(trend.id);
       unawaited(_persist(doc, trend));
@@ -212,6 +216,7 @@ class TrendStore extends ChangeNotifier {
         'subtitle': trend.subtitle,
         'author': trend.author,
         'authorId': trend.authorId,
+        'photoUrl': trend.photoUrl,
         'body': trend.body,
         'media': media,
         'createdAt': FieldValue.serverTimestamp(),
@@ -305,19 +310,29 @@ class TrendStore extends ChangeNotifier {
   }
 
   /// Adds [text] to the trend's thread as the signed-in user.
-  Future<void> addComment(String trendId, String text) async {
+  Future<void> addComment(
+    String trendId,
+    String text, {
+    Comment? replyTo,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || trendId.isEmpty) return;
 
     final author = await CommentAuthor.current();
+    final now = DateTime.now();
     final local = Comment(
-      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      id: 'local-${now.microsecondsSinceEpoch}',
       authorId: author.id,
       name: author.name,
       handle: author.handle,
-      time: 'now',
+      time: 'Just now',
       text: trimmed,
       initials: author.initials,
+      photoUrl: author.photoUrl,
+      createdAt: now,
+      replyToId: replyTo?.id ?? '',
+      replyToName: replyTo?.name ?? '',
+      replyToText: replyTo?.text ?? '',
     );
 
     _comments.putIfAbsent(trendId, () => []).add(local);
@@ -340,8 +355,14 @@ class TrendStore extends ChangeNotifier {
             'author': author.name,
             'handle': author.handle,
             'initials': author.initials,
+            'photoUrl': author.photoUrl,
             'text': trimmed,
             'createdAt': FieldValue.serverTimestamp(),
+            if (replyTo != null) ...{
+              'replyToId': replyTo.id,
+              'replyToName': replyTo.name,
+              'replyToText': replyTo.text,
+            },
           });
     } catch (_) {
       _removeLocal(trendId, local.id);
@@ -386,6 +407,8 @@ class TrendStore extends ChangeNotifier {
       time: _formatTime(data['createdAt']),
       body: data['body'] as String? ?? '',
       media: _mediaFrom(data['media']),
+      photoUrl: _cleanUrl(data['photoUrl']),
+      createdAt: _dateFrom(data['createdAt']),
     );
   }
 
@@ -404,6 +427,8 @@ class TrendStore extends ChangeNotifier {
           : _formatTime(createdAt),
       body: data['body'] as String? ?? '',
       media: _mediaFrom(data['media']),
+      photoUrl: _cleanUrl(data['photoUrl']),
+      createdAt: _dateFrom(createdAt),
     );
   }
 
@@ -422,6 +447,7 @@ class TrendStore extends ChangeNotifier {
       'subtitle': trend.subtitle,
       'author': trend.author,
       'time': trend.time,
+      'photoUrl': trend.photoUrl,
       'body': trend.body,
       'createdAt': createdAt,
       'media': [
@@ -442,6 +468,20 @@ class TrendStore extends ChangeNotifier {
       int millis => millis,
       _ => DateTime.now().millisecondsSinceEpoch,
     };
+  }
+
+  static DateTime? _dateFrom(Object? value) {
+    return switch (value) {
+      Timestamp timestamp => timestamp.toDate(),
+      DateTime time => time,
+      int millis => DateTime.fromMillisecondsSinceEpoch(millis),
+      _ => null,
+    };
+  }
+
+  static String? _cleanUrl(Object? value) {
+    final url = value is String ? value.trim() : '';
+    return url.isEmpty ? null : url;
   }
 
   static List<TrendMedia> _mediaFrom(Object? value) {

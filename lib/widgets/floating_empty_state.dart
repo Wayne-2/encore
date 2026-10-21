@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
@@ -9,11 +10,15 @@ import '../theme/spotify_colors.dart';
 class FloatingEmptyState extends StatefulWidget {
   const FloatingEmptyState({
     super.key,
-    required this.icon,
+    this.icon,
+    this.iconAsset,
     required this.message,
-  });
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+
+  /// Optional bundled SVG icon, used to match an existing navigation glyph.
+  final String? iconAsset;
   final String message;
 
   @override
@@ -94,7 +99,17 @@ class _FloatingEmptyStateState extends State<FloatingEmptyState>
                   color: SpotifyColors.accent.withValues(alpha: 0.24),
                 ),
               ),
-              child: Icon(widget.icon, size: 24, color: SpotifyColors.accent),
+              child: widget.iconAsset != null
+                  ? SvgPicture.asset(
+                      widget.iconAsset!,
+                      width: 24,
+                      height: 24,
+                      colorFilter: const ColorFilter.mode(
+                        SpotifyColors.accent,
+                        BlendMode.srcIn,
+                      ),
+                    )
+                  : Icon(widget.icon, size: 24, color: SpotifyColors.accent),
             ),
           ),
           const SizedBox(height: 10),

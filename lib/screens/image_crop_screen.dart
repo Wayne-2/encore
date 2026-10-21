@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:image/image.dart' as img;
 
 import '../theme/app_type.dart';
@@ -138,7 +139,7 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Cancel',
-          icon: const Icon(Icons.close),
+          icon: const Icon(LucideIcons.x),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text('Crop photo', style: AppType.name(scheme)),

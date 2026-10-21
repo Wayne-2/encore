@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/trend.dart';
 import '../navigation/app_route.dart';
 import '../services/trend_store.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import '../utils/active_time.dart';
 import '../widgets/floating_empty_state.dart';
 import '../widgets/trend_cover.dart';
+import '../widgets/user_avatar.dart';
+import 'trend_image_viewer_screen.dart';
 import 'trending_detail_screen.dart';
 
-/// Medium-style "For you" feed showing every posted trend.
+/// Medium-style "All trending topics" feed showing every posted trend.
 ///
 /// Each story opens the full [TrendingDetailScreen], including its comment
 /// thread and reactions.
@@ -38,6 +42,14 @@ class _TrendingMoreScreenState extends State<TrendingMoreScreen> {
     );
   }
 
+  void _openImages(Trend trend) {
+    final images = TrendImageViewerScreen.imagesFrom(trend.media);
+    if (images.isEmpty) return;
+    Navigator.of(
+      context,
+    ).push(fadeRoute(TrendImageViewerScreen(media: images)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -48,11 +60,11 @@ class _TrendingMoreScreenState extends State<TrendingMoreScreen> {
         backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(LucideIcons.chevronLeft),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: Text('For you', style: AppType.name(scheme)),
+        title: Text('All trending topics', style: AppType.name(scheme)),
         centerTitle: false,
       ),
       body: AnimatedBuilder(
@@ -63,7 +75,7 @@ class _TrendingMoreScreenState extends State<TrendingMoreScreen> {
             return const Center(
               child: FloatingEmptyState(
                 key: ValueKey('trend-feed-empty'),
-                icon: Icons.auto_awesome_outlined,
+                icon: LucideIcons.trendingUp,
                 message: 'No trending stories yet',
               ),
             );
@@ -78,11 +90,20 @@ class _TrendingMoreScreenState extends State<TrendingMoreScreen> {
               thickness: 1,
               color: SpotifyColors.border,
             ),
-            itemBuilder: (context, i) => _ForYouCard(
-              key: ValueKey('trend-feed-$i'),
-              trend: trends[i],
-              onTap: () => _openTrend(trends[i]),
-            ),
+            itemBuilder: (context, i) {
+              final trend = trends[i];
+              final first = trend.media.isEmpty ? null : trend.media.first;
+              return _ForYouCard(
+                key: ValueKey('trend-feed-$i'),
+                coverKey: ValueKey('trend-feed-cover-$i'),
+                trend: trend,
+                onTap: () => _openTrend(trend),
+                onCoverTap:
+                    first != null && TrendImageViewerScreen.holdsImage(first)
+                    ? () => _openImages(trend)
+                    : null,
+              );
+            },
           );
         },
       ),
@@ -92,20 +113,18 @@ class _TrendingMoreScreenState extends State<TrendingMoreScreen> {
 
 /// A single Medium-style story card: author, headline, excerpt and cover.
 class _ForYouCard extends StatelessWidget {
-  const _ForYouCard({super.key, required this.trend, required this.onTap});
+  const _ForYouCard({
+    super.key,
+    required this.trend,
+    required this.onTap,
+    this.coverKey,
+    this.onCoverTap,
+  });
 
   final Trend trend;
   final VoidCallback onTap;
-
-  static String _initialsFor(String name) {
-    final words = name.trim().split(RegExp(r'\s+'));
-    final letters = words
-        .where((word) => word.isNotEmpty)
-        .take(2)
-        .map((word) => word[0].toUpperCase())
-        .join();
-    return letters.isEmpty ? '?' : letters;
-  }
+  final Key? coverKey;
+  final VoidCallback? onCoverTap;
 
   @override
   Widget build(BuildContext context) {
@@ -125,22 +144,7 @@ class _ForYouCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.16),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: scheme.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    _initialsFor(author),
-                    style: AppType.tag(scheme.primary).copyWith(fontSize: 12),
-                  ),
-                ),
+                UserAvatar(name: author, photoUrl: trend.photoUrl, size: 34),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -153,8 +157,9 @@ class _ForYouCard extends StatelessWidget {
                         style: AppType.cardTitle(scheme),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        trend.time,
+                      ActiveTimestamp(
+                        at: trend.createdAt,
+                        fallback: trend.time,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppType.meta(scheme),
@@ -162,10 +167,9 @@ class _ForYouCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_outward_rounded,
-                  size: 17,
-                  color: scheme.onSurfaceVariant,
+                Text(
+                  'View info',
+                  style: AppType.tag(scheme.primary).copyWith(fontSize: 12),
                 ),
               ],
             ),
@@ -188,26 +192,13 @@ class _ForYouCard extends StatelessWidget {
             if (trend.media.isNotEmpty) ...[
               const SizedBox(height: 14),
               TrendCover(
+                key: coverKey,
                 media: trend.media,
                 width: double.infinity,
                 height: 190,
+                onTap: onCoverTap,
               ),
             ],
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Text(
-                  'Read story',
-                  style: AppType.tag(scheme.primary).copyWith(fontSize: 12),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 14,
-                  color: scheme.primary,
-                ),
-              ],
-            ),
           ],
         ),
       ),

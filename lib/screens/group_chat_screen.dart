@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
@@ -106,9 +107,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         content: Row(
           children: [
             Icon(
-              _isAnonymousMode
-                  ? Icons.visibility_off_rounded
-                  : Icons.visibility_rounded,
+              _isAnonymousMode ? LucideIcons.eyeOff : LucideIcons.eye,
               color: _isAnonymousMode ? Colors.white : SpotifyColors.accent,
               size: 20,
             ),
@@ -180,7 +179,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   children: [
                     _FloatingMenuItem(
                       key: const ValueKey('clip-attachment-item'),
-                      icon: Icons.insert_drive_file_outlined,
+                      icon: LucideIcons.fileText,
                       label: 'Document',
                       onTap: () {
                         Navigator.pop(context);
@@ -193,7 +192,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     ),
                     const SizedBox(height: 4),
                     _FloatingMenuItem(
-                      icon: Icons.camera_alt_outlined,
+                      icon: LucideIcons.camera,
                       label: 'Camera',
                       onTap: () {
                         Navigator.pop(context);
@@ -208,7 +207,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     ),
                     const SizedBox(height: 4),
                     _FloatingMenuItem(
-                      icon: Icons.headphones_outlined,
+                      icon: LucideIcons.headphones,
                       label: 'Audio',
                       onTap: () {
                         Navigator.pop(context);
@@ -244,7 +243,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const Icon(LucideIcons.chevronLeft, size: 20),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -301,7 +300,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         actions: [
           PopupMenuButton<String>(
             key: const ValueKey('chat-three-dots-menu'),
-            icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
+            icon: Icon(LucideIcons.moreVertical, color: scheme.onSurface),
             color: SpotifyColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -354,7 +353,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.phone_outlined,
+                      LucideIcons.phone,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -378,7 +377,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.videocam_outlined,
+                      LucideIcons.video,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -403,9 +402,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      _isAnonymousMode
-                          ? Icons.visibility_rounded
-                          : Icons.visibility_off_rounded,
+                      _isAnonymousMode ? LucideIcons.eye : LucideIcons.eyeOff,
                       size: 20,
                       color: SpotifyColors.accent,
                     ),
@@ -432,7 +429,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline_rounded,
+                      LucideIcons.info,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -456,7 +453,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.perm_media_outlined,
+                      LucideIcons.image,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -480,7 +477,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.search_rounded,
+                      LucideIcons.search,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -504,7 +501,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.notifications_off_outlined,
+                      LucideIcons.bellOff,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -528,7 +525,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.delete_outline_rounded,
+                      LucideIcons.trash2,
                       size: 20,
                       color: SpotifyColors.danger,
                     ),
@@ -744,7 +741,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeInOut,
                   child: Icon(
-                    Icons.add_rounded,
+                    LucideIcons.plus,
                     color: scheme.onSurface,
                     size: 24,
                   ),
@@ -809,7 +806,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   if (_textController.text.trim().isEmpty)
                     IconButton(
                       icon: Icon(
-                        Icons.mic_none_rounded,
+                        LucideIcons.mic,
                         color: scheme.onSurfaceVariant,
                         size: 22,
                       ),
@@ -827,7 +824,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     IconButton(
                       key: const ValueKey('send-button'),
                       icon: const Icon(
-                        Icons.arrow_upward_rounded,
+                        LucideIcons.arrowUp,
                         color: SpotifyColors.accent,
                         size: 22,
                       ),
@@ -887,14 +884,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.group, color: SpotifyColors.accent),
+                leading: const Icon(
+                  LucideIcons.users,
+                  color: SpotifyColors.accent,
+                ),
                 title: const Text('Group Members (48)'),
                 subtitle: const Text('View and manage group participants'),
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
                 leading: const Icon(
-                  Icons.admin_panel_settings,
+                  LucideIcons.shieldCheck,
                   color: SpotifyColors.accent,
                 ),
                 title: const Text('Admin Settings'),
@@ -999,11 +999,7 @@ class _AnonymousStatusPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.visibility_off_rounded,
-            size: 15,
-            color: SpotifyColors.accent,
-          ),
+          const Icon(LucideIcons.eyeOff, size: 15, color: SpotifyColors.accent),
           const SizedBox(width: 7),
           Text(
             'Anonymous',

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -15,6 +16,7 @@ import '../widgets/add_funds_sheet.dart';
 import '../widgets/checkout_sheet.dart';
 import '../widgets/compose_fab.dart';
 import '../widgets/section_heading.dart';
+import '../widgets/user_avatar.dart';
 import '../widgets/workspace_app_bar.dart';
 import 'view_history_screen.dart';
 
@@ -107,14 +109,21 @@ class _FinanceScreenState extends State<FinanceScreen>
           children: [
             WorkspaceAppBar(
               heading: 'Finances',
-              trailing: SvgPicture.asset(
-                'assets/icons/notification.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  scheme.onSurface,
-                  BlendMode.srcIn,
-                ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/notification.svg',
+                    width: 20,
+                    height: 20,
+                    colorFilter: ColorFilter.mode(
+                      scheme.onSurface,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const CurrentUserAvatar(size: 38),
+                ],
               ),
             ),
             Expanded(
@@ -279,7 +288,10 @@ class _FinanceScreenState extends State<FinanceScreen>
           child: ComposeFab(
             buttonKey: const ValueKey('finance-add-button'),
             actions: const [
-              (label: 'Add Expenditure', icon: Icons.receipt_long_outlined),
+              ComposeAction(
+                label: 'Add Expenditure',
+                icon: LucideIcons.receipt,
+              ),
             ],
             onActionSelected: (_) => _addExpenditure(context),
           ),
@@ -415,7 +427,7 @@ class _BankBanner extends StatelessWidget {
                             height: 24,
                           ),
                           icon: Icon(
-                            Icons.copy,
+                            LucideIcons.copy,
                             size: 14,
                             color: scheme.onSurfaceVariant,
                           ),
@@ -535,7 +547,7 @@ class _FundButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add, size: 14, color: Colors.white),
+              const Icon(LucideIcons.plus, size: 14, color: Colors.white),
               const SizedBox(width: 4),
               Text(
                 'Add Funds',
@@ -632,7 +644,11 @@ class _ExpenditureFilterState extends State<_ExpenditureFilter> {
                 turns: controller.isOpen ? 0.5 : 0,
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
-                child: Icon(Icons.arrow_drop_down, size: 18, color: labelColor),
+                child: Icon(
+                  LucideIcons.chevronDown,
+                  size: 18,
+                  color: labelColor,
+                ),
               ),
             ],
           ),

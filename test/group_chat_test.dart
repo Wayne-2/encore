@@ -14,6 +14,7 @@ GroupChat _group({
   String lastMessage = 'Question 4 is on the drive',
   String? lastSenderId = 'ama',
   Map<String, DateTime> lastReadAt = const {},
+  String? photoUrl,
 }) {
   return GroupChat(
     id: 'group-1',
@@ -27,6 +28,7 @@ GroupChat _group({
     lastMessageAt: DateTime(2026, 10, 20, 12),
     lastReadAt: lastReadAt,
     createdAt: DateTime(2026, 10, 19, 9),
+    photoUrl: photoUrl,
   );
 }
 
@@ -40,6 +42,13 @@ void main() {
     expect(conversation.lastMessageSender, 'ama');
     expect(conversation.membersDescription, '3 members');
     expect(conversation.hasUnread, isFalse);
+  });
+
+  test('group profile photo flows to the conversation avatar', () {
+    final group = _group(photoUrl: 'https://cdn.example/group.jpg');
+    final conversation = group.toConversation(myUid: 'me');
+
+    expect(conversation.avatarUrl, 'https://cdn.example/group.jpg');
   });
 
   test('empty groups have no sender prefix and hide cleared previews', () {
@@ -111,6 +120,7 @@ void main() {
       'unread': {'me': 3, 'ama': 0},
       'lastReadAt': {'me': 1700000000000},
       'createdAt': 1690000000000,
+      'photoUrl': 'https://cdn.example/group.jpg',
     }, myUid: 'me');
 
     expect(group.title, 'Database Geeks');
@@ -119,6 +129,7 @@ void main() {
     expect(group.profileFor('ama')?.username, 'ama');
     expect(group.visibleUnread, 3);
     expect(group.lastMessageSender, 'ama');
+    expect(group.photoUrl, 'https://cdn.example/group.jpg');
   });
 
   test('group messages map the sender username onto the bubble', () {
@@ -202,6 +213,8 @@ void main() {
     );
 
     expect(submit().onPressed, isNull);
+    expect(find.byKey(const ValueKey('create-group-photo')), findsOneWidget);
+    expect(find.text('Group photo'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const ValueKey('create-group-name')),
@@ -209,11 +222,27 @@ void main() {
     );
     await tester.pump();
     expect(submit().onPressed, isNull);
+    expect(find.text('PT'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('group-member-ama')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('group-selected-ama')), findsOneWidget);
     expect(submit().onPressed, isNotNull);
+  });
+
+  testWidgets('create group offers gallery and camera group photos', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: CreateGroupScreen(users: Stream.value(const [_ama]))),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('create-group-photo')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Choose from gallery'), findsOneWidget);
+    expect(find.text('Take a photo'), findsOneWidget);
   });
 }

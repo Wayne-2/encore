@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/contact_request.dart';
 import '../models/direct_chat.dart';
@@ -158,7 +159,7 @@ class _AvailableContactsScreenState extends State<AvailableContactsScreen> {
             headingSize: 18,
             leading: IconButton(
               onPressed: () => Navigator.maybePop(context),
-              icon: const Icon(Icons.arrow_back_rounded, size: 22),
+              icon: const Icon(LucideIcons.arrowLeft, size: 22),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 28, height: 28),
               visualDensity: VisualDensity.compact,
@@ -186,7 +187,7 @@ class _AvailableContactsScreenState extends State<AvailableContactsScreen> {
                   fontSize: 14,
                 ),
                 prefixIcon: Icon(
-                  Icons.search_rounded,
+                  LucideIcons.search,
                   color: scheme.onSurfaceVariant,
                   size: 20,
                 ),
@@ -198,7 +199,7 @@ class _AvailableContactsScreenState extends State<AvailableContactsScreen> {
                           setState(() => _query = '');
                         },
                         icon: Icon(
-                          Icons.close_rounded,
+                          LucideIcons.x,
                           color: scheme.onSurfaceVariant,
                           size: 18,
                         ),
@@ -251,7 +252,7 @@ class _AvailableContactsScreenState extends State<AvailableContactsScreen> {
                   return Center(
                     child: FloatingEmptyState(
                       key: const ValueKey('contacts-empty'),
-                      icon: Icons.people_outline_rounded,
+                      icon: LucideIcons.users,
                       message: _query.trim().isEmpty
                           ? 'No other members yet.'
                           : 'No contacts match “${_query.trim()}”.',
@@ -293,7 +294,7 @@ class _AvailableContactsScreenState extends State<AvailableContactsScreen> {
                         padding: const EdgeInsets.only(top: 12),
                         child: FloatingEmptyState(
                           key: const ValueKey('contacts-list-empty'),
-                          icon: Icons.person_search_outlined,
+                          icon: LucideIcons.search,
                           message: 'No contacts match “${_query.trim()}”.',
                         ),
                       ),
@@ -443,7 +444,7 @@ class _IncomingRequestCard extends StatelessWidget {
           _PillAction(
             key: ValueKey('contact-accept-${user.id}'),
             label: 'Accept',
-            icon: Icons.check_rounded,
+            icon: LucideIcons.check,
             filled: true,
             busy: busy,
             onTap: onAccept,
@@ -451,7 +452,7 @@ class _IncomingRequestCard extends StatelessWidget {
           IconButton(
             key: ValueKey('contact-decline-${user.id}'),
             onPressed: busy ? null : onDecline,
-            icon: const Icon(Icons.close_rounded, size: 18),
+            icon: const Icon(LucideIcons.x, size: 18),
             color: scheme.onSurfaceVariant,
             tooltip: 'Decline request',
             visualDensity: VisualDensity.compact,
@@ -529,14 +530,14 @@ class _ContactRow extends StatelessWidget {
                 ContactRelation.connected => _PillAction(
                   key: ValueKey('contact-message-${user.id}'),
                   label: 'Message',
-                  icon: Icons.chat_bubble_outline_rounded,
+                  icon: LucideIcons.messageCircle,
                   filled: true,
                   onTap: onOpen,
                 ),
                 ContactRelation.outgoing => _PillAction(
                   key: ValueKey('contact-cancel-${user.id}'),
                   label: 'Requested',
-                  icon: Icons.schedule_rounded,
+                  icon: LucideIcons.clock,
                   filled: false,
                   busy: busy,
                   onTap: onCancel,
@@ -545,7 +546,7 @@ class _ContactRow extends StatelessWidget {
                 ContactRelation.incoming => _PillAction(
                   key: ValueKey('contact-accept-${user.id}'),
                   label: 'Accept',
-                  icon: Icons.check_rounded,
+                  icon: LucideIcons.check,
                   filled: true,
                   busy: busy,
                   onTap: onAccept,
@@ -553,7 +554,7 @@ class _ContactRow extends StatelessWidget {
                 ContactRelation.available => _PillAction(
                   key: ValueKey('contact-request-${user.id}'),
                   label: 'Request',
-                  icon: Icons.person_add_alt_1_rounded,
+                  icon: LucideIcons.userPlus,
                   filled: false,
                   busy: busy,
                   onTap: onRequest,

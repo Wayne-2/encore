@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/direct_chat.dart';
 import '../models/group_chat.dart';
+import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
 import '../theme/app_theme.dart';
@@ -13,7 +15,9 @@ import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/chat_emoji_picker.dart';
 import '../widgets/floating_empty_state.dart';
+import 'group_settings_screen.dart';
 
 /// Telegram-style group chat backed by Firestore.
 ///
@@ -51,6 +55,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
   late GroupChat? _group = widget.initialGroup;
   List<DirectMessage> _messages = const [];
   DirectMessage? _replyTo;
+  bool _sendAnonymously = false;
   bool _uploading = false;
   bool _markingRead = false;
   bool _initialLoad = true;
@@ -83,6 +88,9 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
         setState(() {
           _group = group;
           _initialLoad = false;
+          if (group != null && !group.anonymousMessagesEnabled) {
+            _sendAnonymously = false;
+          }
         });
         _maybeMarkRead();
       },
@@ -165,34 +173,58 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
       ..showSnackBar(SnackBar(content: Text(text)));
   }
 
+  bool get _canPost => _group?.canPost(_myUid) ?? false;
+
   Future<void> _send() async {
     final text = _textController.text.trim();
     if (text.isEmpty || _uploading) return;
+    if (_group != null && !_canPost) {
+      _showSnack('Only admins can send messages in this group.');
+      return;
+    }
 
+    final group = _group;
+    final anonymous =
+        _sendAnonymously && (group?.anonymousMessagesEnabled ?? false);
     final reply = _replyTo;
     _textController.clear();
-    setState(() => _replyTo = null);
+    setState(() {
+      _replyTo = null;
+      _sendAnonymously = false;
+    });
 
     try {
       await ChatStore.instance.sendGroupText(
         chatId: widget.chatId,
         text: text,
         replyTo: reply?.toReplyPreview(),
+        anonymous: anonymous,
       );
       _scrollToBottom();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       _textController.text = text;
       _textController.selection = TextSelection.collapsed(
         offset: _textController.text.length,
       );
-      setState(() => _replyTo = reply);
-      _showSnack('Could not send that message. Check your connection.');
+      setState(() {
+        _replyTo = reply;
+        _sendAnonymously = anonymous;
+      });
+      _showSnack(
+        error is StateError
+            ? error.message
+            : 'Could not send that message. Check your connection.',
+      );
     }
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
     if (_uploading) return;
+    if (_group != null && !_canPost) {
+      _showSnack('Only admins can send messages in this group.');
+      return;
+    }
     try {
       final file = await ImagePicker().pickImage(
         source: source,
@@ -212,6 +244,8 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
       _scrollToBottom();
     } on PlatformException catch (error) {
       _showSnack(error.message ?? 'Could not open the photo picker.');
+    } on StateError catch (error) {
+      _showSnack(error.message);
     } catch (_) {
       _showSnack('Could not send that photo. Check your connection.');
     } finally {
@@ -233,7 +267,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
             ListTile(
               key: const ValueKey('group-photo-action'),
               leading: const Icon(
-                Icons.photo_outlined,
+                LucideIcons.image,
                 color: SpotifyColors.accent,
               ),
               title: const Text('Photo'),
@@ -245,7 +279,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
             ListTile(
               key: const ValueKey('group-camera-action'),
               leading: const Icon(
-                Icons.camera_alt_outlined,
+                LucideIcons.camera,
                 color: SpotifyColors.accent,
               ),
               title: const Text('Camera'),
@@ -255,7 +289,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.insert_drive_file_outlined),
+              leading: const Icon(LucideIcons.fileText),
               title: const Text('Document'),
               subtitle: const Text('Coming soon'),
               onTap: () {
@@ -267,6 +301,11 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
         ),
       ),
     );
+  }
+
+  void _startReply(DirectMessage message) {
+    setState(() => _replyTo = message);
+    _inputFocus.requestFocus();
   }
 
   Future<void> _showMessageActions(DirectMessage message) async {
@@ -283,26 +322,26 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.reply_rounded),
+              leading: const Icon(LucideIcons.reply),
               title: const Text('Reply'),
               onTap: () => Navigator.pop(context, 'reply'),
             ),
             if (message.text.trim().isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.copy_rounded),
+                leading: const Icon(LucideIcons.copy),
                 title: const Text('Copy'),
                 onTap: () => Navigator.pop(context, 'copy'),
               ),
             if (mine)
               ListTile(
-                leading: const Icon(Icons.edit_outlined),
+                leading: const Icon(LucideIcons.pencil),
                 title: const Text('Edit'),
                 onTap: () => Navigator.pop(context, 'edit'),
               ),
             if (mine)
               ListTile(
                 leading: const Icon(
-                  Icons.delete_outline_rounded,
+                  LucideIcons.trash2,
                   color: SpotifyColors.danger,
                 ),
                 title: const Text(
@@ -319,8 +358,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
     if (!mounted || action == null) return;
     switch (action) {
       case 'reply':
-        setState(() => _replyTo = message);
-        _inputFocus.requestFocus();
+        _startReply(message);
       case 'copy':
         await Clipboard.setData(ClipboardData(text: message.text));
         _showSnack('Copied');
@@ -443,6 +481,21 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
     }
   }
 
+  Future<void> _openGroupSettings() async {
+    final group = _group;
+    if (group == null) return;
+    final left = await Navigator.of(context).push<bool>(
+      sharedAxisRoute<bool>(
+        GroupSettingsScreen(
+          chatId: widget.chatId,
+          initialGroup: group,
+          myUid: _myUid,
+        ),
+      ),
+    );
+    if (left == true && mounted) Navigator.of(context).pop();
+  }
+
   void _showGroupInfo() {
     final group = _group;
     if (group == null) return;
@@ -468,6 +521,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
             children: [
               const SizedBox(height: 18),
               ChatAvatar(
+                avatarUrl: group.photoUrl,
                 avatarColor: group.avatarColor,
                 avatarInitials: group.initials,
                 size: 72,
@@ -503,7 +557,39 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              ListTile(
+                key: const ValueKey('group-settings-option'),
+                leading: const Icon(
+                  LucideIcons.settings,
+                  color: SpotifyColors.accent,
+                ),
+                title: const Text(
+                  'Group settings',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Anonymous messages, posting permissions and admins',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.5,
+                    color: Colors.white54,
+                  ),
+                ),
+                trailing: Icon(
+                  LucideIcons.chevronRight,
+                  color: Colors.white.withValues(alpha: 0.4),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openGroupSettings();
+                },
+              ),
               const Divider(height: 1, color: SpotifyColors.border),
               Expanded(
                 child: ListView.builder(
@@ -519,7 +605,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                         avatarColor: member.avatarColor,
                         avatarInitials: member.initials,
                         size: 40,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       title: Row(
                         children: [
@@ -598,16 +684,17 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const Icon(LucideIcons.chevronLeft, size: 20),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: InkWell(
           onTap: _showGroupInfo,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
           child: Row(
             children: [
               ChatAvatar(
+                avatarUrl: group?.photoUrl,
                 avatarColor: group?.avatarColor,
                 avatarInitials: group?.initials,
                 size: 40,
@@ -651,18 +738,21 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
         actions: [
           PopupMenuButton<String>(
             key: const ValueKey('group-chat-menu'),
-            icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
+            icon: Icon(LucideIcons.moreVertical, color: scheme.onSurface),
             color: SpotifyColors.surface,
             onSelected: (value) {
               switch (value) {
                 case 'info':
                   _showGroupInfo();
+                case 'settings':
+                  _openGroupSettings();
                 case 'clear':
                   _clearChat();
               }
             },
             itemBuilder: (context) => const [
               PopupMenuItem(value: 'info', child: Text('Group info')),
+              PopupMenuItem(value: 'settings', child: Text('Group settings')),
               PopupMenuItem(
                 value: 'clear',
                 child: Text(
@@ -699,7 +789,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                                 padding: EdgeInsets.only(top: 30),
                                 child: FloatingEmptyState(
                                   key: ValueKey('group-chat-empty'),
-                                  icon: Icons.groups_outlined,
+                                  icon: LucideIcons.users,
                                   message:
                                       'No messages yet. Start the conversation.',
                                 ),
@@ -719,6 +809,8 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                         isSeen:
                             group?.isReadByEveryone(message, _myUid) ?? false,
                         showUsername: true,
+                        senderIsAdmin:
+                            group?.isAdmin(message.senderId) ?? false,
                         sender: sender,
                       );
 
@@ -733,6 +825,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                             message: uiMessage,
                             showSender: true,
                             onLongPress: () => _showMessageActions(message),
+                            onReply: () => _startReply(message),
                           ),
                         ],
                       );
@@ -747,8 +840,15 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
 
   Widget _buildInputBar() {
     final scheme = Theme.of(context).colorScheme;
+    final group = _group;
+    if (group != null && !group.canPost(_myUid)) {
+      return _buildLockedInputBar();
+    }
+
     final reply = _replyTo;
     final hasText = _textController.text.trim().isNotEmpty;
+    final canAnonymous = group?.anonymousMessagesEnabled ?? false;
+    final anonymous = canAnonymous && _sendAnonymously;
 
     return Container(
       color: SpotifyColors.background,
@@ -763,6 +863,50 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (anonymous)
+            Container(
+              key: const ValueKey('group-anonymous-banner'),
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.fromLTRB(10, 5, 4, 5),
+              decoration: BoxDecoration(
+                color: SpotifyColors.tagUrgent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: SpotifyColors.tagUrgent.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    LucideIcons.eyeOff,
+                    size: 15,
+                    color: SpotifyColors.tagUrgent,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      'Sending as Anonymous Sender — your name will be hidden.',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 11.5,
+                        color: SpotifyColors.tagUrgent.withValues(alpha: 0.95),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 30,
+                      height: 30,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => setState(() => _sendAnonymously = false),
+                    icon: const Icon(LucideIcons.x, size: 16),
+                    color: SpotifyColors.tagUrgent,
+                  ),
+                ],
+              ),
+            ),
           if (reply != null)
             Container(
               key: const ValueKey('group-reply-preview'),
@@ -783,7 +927,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          reply.senderId == _myUid ? 'You' : reply.senderName,
+                          reply.senderId == _myUid ? 'You' : reply.senderLabel,
                           style: const TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 12,
@@ -807,7 +951,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                   IconButton(
                     onPressed: () => setState(() => _replyTo = null),
                     icon: Icon(
-                      Icons.close_rounded,
+                      LucideIcons.x,
                       size: 18,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -832,22 +976,57 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.add_rounded,
+                      LucideIcons.plus,
                       color: scheme.onSurface,
                       size: 24,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const ValueKey('group-emoji-button'),
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () async {
+                    await showChatEmojiPicker(
+                      context: context,
+                      controller: _textController,
+                    );
+                    if (mounted) setState(() {});
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: SpotifyColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.smile,
+                      color: anonymous
+                          ? SpotifyColors.tagUrgent
+                          : scheme.onSurfaceVariant,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 44),
                   decoration: BoxDecoration(
                     color: SpotifyColors.surface,
                     borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: anonymous
+                          ? SpotifyColors.tagUrgent.withValues(alpha: 0.55)
+                          : Colors.transparent,
+                    ),
                   ),
-                  padding: const EdgeInsets.only(left: 16, right: 6),
+                  padding: const EdgeInsets.only(left: 14, right: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -865,10 +1044,16 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                           ),
                           onChanged: (_) => setState(() {}),
                           decoration: InputDecoration(
-                            hintText: 'Message',
+                            hintText: anonymous
+                                ? 'Send anonymously…'
+                                : 'Message',
                             hintStyle: TextStyle(
                               fontFamily: AppTheme.fontFamily,
-                              color: scheme.onSurfaceVariant,
+                              color: anonymous
+                                  ? SpotifyColors.tagUrgent.withValues(
+                                      alpha: 0.7,
+                                    )
+                                  : scheme.onSurfaceVariant,
                               fontSize: 15,
                             ),
                             border: InputBorder.none,
@@ -880,6 +1065,24 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                           ),
                         ),
                       ),
+                      if (canAnonymous)
+                        IconButton(
+                          key: const ValueKey('group-anonymous-toggle'),
+                          icon: Icon(
+                            LucideIcons.eyeOff,
+                            color: anonymous
+                                ? SpotifyColors.tagUrgent
+                                : scheme.onSurfaceVariant,
+                            size: 20,
+                          ),
+                          tooltip: anonymous
+                              ? 'Send with your name'
+                              : 'Send anonymously',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => setState(
+                            () => _sendAnonymously = !_sendAnonymously,
+                          ),
+                        ),
                       if (_uploading)
                         const Padding(
                           padding: EdgeInsets.all(12),
@@ -896,7 +1099,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                         IconButton(
                           key: const ValueKey('group-send-button'),
                           icon: const Icon(
-                            Icons.arrow_upward_rounded,
+                            LucideIcons.arrowUp,
                             color: SpotifyColors.accent,
                             size: 22,
                           ),
@@ -906,7 +1109,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                       else
                         IconButton(
                           icon: Icon(
-                            Icons.mic_none_rounded,
+                            LucideIcons.mic,
                             color: scheme.onSurfaceVariant,
                             size: 22,
                           ),
@@ -919,6 +1122,62 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLockedInputBar() {
+    return Container(
+      key: const ValueKey('group-posting-locked'),
+      color: SpotifyColors.background,
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 12,
+        bottom: MediaQuery.paddingOf(context).bottom + 12,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: SpotifyColors.surface,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              LucideIcons.lock,
+              size: 18,
+              color: SpotifyColors.tagUrgent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Only admins can send messages',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'The group is in announcement mode.',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.5,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -939,6 +1198,7 @@ class _GroupHeader extends StatelessWidget {
       children: [
         const SizedBox(height: 18),
         ChatAvatar(
+          avatarUrl: group?.photoUrl,
           avatarColor: group?.avatarColor,
           avatarInitials: group?.initials,
           size: 76,
@@ -982,6 +1242,47 @@ class _GroupHeader extends StatelessWidget {
             ),
           ),
         ],
+        if (group != null && group.description.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              group.description,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12,
+                height: 1.35,
+                color: Colors.white.withValues(alpha: 0.45),
+              ),
+            ),
+          ),
+        ],
+        if (group != null && !group.membersCanPost) ...[
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                LucideIcons.lock,
+                size: 12,
+                color: SpotifyColors.tagUrgent,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Only admins can send messages',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: SpotifyColors.tagUrgent.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 12),
         OutlinedButton(
           onPressed: onViewInfo,
@@ -990,7 +1291,7 @@ class _GroupHeader extends StatelessWidget {
             foregroundColor: Colors.white,
             side: const BorderSide(color: SpotifyColors.border),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(4),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
           ),

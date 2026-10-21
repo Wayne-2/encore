@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_type.dart';
@@ -109,7 +110,7 @@ class _AddFundsSheetState extends State<AddFundsSheet> {
                   key: const ValueKey('close-add-funds-sheet'),
                   tooltip: 'Close',
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(LucideIcons.x, size: 20),
                   color: scheme.onSurfaceVariant,
                 ),
               ],
@@ -131,7 +132,7 @@ class _AddFundsSheetState extends State<AddFundsSheet> {
                     tooltip: 'Copy account number',
                     onPressed: _copyAccountNumber,
                     icon: Icon(
-                      _copied ? Icons.check : Icons.copy,
+                      _copied ? LucideIcons.check : LucideIcons.copy,
                       size: 17,
                       color: _copied
                           ? SpotifyColors.accent
@@ -173,7 +174,10 @@ class _AddFundsSheetState extends State<AddFundsSheet> {
               child: FilledButton.icon(
                 key: const ValueKey('copy-funds-details'),
                 onPressed: _copyAccountNumber,
-                icon: Icon(_copied ? Icons.check : Icons.copy, size: 18),
+                icon: Icon(
+                  _copied ? LucideIcons.check : LucideIcons.copy,
+                  size: 18,
+                ),
                 label: Text(
                   _copied ? 'Account number copied' : 'Copy account number',
                 ),

@@ -31,8 +31,12 @@ abstract final class SpotifyColors {
   /// Brand accent — the app's signature green, kept over Spotify green.
   static const Color accent = Color(0xFF25A10C);
 
+  /// Outgoing chat bubble — a deep, muted green so long conversations do not
+  /// glare while still reading as the app's brand colour.
+  static const Color chatOutgoing = Color(0xB325A10C);
+
   /// Destructive/status red.
-  static const Color danger = Color(0xFFE01E5A);
+  static const Color danger = Color(0xFFF04438);
 
   // ---- Announcement priority tags ----
   /// Amber — "Highly prior" announcements.

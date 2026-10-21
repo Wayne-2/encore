@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
+import '../utils/active_time.dart';
 import '../widgets/chat_avatar.dart';
 
 /// Full-screen WhatsApp-style story/status viewer for stories tapped in `# Story`.
@@ -155,8 +157,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                               color: Colors.white,
                             ),
                           ),
-                          Text(
-                            widget.story.time,
+                          ActiveTimestamp(
+                            at: widget.story.createdAt,
+                            fallback: widget.story.time,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 12,
@@ -167,7 +170,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
+                      icon: const Icon(LucideIcons.x, color: Colors.white),
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
                   ],
@@ -274,7 +277,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                             ),
                           ),
                           child: Icon(
-                            Icons.add_rounded,
+                            LucideIcons.plus,
                             color: scheme.onSurface,
                             size: 24,
                           ),
@@ -327,7 +330,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                             if (_replyController.text.trim().isEmpty)
                               IconButton(
                                 icon: Icon(
-                                  Icons.mic_none_rounded,
+                                  LucideIcons.mic,
                                   color: scheme.onSurfaceVariant,
                                   size: 22,
                                 ),
@@ -347,7 +350,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                               IconButton(
                                 key: const ValueKey('story-send-button'),
                                 icon: const Icon(
-                                  Icons.arrow_upward_rounded,
+                                  LucideIcons.arrowUp,
                                   color: SpotifyColors.accent,
                                   size: 22,
                                 ),

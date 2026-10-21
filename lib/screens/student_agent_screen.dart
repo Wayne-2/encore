@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import '../utils/active_time.dart';
+import '../widgets/user_avatar.dart';
 
 /// The Student Agents page reached from the More tab.
 ///
@@ -65,7 +68,7 @@ class StudentAgentScreen extends StatelessWidget {
                     _Chip(
                       label: 'Sort by',
                       leading: Icon(
-                        Icons.swap_vert,
+                        LucideIcons.arrowUpDown,
                         size: 16,
                         color: scheme.onSurface,
                       ),
@@ -99,7 +102,7 @@ class _TopBar extends StatelessWidget {
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(LucideIcons.chevronLeft),
           iconSize: 20,
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).pop(),
@@ -114,15 +117,7 @@ class _TopBar extends StatelessWidget {
           colorFilter: ColorFilter.mode(scheme.onSurface, BlendMode.srcIn),
         ),
         const SizedBox(width: 16),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: Image.asset(
-            'assets/Encore.png',
-            width: 28,
-            height: 28,
-            fit: BoxFit.cover,
-          ),
-        ),
+        const CurrentUserAvatar(size: 28),
       ],
     );
   }
@@ -169,7 +164,7 @@ class _AddButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add, size: 16, color: scheme.onSurface),
+              Icon(LucideIcons.plus, size: 16, color: scheme.onSurface),
               const SizedBox(width: 6),
               Text(
                 'Add',
@@ -227,6 +222,7 @@ class _Agent {
     required this.name,
     required this.activity,
     required this.lastUpdate,
+    required this.lastUpdateAt,
     required this.steps,
     required this.duration,
     required this.active,
@@ -235,18 +231,21 @@ class _Agent {
   final String name;
   final String activity;
   final String lastUpdate;
+  final DateTime lastUpdateAt;
   final int steps;
   final String duration;
   final bool active;
 }
 
-const List<_Agent> _agents = [
+final DateTime _agentSeedTime = DateTime.now();
+final List<_Agent> _agents = [
   _Agent(
     name: 'David Okafor',
     activity:
         'Helps you register courses and submit assignments before '
         'their deadlines.',
     lastUpdate: '1 hr ago',
+    lastUpdateAt: _agentSeedTime.subtract(const Duration(hours: 1)),
     steps: 14,
     duration: '7 days',
     active: true,
@@ -257,6 +256,7 @@ const List<_Agent> _agents = [
         'Guides you through exam preparation and past question '
         'practice.',
     lastUpdate: '1 day ago',
+    lastUpdateAt: _agentSeedTime.subtract(const Duration(days: 1)),
     steps: 9,
     duration: '3 days',
     active: true,
@@ -267,6 +267,7 @@ const List<_Agent> _agents = [
         'Assists with project research, citations and presentation '
         'slides.',
     lastUpdate: '3 hrs ago',
+    lastUpdateAt: _agentSeedTime.subtract(const Duration(hours: 3)),
     steps: 6,
     duration: '5 days',
     active: true,
@@ -295,7 +296,7 @@ class _AgentCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.person_outline, size: 18, color: scheme.onSurface),
+              UserAvatar(name: agent.name, size: 24),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -317,10 +318,12 @@ class _AgentCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Icon(Icons.schedule, size: 13, color: scheme.onSurfaceVariant),
+              Icon(LucideIcons.clock, size: 13, color: scheme.onSurfaceVariant),
               const SizedBox(width: 6),
-              Text(
-                'Last update ${agent.lastUpdate}',
+              Text('Last update ', style: AppType.meta(scheme)),
+              ActiveTimestamp(
+                at: agent.lastUpdateAt,
+                fallback: agent.lastUpdate,
                 style: AppType.meta(scheme),
               ),
             ],
@@ -341,11 +344,15 @@ class _AgentCard extends StatelessWidget {
                 Text('Active', style: AppType.tag(scheme.primary)),
                 const _BadgeDot(),
               ],
-              Icon(Icons.bolt, size: 13, color: scheme.onSurfaceVariant),
+              Icon(LucideIcons.zap, size: 13, color: scheme.onSurfaceVariant),
               const SizedBox(width: 4),
               Text('${agent.steps} steps', style: AppType.meta(scheme)),
               const _BadgeDot(),
-              Icon(Icons.autorenew, size: 13, color: scheme.onSurfaceVariant),
+              Icon(
+                LucideIcons.refreshCw,
+                size: 13,
+                color: scheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 4),
               Text(agent.duration, style: AppType.meta(scheme)),
             ],

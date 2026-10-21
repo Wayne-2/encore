@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/announcement.dart';
 import '../services/announcement_store.dart';
@@ -7,6 +8,7 @@ import '../services/comment_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
+import '../utils/active_time.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/announcement_tile.dart';
 import '../widgets/comment_thread.dart';
@@ -91,7 +93,7 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
         backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(LucideIcons.chevronLeft),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -108,7 +110,7 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
           if (widget.announcement.canBeDeletedBy(_viewer))
             IconButton(
               tooltip: 'Delete announcement',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(LucideIcons.trash2),
               color: scheme.onSurfaceVariant,
               onPressed: () => _confirmDelete(context),
             ),
@@ -124,7 +126,8 @@ class _AnnouncementDetailScreenState extends State<AnnouncementDetailScreen> {
           comments: CommentStore.instance.commentsFor(_postId),
           loading: CommentStore.instance.isLoading(_postId),
           reactionsBasePath: _reactionsPath,
-          onSubmit: (text) => CommentStore.instance.add(_postId, text),
+          onSubmit: (text, {replyTo}) =>
+              CommentStore.instance.add(_postId, text, replyTo: replyTo),
         ),
       ),
     );
@@ -149,7 +152,11 @@ class _AnnouncementHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              AnnouncementAvatar(photoUrl: announcement.photoUrl, size: 48),
+              AnnouncementAvatar(
+                name: announcement.author,
+                photoUrl: announcement.photoUrl,
+                size: 48,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -157,7 +164,11 @@ class _AnnouncementHeader extends StatelessWidget {
                   children: [
                     Text(announcement.author, style: SlackType.sender(scheme)),
                     const SizedBox(height: 2),
-                    Text(announcement.time, style: SlackType.timestamp(scheme)),
+                    ActiveTimestamp(
+                      at: announcement.createdAt,
+                      fallback: announcement.time,
+                      style: SlackType.timestamp(scheme),
+                    ),
                   ],
                 ),
               ),

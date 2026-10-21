@@ -29,6 +29,8 @@ class Trend {
     required this.time,
     required this.body,
     this.media = const [],
+    this.photoUrl,
+    this.createdAt,
   });
 
   final String id;
@@ -39,6 +41,8 @@ class Trend {
   final String time;
   final String body;
   final List<TrendMedia> media;
+  final String? photoUrl;
+  final DateTime? createdAt;
 
   /// Whether [userId] is the author and may therefore delete this trend.
   bool canBeDeletedBy(String? userId) =>
@@ -55,6 +59,8 @@ class Trend {
       time: time,
       body: body,
       media: media ?? this.media,
+      photoUrl: photoUrl,
+      createdAt: createdAt,
     );
   }
 }

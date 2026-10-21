@@ -12,6 +12,7 @@ class Announcement {
     this.authorId = '',
     this.photoUrl,
     this.unread = false,
+    this.createdAt,
   });
 
   /// Stable identity for list keys and entrance animations.
@@ -32,6 +33,7 @@ class Announcement {
   final Color tagColor;
   final String body;
   final bool unread;
+  final DateTime? createdAt;
 
   /// Whether [userId] is the author and may therefore delete this post.
   bool canBeDeletedBy(String? userId) =>
@@ -48,6 +50,7 @@ class Announcement {
       tagColor: tagColor,
       body: body,
       unread: unread ?? this.unread,
+      createdAt: createdAt,
     );
   }
 }

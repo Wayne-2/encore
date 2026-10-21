@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/chat_conversation.dart';
 import '../theme/app_theme.dart';
@@ -144,7 +145,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                   children: [
                     _FloatingMenuItem(
                       key: const ValueKey('clip-attachment-item'),
-                      icon: Icons.insert_drive_file_outlined,
+                      icon: LucideIcons.fileText,
                       label: 'Document',
                       onTap: () {
                         Navigator.pop(context);
@@ -157,7 +158,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     ),
                     const SizedBox(height: 4),
                     _FloatingMenuItem(
-                      icon: Icons.camera_alt_outlined,
+                      icon: LucideIcons.camera,
                       label: 'Camera',
                       onTap: () {
                         Navigator.pop(context);
@@ -172,7 +173,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     ),
                     const SizedBox(height: 4),
                     _FloatingMenuItem(
-                      icon: Icons.headphones_outlined,
+                      icon: LucideIcons.headphones,
                       label: 'Audio',
                       onTap: () {
                         Navigator.pop(context);
@@ -243,7 +244,10 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.person, color: SpotifyColors.accent),
+                leading: const Icon(
+                  LucideIcons.user,
+                  color: SpotifyColors.accent,
+                ),
                 title: const Text('View Profile'),
                 subtitle: const Text(
                   'Open full profile, media and shared links',
@@ -251,7 +255,10 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
-                leading: const Icon(Icons.block, color: SpotifyColors.accent),
+                leading: const Icon(
+                  LucideIcons.ban,
+                  color: SpotifyColors.accent,
+                ),
                 title: const Text('Block or Report'),
                 subtitle: const Text('Block, report or restrict this contact'),
                 onTap: () => Navigator.pop(context),
@@ -278,7 +285,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const Icon(LucideIcons.chevronLeft, size: 20),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -334,7 +341,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
           // Three dots menu button ONLY (Voice Call, Video Call, Anonymous Mode, etc.)
           PopupMenuButton<String>(
             key: const ValueKey('chat-three-dots-menu'),
-            icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
+            icon: Icon(LucideIcons.moreVertical, color: scheme.onSurface),
             color: SpotifyColors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -385,7 +392,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.phone_outlined,
+                      LucideIcons.phone,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -409,7 +416,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.videocam_outlined,
+                      LucideIcons.video,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -434,9 +441,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      _isAnonymousMode
-                          ? Icons.visibility_rounded
-                          : Icons.visibility_off_rounded,
+                      _isAnonymousMode ? LucideIcons.eye : LucideIcons.eyeOff,
                       size: 20,
                       color: SpotifyColors.accent,
                     ),
@@ -463,7 +468,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline_rounded,
+                      LucideIcons.info,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -487,7 +492,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.search_rounded,
+                      LucideIcons.search,
                       size: 20,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -511,7 +516,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.delete_outline_rounded,
+                      LucideIcons.trash2,
                       size: 20,
                       color: SpotifyColors.danger,
                     ),
@@ -706,7 +711,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeInOut,
                   child: Icon(
-                    Icons.add_rounded,
+                    LucideIcons.plus,
                     color: scheme.onSurface,
                     size: 24,
                   ),
@@ -771,7 +776,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                   if (_textController.text.trim().isEmpty)
                     IconButton(
                       icon: Icon(
-                        Icons.mic_none_rounded,
+                        LucideIcons.mic,
                         color: scheme.onSurfaceVariant,
                         size: 22,
                       ),
@@ -789,7 +794,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     IconButton(
                       key: const ValueKey('direct-send-button'),
                       icon: const Icon(
-                        Icons.arrow_upward_rounded,
+                        LucideIcons.arrowUp,
                         color: SpotifyColors.accent,
                         size: 22,
                       ),
@@ -886,11 +891,7 @@ class _AnonymousStatusPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.visibility_off_rounded,
-            size: 15,
-            color: SpotifyColors.accent,
-          ),
+          const Icon(LucideIcons.eyeOff, size: 15, color: SpotifyColors.accent),
           const SizedBox(width: 7),
           Text(
             'Anonymous',

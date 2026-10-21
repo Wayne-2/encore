@@ -11,6 +11,7 @@ Comment commentFromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
   final data = doc.data();
   final name = (data['author'] as String?)?.trim() ?? 'Unknown';
   final storedInitials = (data['initials'] as String?)?.trim();
+  final photoUrl = (data['photoUrl'] as String?)?.trim();
 
   return Comment(
     id: doc.id,
@@ -22,7 +23,21 @@ Comment commentFromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     initials: storedInitials != null && storedInitials.isNotEmpty
         ? storedInitials
         : CommentAuthor.initialsFor(name),
+    photoUrl: photoUrl == null || photoUrl.isEmpty ? null : photoUrl,
+    createdAt: _dateFrom(data['createdAt']),
+    replyToId: data['replyToId'] as String? ?? '',
+    replyToName: data['replyToName'] as String? ?? '',
+    replyToText: data['replyToText'] as String? ?? '',
   );
+}
+
+DateTime? _dateFrom(Object? value) {
+  return switch (value) {
+    Timestamp timestamp => timestamp.toDate(),
+    DateTime time => time,
+    int millis => DateTime.fromMillisecondsSinceEpoch(millis),
+    _ => null,
+  };
 }
 
 /// The signed-in user's display details for a new comment.
@@ -32,12 +47,14 @@ class CommentAuthor {
     required this.name,
     required this.handle,
     required this.initials,
+    this.photoUrl,
   });
 
   final String id;
   final String name;
   final String handle;
   final String initials;
+  final String? photoUrl;
 
   /// Resolves the current profile, with a stable fallback for offline use and
   /// widget tests.
@@ -69,12 +86,14 @@ class CommentAuthor {
     final handle = username == null || username.isEmpty
         ? '@you'
         : (username.startsWith('@') ? username : '@$username');
+    final photoUrl = (profile?['photoUrl'] as String?)?.trim();
 
     return CommentAuthor(
       id: user?.uid ?? '',
       name: name,
       handle: handle,
       initials: initialsFor(name),
+      photoUrl: photoUrl == null || photoUrl.isEmpty ? null : photoUrl,
     );
   }
 
@@ -153,19 +172,29 @@ class CommentStore extends ChangeNotifier {
   }
 
   /// Posts [text] as the signed-in user, with an optimistic local entry.
-  Future<void> add(String announcementId, String text) async {
+  Future<void> add(
+    String announcementId,
+    String text, {
+    Comment? replyTo,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || announcementId.isEmpty) return;
 
     final author = await CommentAuthor.current();
+    final now = DateTime.now();
     final local = Comment(
-      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      id: 'local-${now.microsecondsSinceEpoch}',
       authorId: author.id,
       name: author.name,
       handle: author.handle,
-      time: 'now',
+      time: 'Just now',
       text: trimmed,
       initials: author.initials,
+      photoUrl: author.photoUrl,
+      createdAt: now,
+      replyToId: replyTo?.id ?? '',
+      replyToName: replyTo?.name ?? '',
+      replyToText: replyTo?.text ?? '',
     );
 
     _comments.putIfAbsent(announcementId, () => []).add(local);
@@ -188,8 +217,14 @@ class CommentStore extends ChangeNotifier {
             'author': author.name,
             'handle': author.handle,
             'initials': author.initials,
+            'photoUrl': author.photoUrl,
             'text': trimmed,
             'createdAt': FieldValue.serverTimestamp(),
+            if (replyTo != null) ...{
+              'replyToId': replyTo.id,
+              'replyToName': replyTo.name,
+              'replyToText': replyTo.text,
+            },
           });
     } catch (_) {
       _removeLocal(announcementId, local.id);

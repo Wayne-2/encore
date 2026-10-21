@@ -13,6 +13,7 @@ class StoryItem {
     this.hasUnread = true,
     required this.storyImage,
     required this.time,
+    this.createdAt,
     this.caption,
   });
 
@@ -24,6 +25,7 @@ class StoryItem {
   final bool hasUnread;
   final String storyImage;
   final String time;
+  final DateTime? createdAt;
   final String? caption;
 }
 
@@ -43,6 +45,7 @@ class ChatMessage {
     this.isNotice = false,
     this.isAdmin = false,
     this.isSeen = true,
+    this.isPending = false,
     this.isEdited = false,
     this.isDeleted = false,
     this.imageUrl,
@@ -72,6 +75,9 @@ class ChatMessage {
   /// Whether the other participant has read this message.
   final bool isSeen;
 
+  /// True while the message is queued locally and not yet sent.
+  final bool isPending;
+
   /// Whether the message copy was changed after sending.
   final bool isEdited;
 
@@ -99,6 +105,7 @@ class ChatMessage {
     bool? isNotice,
     bool? isAdmin,
     bool? isSeen,
+    bool? isPending,
     bool? isEdited,
     bool? isDeleted,
     String? imageUrl,
@@ -119,6 +126,7 @@ class ChatMessage {
       isNotice: isNotice ?? this.isNotice,
       isAdmin: isAdmin ?? this.isAdmin,
       isSeen: isSeen ?? this.isSeen,
+      isPending: isPending ?? this.isPending,
       isEdited: isEdited ?? this.isEdited,
       isDeleted: isDeleted ?? this.isDeleted,
       imageUrl: imageUrl ?? this.imageUrl,
@@ -150,6 +158,7 @@ class ChatConversation {
     this.peerUid,
     this.isOnline = false,
     this.isTyping = false,
+    this.updatedAt,
   });
 
   final String id;
@@ -175,17 +184,22 @@ class ChatConversation {
   final String? peerUid;
   final bool isOnline;
   final bool isTyping;
+
+  /// The last activity time, used for live relative timestamps.
+  final DateTime? updatedAt;
 }
 
 /// Mock data replicating the exact items shown in the user's design screenshot.
 abstract final class MockChatData {
-  static const List<StoryItem> stories = [
+  static final DateTime _seedTime = DateTime.now();
+  static final List<StoryItem> stories = [
     StoryItem(
       id: 'story-cypher',
       username: '_cypher',
       avatarAsset: 'assets/background-2.jpeg',
       storyImage: 'assets/background-2.jpeg',
       time: '45m ago',
+      createdAt: _seedTime.subtract(const Duration(minutes: 45)),
       caption: 'Late night coding marathon with CSC 200 study group ⚡',
     ),
     StoryItem(
@@ -194,6 +208,7 @@ abstract final class MockChatData {
       avatarAsset: 'assets/background.jpeg',
       storyImage: 'assets/background.jpeg',
       time: '1h ago',
+      createdAt: _seedTime.subtract(const Duration(minutes: 60)),
       caption: 'Algorithm assignment done and dusted! 🎉',
     ),
     StoryItem(
@@ -202,6 +217,7 @@ abstract final class MockChatData {
       avatarAsset: 'assets/background-3.jpeg',
       storyImage: 'assets/background-3.jpeg',
       time: '2h ago',
+      createdAt: _seedTime.subtract(const Duration(minutes: 120)),
       caption: 'Cafeteria rice after 4 hours of lectures hits different.',
     ),
     StoryItem(
@@ -210,6 +226,7 @@ abstract final class MockChatData {
       avatarAsset: 'assets/Encore.png',
       storyImage: 'assets/background-2.jpeg',
       time: '3h ago',
+      createdAt: _seedTime.subtract(const Duration(minutes: 180)),
       caption: 'Welcome to Encore! Discover updates, chat, and finances.',
     ),
     StoryItem(
@@ -218,6 +235,7 @@ abstract final class MockChatData {
       avatarAsset: 'assets/launch_icon_foreground.png',
       storyImage: 'assets/background.jpeg',
       time: '5h ago',
+      createdAt: _seedTime.subtract(const Duration(minutes: 300)),
       caption: 'Database schema review tomorrow 10am at the lab.',
     ),
   ];
@@ -231,6 +249,7 @@ abstract final class MockChatData {
       lastMessage:
           'Make una come collect una assignment, i don finish am and carry una money ooo. i don tire',
       time: '23mins',
+      updatedAt: _seedTime.subtract(const Duration(minutes: 23)),
       hasUnread: true,
       unreadCount: 3,
       membersDescription: '_cypher, _divine, _wayne, _chris, You',
@@ -269,6 +288,7 @@ abstract final class MockChatData {
       lastMessage:
           'Make una come collect una assignment, i don finish am and carry una money ooo. i don tire',
       time: '23mins',
+      updatedAt: _seedTime.subtract(const Duration(minutes: 23)),
       hasUnread: true,
       unreadCount: 5,
       membersDescription: '_cypher, _divine, _wayne, _daniel, You',
@@ -326,6 +346,7 @@ abstract final class MockChatData {
       avatarAsset: 'assets/background-2.jpeg',
       lastMessage: 'I go send you that one million naira, i dey owe you...',
       time: '23mins',
+      updatedAt: _seedTime.subtract(const Duration(minutes: 23)),
       hasUnread: true,
       membersDescription: 'Online',
       initialMessages: [
@@ -357,6 +378,7 @@ abstract final class MockChatData {
       lastMessage:
           'Paste your aza let me do some transfer for you, you don too try for us...',
       time: '23mins',
+      updatedAt: _seedTime.subtract(const Duration(minutes: 23)),
       hasUnread: true,
       membersDescription: 'last seen today at 10:45 AM',
       initialMessages: [
@@ -389,6 +411,7 @@ abstract final class MockChatData {
       lastMessage:
           'Make una come collect una assignment, i don finish am and carry una money ooo. i don tire',
       time: '23mins',
+      updatedAt: _seedTime.subtract(const Duration(minutes: 23)),
       hasUnread: true,
       membersDescription: 'Online',
       initialMessages: [
@@ -414,6 +437,7 @@ abstract final class MockChatData {
       avatarAsset: 'assets/launch_icon_foreground.png',
       lastMessage: 'Yes sir 🫡',
       time: '5:47 pm',
+      updatedAt: _seedTime.subtract(const Duration(hours: 5)),
       hasUnread: false,
       unreadCount: 0,
       membersDescription: 'Online',
@@ -463,6 +487,7 @@ abstract final class MockChatData {
       lastMessage:
           'The LFX student plan is available, come and make your payments and gain acess...',
       time: '23mins',
+      updatedAt: _seedTime.subtract(const Duration(minutes: 23)),
       hasUnread: true,
       membersDescription: 'Verified Organization Channel',
       initialMessages: [

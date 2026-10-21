@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/trend.dart';
+import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../services/trend_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import '../utils/active_time.dart';
 import '../widgets/comment_thread.dart';
 import '../widgets/reaction_bar.dart';
 import '../widgets/trend_cover.dart';
+import '../widgets/user_avatar.dart';
+import 'trend_image_viewer_screen.dart';
 
 /// Full-page view of a single trend: its image, title, author, time and body —
 /// followed by the same Twitter-style comment thread as announcements.
@@ -39,6 +44,14 @@ class _TrendingDetailScreenState extends State<TrendingDetailScreen> {
   void dispose() {
     TrendStore.instance.stopListeningToComments(widget.trend.id);
     super.dispose();
+  }
+
+  void _openImages(Trend trend) {
+    final images = TrendImageViewerScreen.imagesFrom(trend.media);
+    if (images.isEmpty) return;
+    Navigator.of(
+      context,
+    ).push(fadeRoute(TrendImageViewerScreen(media: images)));
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
@@ -78,7 +91,7 @@ class _TrendingDetailScreenState extends State<TrendingDetailScreen> {
         backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(LucideIcons.chevronLeft),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -96,7 +109,7 @@ class _TrendingDetailScreenState extends State<TrendingDetailScreen> {
             IconButton(
               key: const ValueKey('delete-trend-button'),
               tooltip: 'Delete trend',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(LucideIcons.trash2),
               color: scheme.onSurfaceVariant,
               onPressed: () => _confirmDelete(context),
             ),
@@ -105,11 +118,19 @@ class _TrendingDetailScreenState extends State<TrendingDetailScreen> {
       body: AnimatedBuilder(
         animation: TrendStore.instance,
         builder: (context, _) => CommentThread(
-          header: _TrendHeader(trend: trend),
+          header: _TrendHeader(
+            trend: trend,
+            onMediaTap:
+                trend.media.isNotEmpty &&
+                    TrendImageViewerScreen.holdsImage(trend.media.first)
+                ? () => _openImages(trend)
+                : null,
+          ),
           comments: TrendStore.instance.commentsFor(trend.id),
           loading: TrendStore.instance.commentsLoading(trend.id),
           reactionsBasePath: 'trends/${trend.id}',
-          onSubmit: (text) => TrendStore.instance.addComment(trend.id, text),
+          onSubmit: (text, {replyTo}) =>
+              TrendStore.instance.addComment(trend.id, text, replyTo: replyTo),
         ),
       ),
     );
@@ -118,9 +139,10 @@ class _TrendingDetailScreenState extends State<TrendingDetailScreen> {
 
 /// The trend post shown above its comment thread.
 class _TrendHeader extends StatelessWidget {
-  const _TrendHeader({required this.trend});
+  const _TrendHeader({required this.trend, this.onMediaTap});
 
   final Trend trend;
+  final VoidCallback? onMediaTap;
 
   @override
   Widget build(BuildContext context) {
@@ -131,13 +153,32 @@ class _TrendHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TrendCover(media: trend.media, width: double.infinity, height: 190),
+          TrendCover(
+            key: const ValueKey('trend-detail-cover'),
+            media: trend.media,
+            width: double.infinity,
+            height: 190,
+            onTap: onMediaTap,
+          ),
           const SizedBox(height: 16),
           Text(trend.title, style: AppType.name(scheme)),
           const SizedBox(height: 6),
           Row(
             children: [
-              Text(trend.author, style: AppType.cardTitle(scheme)),
+              UserAvatar(
+                name: trend.author,
+                photoUrl: trend.photoUrl,
+                size: 30,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  trend.author,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.cardTitle(scheme),
+                ),
+              ),
               const SizedBox(width: 6),
               Container(
                 width: 3,
@@ -148,7 +189,11 @@ class _TrendHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(trend.time, style: AppType.meta(scheme)),
+              ActiveTimestamp(
+                at: trend.createdAt,
+                fallback: trend.time,
+                style: AppType.meta(scheme),
+              ),
             ],
           ),
           const SizedBox(height: 12),

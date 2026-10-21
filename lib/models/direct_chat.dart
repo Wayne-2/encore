@@ -215,6 +215,7 @@ class DirectChat {
       joinedDate: createdAt == null
           ? null
           : 'Started ${formatShortDate(createdAt!)}',
+      updatedAt: lastMessageAt ?? createdAt,
     );
   }
 }
@@ -279,6 +280,8 @@ class DirectMessage {
     this.imageUrl,
     this.editedAt,
     this.deleted = false,
+    this.anonymous = false,
+    this.pending = false,
     this.replyTo,
   });
 
@@ -292,6 +295,10 @@ class DirectMessage {
   final String? imageUrl;
   final DateTime? editedAt;
   final bool deleted;
+  final bool anonymous;
+
+  /// True while a locally queued write is waiting for the server.
+  final bool pending;
   final ReplyPreview? replyTo;
 
   bool isMine(String uid) => senderId == uid;
@@ -302,6 +309,8 @@ class DirectMessage {
     String? text,
     DateTime? editedAt,
     bool? deleted,
+    bool? anonymous,
+    bool? pending,
     String? imageUrl,
   }) {
     return DirectMessage(
@@ -315,6 +324,8 @@ class DirectMessage {
       imageUrl: imageUrl ?? this.imageUrl,
       editedAt: editedAt ?? this.editedAt,
       deleted: deleted ?? this.deleted,
+      anonymous: anonymous ?? this.anonymous,
+      pending: pending ?? this.pending,
       replyTo: replyTo,
     );
   }
@@ -322,33 +333,48 @@ class DirectMessage {
   factory DirectMessage.fromDoc(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
   ) {
-    return DirectMessage.fromMap(doc.id, doc.data());
+    return DirectMessage.fromMap(
+      doc.id,
+      doc.data(),
+      pending: doc.metadata.hasPendingWrites,
+    );
   }
 
-  factory DirectMessage.fromMap(String id, Map<String, dynamic> data) {
+  factory DirectMessage.fromMap(
+    String id,
+    Map<String, dynamic> data, {
+    bool pending = false,
+  }) {
     final replyData = data['replyTo'];
+    final deleted = data['deleted'] == true || data['type'] == 'deleted';
     return DirectMessage(
       id: id,
       senderId: data['senderId'] as String? ?? '',
       senderName: data['senderName'] as String? ?? 'User',
       senderUsername: data['senderUsername'] as String? ?? '',
       text: data['text'] as String? ?? '',
-      createdAt: parseTimestamp(data['createdAt']),
+      createdAt:
+          parseTimestamp(data['createdAt']) ??
+          parseTimestamp(data['localCreatedAt']),
       type: data['type'] as String? ?? 'text',
       imageUrl: (data['imageUrl'] as String?)?.trim(),
       editedAt: parseTimestamp(data['editedAt']),
-      deleted: data['deleted'] == true || data['type'] == 'deleted',
-      replyTo: replyData is Map
+      deleted: deleted,
+      anonymous: data['anonymous'] == true,
+      pending: pending,
+      replyTo: !deleted && replyData is Map
           ? ReplyPreview.fromMap(Map<String, dynamic>.from(replyData))
           : null,
     );
   }
 
+  String get senderLabel => anonymous ? 'Anonymous Sender' : senderName;
+
   ReplyPreview toReplyPreview() {
     return ReplyPreview(
       id: id,
       senderId: senderId,
-      senderName: senderName,
+      senderName: senderLabel,
       text: text,
       type: type,
       imageUrl: imageUrl,
@@ -359,6 +385,7 @@ class DirectMessage {
     required String myUid,
     required bool isSeen,
     bool showUsername = false,
+    bool senderIsAdmin = false,
     ChatUser? sender,
   }) {
     final mine = senderId == myUid;
@@ -371,18 +398,25 @@ class DirectMessage {
     return ChatMessage(
       id: id,
       senderId: senderId,
-      senderName: mine ? 'You' : (showUsername ? groupLabel : senderName),
-      senderColor: showUsername ? sender?.avatarColor : null,
+      senderName: anonymous
+          ? 'Anonymous Sender'
+          : (mine ? 'You' : (showUsername ? groupLabel : senderName)),
+      senderColor: anonymous || !showUsername ? null : sender?.avatarColor,
       text: deleted ? 'This message was deleted' : text,
       time: formatMessageTime(createdAt),
       createdAt: createdAt,
       isMe: mine,
+      isAnonymous: anonymous,
+      isAdmin: senderIsAdmin && !anonymous,
       isSeen: isSeen,
+      isPending: pending,
       isDeleted: deleted,
       isEdited: editedAt != null,
       imageUrl: imageUrl,
-      replyToSender: replyTo?.senderId == myUid ? 'You' : replyTo?.senderName,
-      replyToText: replyTo?.preview,
+      replyToSender: deleted
+          ? null
+          : (replyTo?.senderId == myUid ? 'You' : replyTo?.senderName),
+      replyToText: deleted ? null : replyTo?.preview,
     );
   }
 }

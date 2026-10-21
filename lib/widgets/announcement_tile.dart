@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/announcement.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
 import '../theme/spotify_colors.dart';
-import 'cached_profile_image.dart';
+import '../utils/active_time.dart';
+import 'user_avatar.dart';
 
 /// A single announcement row, matching Slack's message-list dimensions:
 /// a 36dp rounded-square avatar, a bold 15sp sender, a 12sp timestamp and
@@ -43,7 +45,10 @@ class AnnouncementTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AnnouncementAvatar(photoUrl: announcement.photoUrl),
+              AnnouncementAvatar(
+                name: announcement.author,
+                photoUrl: announcement.photoUrl,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -60,8 +65,9 @@ class AnnouncementTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          announcement.time,
+                        ActiveTimestamp(
+                          at: announcement.createdAt,
+                          fallback: announcement.time,
                           style: SlackType.timestamp(scheme),
                         ),
                         if (announcement.unread) ...[
@@ -134,7 +140,7 @@ class _DeleteBackground extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.delete_outline, size: 20, color: Colors.white),
+          const Icon(LucideIcons.trash2, size: 20, color: Colors.white),
           const SizedBox(width: 6),
           Text(
             'Delete',
@@ -148,43 +154,22 @@ class _DeleteBackground extends StatelessWidget {
   }
 }
 
-/// The poster's profile picture, or a subdued person glyph when they do not
-/// have one.
+/// The poster's profile picture, or their initials when they do not have one.
 class AnnouncementAvatar extends StatelessWidget {
-  const AnnouncementAvatar({super.key, this.photoUrl, this.size = 36});
+  const AnnouncementAvatar({
+    super.key,
+    required this.name,
+    this.photoUrl,
+    this.size = 36,
+  });
 
+  final String name;
   final String? photoUrl;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = Container(
-      width: size,
-      height: size,
-      color: SpotifyColors.surfaceHover,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.person_outline,
-        size: size * 0.55,
-        color: SpotifyColors.textSubdued,
-      ),
-    );
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: photoUrl == null
-            ? placeholder
-            : CachedProfileImage(
-                url: photoUrl!,
-                width: size,
-                height: size,
-                fallback: placeholder,
-              ),
-      ),
-    );
+    return UserAvatar(name: name, photoUrl: photoUrl, size: size);
   }
 }
 

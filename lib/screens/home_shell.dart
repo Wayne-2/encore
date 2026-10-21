@@ -165,11 +165,7 @@ class _NavButton extends StatelessWidget {
     /// it eases between 0 and 1 while the pages swipe.
     final t = (1 - (page - index).abs()).clamp(0.0, 1.0);
 
-    final color = Color.lerp(
-      scheme.onSurfaceVariant,
-      SpotifyColors.accent,
-      t,
-    )!;
+    final color = Color.lerp(scheme.onSurfaceVariant, SpotifyColors.accent, t)!;
 
     return InkWell(
       onTap: onTap,

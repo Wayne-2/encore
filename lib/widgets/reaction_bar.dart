@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/reaction_store.dart';
 import '../theme/app_type.dart';
@@ -15,6 +16,25 @@ const List<String> _emojiPalette = [
   '🔥',
   '😮',
   '😢',
+  '😍',
+  '🤔',
+  '💯',
+  '🙏',
+  '😅',
+  '😎',
+  '🤝',
+  '✅',
+  '👀',
+  '💡',
+  '🚀',
+  '🤯',
+  '😭',
+  '😡',
+  '👌',
+  '🤞',
+  '💪',
+  '🎯',
+  '✨',
 ];
 
 /// A reaction tally for one emoji.
@@ -182,7 +202,7 @@ class _ReactionBarState extends State<ReactionBar> {
                 border: Border.all(color: SpotifyColors.border),
               ),
               child: Icon(
-                Icons.add_reaction_outlined,
+                LucideIcons.smilePlus,
                 size: 16,
                 color: scheme.onSurfaceVariant,
               ),

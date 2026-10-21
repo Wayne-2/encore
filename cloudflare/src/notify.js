@@ -317,6 +317,7 @@ async function sendFcm(env, token, fid, payload) {
         ]),
       ),
       android: {
+        priority: 'high',
         collapse_key: payload.collapseKey,
         notification: {
           channel_id: CHANNEL_ID,
@@ -326,6 +327,10 @@ async function sendFcm(env, token, fid, payload) {
         },
       },
       apns: {
+        headers: {
+          'apns-priority': '10',
+          'apns-push-type': 'alert',
+        },
         payload: {
           aps: {
             sound: 'default',
@@ -438,6 +443,7 @@ async function deliverMessage(env, token, actorUid, chatId, messageId) {
   const messageMillis = Date.parse(message.createdAt) || Date.now();
   const clearedAt = chat.clearedAt || {};
   const senderName = displayName(message.senderName);
+  const anonymous = message.anonymous === true;
 
   let sentCount = 0;
   let failures = 0;
@@ -456,7 +462,7 @@ async function deliverMessage(env, token, actorUid, chatId, messageId) {
           type: 'chat_message',
           chatId,
           messageId,
-          senderId: actorUid,
+          ...(anonymous ? {} : { senderId: actorUid }),
         },
         collapseKey: chatId,
         tag: chatId,

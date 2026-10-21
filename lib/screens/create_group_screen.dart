@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/direct_chat.dart';
 import '../navigation/app_route.dart';
@@ -9,7 +12,9 @@ import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/floating_empty_state.dart';
+import '../widgets/user_avatar.dart';
 import '../widgets/workspace_app_bar.dart';
+import 'image_crop_screen.dart';
 import 'persistent_group_chat_screen.dart';
 
 /// Picks members and creates a Firestore-backed group with the current user
@@ -31,6 +36,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       widget.users ?? ChatStore.instance.watchUsers();
   final Map<String, ChatUser> _selected = {};
   bool _creating = false;
+  bool _pickingPhoto = false;
+  Uint8List? _photoBytes;
   String _query = '';
 
   @override
@@ -42,6 +49,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   bool get _canCreate =>
       !_creating &&
+      !_pickingPhoto &&
       _nameController.text.trim().isNotEmpty &&
       _selected.isNotEmpty;
 
@@ -63,6 +71,87 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     });
   }
 
+  Future<void> _showSnack(String message) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<ImageSource?> _choosePhotoSource() {
+    final scheme = Theme.of(context).colorScheme;
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: SpotifyColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Add group photo',
+                  style: AppType.name(scheme).copyWith(fontSize: 16),
+                ),
+              ),
+            ),
+            ListTile(
+              key: const ValueKey('group-photo-gallery'),
+              leading: const Icon(LucideIcons.image),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            ),
+            ListTile(
+              key: const ValueKey('group-photo-camera'),
+              leading: const Icon(LucideIcons.camera),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto() async {
+    if (_creating || _pickingPhoto) return;
+
+    try {
+      final source = await _choosePhotoSource();
+      if (source == null || !mounted) return;
+
+      setState(() => _pickingPhoto = true);
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1080,
+      );
+      if (picked == null || !mounted) return;
+
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+
+      final cropped = await Navigator.of(context).push<Uint8List>(
+        sharedAxisRoute<Uint8List>(ImageCropScreen(image: bytes)),
+      );
+      if (cropped == null || !mounted) return;
+
+      setState(() => _photoBytes = cropped);
+    } on PlatformException {
+      await _showSnack('Could not open your photos. Check app permissions.');
+    } catch (_) {
+      await _showSnack('Could not add that photo. Try again.');
+    } finally {
+      if (mounted) setState(() => _pickingPhoto = false);
+    }
+  }
+
   Future<void> _create() async {
     if (!_canCreate) return;
     setState(() => _creating = true);
@@ -70,6 +159,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       final group = await ChatStore.instance.createGroup(
         title: _nameController.text,
         members: _selected.values.toList(growable: false),
+        photoBytes: _photoBytes,
       );
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(
@@ -89,6 +179,103 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     }
   }
 
+  Widget _buildPhotoPicker(ColorScheme scheme) {
+    final name = _nameController.text.trim();
+    final label = name.isEmpty ? 'Group' : name;
+    final bytes = _photoBytes;
+
+    return Semantics(
+      button: true,
+      label: bytes == null ? 'Add group photo' : 'Change group photo',
+      child: InkWell(
+        key: const ValueKey('create-group-photo'),
+        onTap: _creating || _pickingPhoto ? null : _pickPhoto,
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 84,
+          height: 84,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: bytes == null
+                      ? ChatAvatar(
+                          avatarInitials: initialsForName(label),
+                          avatarColor: avatarColorFor(label),
+                          size: 84,
+                          borderRadius: BorderRadius.circular(4),
+                        )
+                      : Image.memory(
+                          bytes,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                        ),
+                ),
+              ),
+              if (_pickingPhoto)
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      child: const Center(child: AppLoader(size: 20)),
+                    ),
+                  ),
+                ),
+              Positioned(
+                right: -3,
+                bottom: -3,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: SpotifyColors.accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: SpotifyColors.background,
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    LucideIcons.camera,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              if (bytes != null && !_pickingPhoto)
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: Material(
+                    color: SpotifyColors.background,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      key: const ValueKey('create-group-photo-remove'),
+                      onTap: _creating
+                          ? null
+                          : () => setState(() => _photoBytes = null),
+                      customBorder: const CircleBorder(),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          LucideIcons.x,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -103,7 +290,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             headingSize: 18,
             leading: IconButton(
               onPressed: () => Navigator.maybePop(context),
-              icon: const Icon(Icons.arrow_back_rounded, size: 22),
+              icon: const Icon(LucideIcons.arrowLeft, size: 22),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 28, height: 28),
               visualDensity: VisualDensity.compact,
@@ -136,6 +323,33 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             ),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Row(
+              children: [
+                _buildPhotoPicker(scheme),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Group photo',
+                        style: AppType.name(scheme).copyWith(fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _photoBytes == null
+                            ? 'Add a picture so members can spot the group.'
+                            : 'Tap the photo to change it.',
+                        style: AppType.meta(scheme).copyWith(height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: TextField(
               key: const ValueKey('create-group-name'),
@@ -158,7 +372,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   fontSize: 16,
                 ),
                 prefixIcon: Icon(
-                  Icons.groups_rounded,
+                  LucideIcons.users,
                   color: SpotifyColors.accent,
                   size: 22,
                 ),
@@ -166,7 +380,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 fillColor: SpotifyColors.surface,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(4),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -189,7 +403,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                           avatarColor: member.avatarColor,
                           avatarInitials: member.initials,
                           size: 24,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         label: Text(
                           member.username.trim().isNotEmpty
@@ -230,7 +444,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   fontSize: 14,
                 ),
                 prefixIcon: Icon(
-                  Icons.search_rounded,
+                  LucideIcons.search,
                   color: scheme.onSurfaceVariant,
                   size: 20,
                 ),
@@ -238,7 +452,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 fillColor: SpotifyColors.surface,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(4),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -291,7 +505,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   return Center(
                     child: FloatingEmptyState(
                       key: const ValueKey('create-group-empty'),
-                      icon: Icons.person_search_outlined,
+                      icon: LucideIcons.search,
                       message: _query.trim().isEmpty
                           ? 'No other members yet.'
                           : 'No people match “${_query.trim()}”.',
@@ -323,7 +537,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                         avatarColor: user.avatarColor,
                         avatarInitials: user.initials,
                         size: 40,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       title: Text(
                         user.displayName,

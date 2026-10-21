@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -12,6 +13,7 @@ import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/chat_emoji_picker.dart';
 import '../widgets/floating_empty_state.dart';
 
 /// Telegram-style direct message screen backed by Firestore.
@@ -302,7 +304,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
             ListTile(
               key: const ValueKey('chat-photo-action'),
               leading: const Icon(
-                Icons.photo_outlined,
+                LucideIcons.image,
                 color: SpotifyColors.accent,
               ),
               title: const Text('Photo'),
@@ -314,7 +316,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
             ListTile(
               key: const ValueKey('chat-camera-action'),
               leading: const Icon(
-                Icons.camera_alt_outlined,
+                LucideIcons.camera,
                 color: SpotifyColors.accent,
               ),
               title: const Text('Camera'),
@@ -324,7 +326,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.insert_drive_file_outlined),
+              leading: const Icon(LucideIcons.fileText),
               title: const Text('Document'),
               subtitle: const Text('Coming soon'),
               onTap: () {
@@ -333,7 +335,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.headphones_outlined),
+              leading: const Icon(LucideIcons.headphones),
               title: const Text('Audio'),
               subtitle: const Text('Coming soon'),
               onTap: () {
@@ -345,6 +347,11 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
         ),
       ),
     );
+  }
+
+  void _startReply(DirectMessage message) {
+    setState(() => _replyTo = message);
+    _inputFocus.requestFocus();
   }
 
   Future<void> _showMessageActions(DirectMessage message) async {
@@ -361,26 +368,26 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.reply_rounded),
+              leading: const Icon(LucideIcons.reply),
               title: const Text('Reply'),
               onTap: () => Navigator.pop(context, 'reply'),
             ),
             if (message.text.trim().isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.copy_rounded),
+                leading: const Icon(LucideIcons.copy),
                 title: const Text('Copy'),
                 onTap: () => Navigator.pop(context, 'copy'),
               ),
             if (mine)
               ListTile(
-                leading: const Icon(Icons.edit_outlined),
+                leading: const Icon(LucideIcons.pencil),
                 title: const Text('Edit'),
                 onTap: () => Navigator.pop(context, 'edit'),
               ),
             if (mine)
               ListTile(
                 leading: const Icon(
-                  Icons.delete_outline_rounded,
+                  LucideIcons.trash2,
                   color: SpotifyColors.danger,
                 ),
                 title: const Text(
@@ -397,8 +404,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
     if (!mounted || action == null) return;
     switch (action) {
       case 'reply':
-        setState(() => _replyTo = message);
-        _inputFocus.requestFocus();
+        _startReply(message);
       case 'copy':
         await Clipboard.setData(ClipboardData(text: message.text));
         _showSnack('Copied');
@@ -515,8 +521,13 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
     if (confirmed != true) return;
 
     try {
-      await ChatStore.instance.clearChat(widget.chatId);
-      if (mounted) setState(() => _messages = const []);
+      final cleared = await ChatStore.instance.clearChat(widget.chatId);
+      if (!mounted) return;
+      if (!cleared) {
+        _showSnack('Could not clear this chat.');
+        return;
+      }
+      setState(() => _messages = const []);
     } catch (_) {
       _showSnack('Could not clear this chat.');
     }
@@ -609,7 +620,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
         elevation: 0,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const Icon(LucideIcons.chevronLeft, size: 20),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -664,7 +675,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
         actions: [
           PopupMenuButton<String>(
             key: const ValueKey('persistent-chat-menu'),
-            icon: Icon(Icons.more_vert_rounded, color: scheme.onSurface),
+            icon: Icon(LucideIcons.moreVertical, color: scheme.onSurface),
             color: SpotifyColors.surface,
             onSelected: (value) {
               switch (value) {
@@ -724,7 +735,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                                 padding: EdgeInsets.only(top: 30),
                                 child: FloatingEmptyState(
                                   key: ValueKey('persistent-chat-empty'),
-                                  icon: Icons.forum_outlined,
+                                  iconAsset: 'assets/icons/messages.svg',
                                   message: 'No messages yet. Say hi.',
                                 ),
                               ),
@@ -752,6 +763,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                             key: ValueKey('persistent-message-${message.id}'),
                             message: uiMessage,
                             onLongPress: () => _showMessageActions(message),
+                            onReply: () => _startReply(message),
                           ),
                         ],
                       );
@@ -802,7 +814,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          reply.senderId == _myUid ? 'You' : reply.senderName,
+                          reply.senderId == _myUid ? 'You' : reply.senderLabel,
                           style: const TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 12,
@@ -826,7 +838,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                   IconButton(
                     onPressed: () => setState(() => _replyTo = null),
                     icon: Icon(
-                      Icons.close_rounded,
+                      LucideIcons.x,
                       size: 18,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -851,14 +863,42 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.add_rounded,
+                      LucideIcons.plus,
                       color: scheme.onSurface,
                       size: 24,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const ValueKey('persistent-emoji-button'),
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () async {
+                    await showChatEmojiPicker(
+                      context: context,
+                      controller: _textController,
+                    );
+                    if (mounted) setState(() {});
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: SpotifyColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.smile,
+                      color: scheme.onSurfaceVariant,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 44),
@@ -917,7 +957,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                         IconButton(
                           key: const ValueKey('persistent-send-button'),
                           icon: const Icon(
-                            Icons.arrow_upward_rounded,
+                            LucideIcons.arrowUp,
                             color: SpotifyColors.accent,
                             size: 22,
                           ),
@@ -927,7 +967,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                       else
                         IconButton(
                           icon: Icon(
-                            Icons.mic_none_rounded,
+                            LucideIcons.mic,
                             color: scheme.onSurfaceVariant,
                             size: 22,
                           ),

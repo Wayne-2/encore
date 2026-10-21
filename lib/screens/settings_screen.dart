@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
@@ -28,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                    icon: const Icon(LucideIcons.chevronLeft, size: 20),
                     color: scheme.onSurface,
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
@@ -87,7 +88,7 @@ class _SearchField extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.search, size: 18, color: scheme.onSurfaceVariant),
+            Icon(LucideIcons.search, size: 18, color: scheme.onSurfaceVariant),
             const SizedBox(width: 10),
             Text('Search settings', style: AppType.subtitle(scheme)),
           ],

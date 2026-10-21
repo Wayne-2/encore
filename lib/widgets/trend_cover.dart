@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/trend.dart';
 import '../theme/app_type.dart';
@@ -15,12 +16,14 @@ class TrendCover extends StatelessWidget {
     this.width,
     this.height,
     this.borderRadius = 8,
+    this.onTap,
   });
 
   final List<TrendMedia> media;
   final double? width;
   final double? height;
   final double borderRadius;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -37,14 +40,14 @@ class TrendCover extends StatelessWidget {
       ),
       child: Center(
         child: Icon(
-          Icons.trending_up,
+          LucideIcons.trendingUp,
           size: 34,
           color: scheme.primary.withValues(alpha: 0.8),
         ),
       ),
     );
 
-    return ClipRRect(
+    final coverWidget = ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: SizedBox(
         width: width,
@@ -87,7 +90,7 @@ class TrendCover extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
-                              Icons.collections,
+                              LucideIcons.image,
                               size: 11,
                               color: Colors.white,
                             ),
@@ -105,6 +108,14 @@ class TrendCover extends StatelessWidget {
                 ],
               ),
       ),
+    );
+
+    final onTap = this.onTap;
+    if (onTap == null) return coverWidget;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: coverWidget,
     );
   }
 
@@ -167,11 +178,7 @@ class _PlayBadge extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
       ),
-      child: const Icon(
-        Icons.play_arrow_rounded,
-        color: Colors.white,
-        size: 24,
-      ),
+      child: const Icon(LucideIcons.play, color: Colors.white, size: 24),
     );
   }
 }

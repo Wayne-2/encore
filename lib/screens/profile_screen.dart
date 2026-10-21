@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_type.dart';
@@ -286,7 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text('See profile', style: _profileMetaStyle(scheme)),
                         const SizedBox(height: 10),
                         _CircleIcon(
-                          icon: Icons.share_outlined,
+                          icon: LucideIcons.share2,
                           color: scheme.onSurface,
                           onTap: () {},
                         ),
@@ -340,20 +341,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 const _ProfileActionTile(
-                  icon: Icons.insights,
+                  icon: LucideIcons.trendingUp,
                   title: 'Student Performance',
                   subtitle: 'Track and manage your performance as a student',
                 ),
                 const SizedBox(height: 12),
                 const _ProfileActionTile(
-                  icon: Icons.checklist_rounded,
+                  icon: LucideIcons.listChecks,
                   title: 'Personal todo',
                   subtitle:
                       'Add todos and schedule personal activities with timer',
                 ),
                 const SizedBox(height: 12),
                 const _ProfileActionTile(
-                  icon: Icons.support_agent,
+                  icon: LucideIcons.headphones,
                   title: 'Student Assistant',
                   subtitle: 'Request Student assistance from Agents',
                 ),
@@ -393,7 +394,7 @@ class _ProfileLoadError extends StatelessWidget {
         child: Row(
           children: [
             const Icon(
-              Icons.cloud_off_outlined,
+              LucideIcons.cloudOff,
               size: 18,
               color: SpotifyColors.danger,
             ),
@@ -648,7 +649,7 @@ class _ProfileActionTile extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Icon(
-                Icons.arrow_forward_ios,
+                LucideIcons.chevronRight,
                 size: 14,
                 color: scheme.onSurfaceVariant,
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/activity.dart';
 import '../theme/app_type.dart';
@@ -125,7 +126,7 @@ class _AddActivitySheetState extends State<AddActivitySheet> {
                 decoration: InputDecoration(
                   labelText: 'Date',
                   suffixIcon: Icon(
-                    Icons.calendar_today_outlined,
+                    LucideIcons.calendar,
                     size: 18,
                     color: scheme.onSurfaceVariant,
                   ),

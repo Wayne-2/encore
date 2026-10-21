@@ -1,11 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../models/trend.dart';
+import '../navigation/app_route.dart';
+import '../screens/image_crop_screen.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import 'app_loader.dart';
 
 const int _maxSelection = 10;
 const int _pageSize = 60;
@@ -54,6 +58,9 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
   final _body = TextEditingController();
   final Map<String, Future<Uint8List?>> _thumbnails = {};
   final Map<String, AssetEntity> _selected = {};
+  final Map<String, Uint8List> _cropped = {};
+  final GlobalKey _mediaKey = GlobalKey();
+  final GlobalKey _galleryKey = GlobalKey();
 
   AssetPathEntity? _album;
   List<AssetEntity> _assets = const [];
@@ -63,7 +70,12 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
   bool _loadingMore = false;
   bool _hasMore = true;
   bool _posting = false;
+  bool _cropping = false;
   int _page = 0;
+  String? _activeId;
+
+  AssetEntity? get _activeAsset =>
+      _activeId == null ? null : _selected[_activeId];
 
   bool get _gallerySupported {
     if (kIsWeb) return false;
@@ -183,24 +195,87 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
     );
   }
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _scrollTo(GlobalKey key, {double alignment = 0.08}) {
+    final target = key.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      alignment: alignment,
+    );
+  }
+
   void _toggle(AssetEntity asset) {
     if (_selected.containsKey(asset.id)) {
-      setState(() => _selected.remove(asset.id));
+      setState(() {
+        _selected.remove(asset.id);
+        _cropped.remove(asset.id);
+        if (_activeId == asset.id) {
+          _activeId = _selected.keys.isEmpty ? null : _selected.keys.last;
+        }
+      });
       return;
     }
 
     if (_selected.length >= _maxSelection) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('You can attach up to $_maxSelection items.'),
-          ),
-        );
+      _showMessage('You can attach up to $_maxSelection items.');
       return;
     }
 
-    setState(() => _selected[asset.id] = asset);
+    final firstSelection = _selected.isEmpty;
+    setState(() {
+      _selected[asset.id] = asset;
+      _activeId = asset.id;
+    });
+
+    if (firstSelection) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollTo(_mediaKey, alignment: 0.2);
+      });
+    }
+  }
+
+  Future<void> _cropActive() async {
+    final asset = _activeAsset;
+    if (asset == null || asset.type == AssetType.video || _cropping) return;
+
+    setState(() => _cropping = true);
+    try {
+      final bytes = _cropped[asset.id] ?? await asset.originBytes;
+      if (!mounted) return;
+      if (bytes == null) {
+        _showMessage('Could not open that photo for cropping.');
+        return;
+      }
+
+      setState(() => _cropping = false);
+      final cropped = await Navigator.of(
+        context,
+      ).push<Uint8List>(sharedAxisRoute(ImageCropScreen(image: bytes)));
+      if (cropped == null || !mounted) return;
+      setState(() => _cropped[asset.id] = cropped);
+    } catch (_) {
+      if (mounted) _showMessage('Could not crop that photo. Try another one.');
+    } finally {
+      if (mounted && _cropping) setState(() => _cropping = false);
+    }
+  }
+
+  void _removeActive() {
+    final asset = _activeAsset;
+    if (asset == null) return;
+    setState(() {
+      _selected.remove(asset.id);
+      _cropped.remove(asset.id);
+      _activeId = _selected.keys.isEmpty ? null : _selected.keys.last;
+    });
   }
 
   Future<void> _post() async {
@@ -209,7 +284,7 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
 
     final media = <TrendMedia>[];
     for (final asset in _selected.values) {
-      final bytes = await _thumbnail(asset);
+      final bytes = _cropped[asset.id] ?? await _thumbnail(asset);
       if (bytes == null) continue;
       media.add(
         TrendMedia(
@@ -264,9 +339,31 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
                         child: _ComposeFields(title: _title, body: _body),
                       ),
                       SliverToBoxAdapter(
-                        child: _GalleryHeading(
-                          count: _selected.length,
-                          scheme: scheme,
+                        child: KeyedSubtree(
+                          key: _mediaKey,
+                          child: _MediaSection(
+                            asset: _activeAsset,
+                            selectedCount: _selected.length,
+                            cropped: _activeAsset == null
+                                ? null
+                                : _cropped[_activeAsset!.id],
+                            thumbnail: _activeAsset == null
+                                ? null
+                                : _thumbnail(_activeAsset!),
+                            cropping: _cropping,
+                            onAdd: () => _scrollTo(_galleryKey),
+                            onCrop: _cropActive,
+                            onRemove: _removeActive,
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: KeyedSubtree(
+                          key: _galleryKey,
+                          child: _GalleryHeading(
+                            count: _selected.length,
+                            scheme: scheme,
+                          ),
                         ),
                       ),
                       ..._gallerySlivers(scheme),
@@ -300,7 +397,7 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
       return [
         SliverToBoxAdapter(
           child: _GalleryMessage(
-            icon: Icons.photo_library_outlined,
+            icon: LucideIcons.image,
             text: 'Your gallery isn’t available on this device.',
             scheme: scheme,
           ),
@@ -312,7 +409,7 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
       return [
         SliverToBoxAdapter(
           child: _GalleryMessage(
-            icon: Icons.lock_outline,
+            icon: LucideIcons.lock,
             text:
                 'Allow access to your photos and videos to attach them to '
                 'your trend.',
@@ -330,7 +427,7 @@ class _ComposeTrendSheetState extends State<ComposeTrendSheet> {
       return [
         SliverToBoxAdapter(
           child: _GalleryMessage(
-            icon: Icons.photo_library_outlined,
+            icon: LucideIcons.image,
             text: 'No photos or videos found.',
             scheme: scheme,
           ),
@@ -514,6 +611,302 @@ class _ComposeFields extends StatelessWidget {
   }
 }
 
+class _MediaSection extends StatelessWidget {
+  const _MediaSection({
+    required this.asset,
+    required this.selectedCount,
+    required this.cropped,
+    required this.thumbnail,
+    required this.cropping,
+    required this.onAdd,
+    required this.onCrop,
+    required this.onRemove,
+  });
+
+  final AssetEntity? asset;
+  final int selectedCount;
+  final Uint8List? cropped;
+  final Future<Uint8List?>? thumbnail;
+  final bool cropping;
+  final VoidCallback onAdd;
+  final VoidCallback onCrop;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final current = asset;
+    if (current == null) {
+      return _MediaPlaceholder(onTap: onAdd);
+    }
+
+    final isVideo = current.type == AssetType.video;
+
+    return Padding(
+      key: const ValueKey('trend-media-section'),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: double.infinity,
+              height: 190,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (cropped != null)
+                    Image.memory(
+                      cropped!,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    )
+                  else
+                    FutureBuilder<Uint8List?>(
+                      future: thumbnail,
+                      builder: (context, snapshot) {
+                        final bytes = snapshot.data;
+                        if (bytes == null) {
+                          return const ColoredBox(
+                            color: SpotifyColors.surfaceHover,
+                            child: Center(child: AppLoader()),
+                          );
+                        }
+                        return Image.memory(
+                          bytes,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                        );
+                      },
+                    ),
+                  if (isVideo) ...[
+                    ColoredBox(color: Colors.black.withValues(alpha: 0.22)),
+                    const Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(10),
+                          child: Icon(
+                            LucideIcons.play,
+                            size: 32,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  Positioned(
+                    left: 10,
+                    bottom: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.62),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isVideo ? LucideIcons.video : LucideIcons.image,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isVideo
+                                ? _formatMediaDuration(current.duration)
+                                : 'Photo',
+                            style: const TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (selectedCount > 1)
+                    Positioned(
+                      right: 10,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.62),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '$selectedCount selected',
+                          style: const TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _MediaAction(
+                key: const ValueKey('trend-media-crop'),
+                icon: LucideIcons.crop,
+                label: 'Crop',
+                onTap: isVideo || cropping ? null : onCrop,
+                busy: cropping,
+              ),
+              _MediaAction(
+                key: const ValueKey('trend-media-add'),
+                icon: LucideIcons.imagePlus,
+                label: 'Add more',
+                onTap: onAdd,
+              ),
+              _MediaAction(
+                key: const ValueKey('trend-media-remove'),
+                icon: LucideIcons.trash2,
+                label: 'Remove',
+                onTap: onRemove,
+                color: SpotifyColors.danger,
+              ),
+            ],
+          ),
+          if (isVideo)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Videos can be removed or replaced, but not cropped.',
+                style: AppType.meta(scheme),
+                textAlign: TextAlign.center,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MediaPlaceholder extends StatelessWidget {
+  const _MediaPlaceholder({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const ValueKey('trend-add-media'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Ink(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              color: SpotifyColors.surfaceHover.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  LucideIcons.imagePlus,
+                  size: 34,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 8),
+                Text('Add photo or video', style: AppType.cardTitle(scheme)),
+                const SizedBox(height: 2),
+                Text(
+                  'Choose something from your gallery',
+                  style: AppType.meta(scheme),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaAction extends StatelessWidget {
+  const _MediaAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final Color? color;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+    final tint = color != null && enabled
+        ? color!
+        : enabled
+        ? scheme.onSurface
+        : SpotifyColors.textSubdued;
+
+    return Expanded(
+      child: InkResponse(
+        onTap: onTap,
+        radius: 30,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            children: [
+              SizedBox(
+                width: 38,
+                height: 38,
+                child: Center(
+                  child: busy
+                      ? const SizedBox(
+                          width: 17,
+                          height: 17,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(icon, size: 21, color: tint),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(label, style: AppType.meta(scheme).copyWith(color: tint)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _GalleryHeading extends StatelessWidget {
   const _GalleryHeading({required this.count, required this.scheme});
 
@@ -587,7 +980,11 @@ class _GalleryTile extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.videocam, size: 11, color: Colors.white),
+                    const Icon(
+                      LucideIcons.video,
+                      size: 11,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       _formatDuration(asset.duration),
@@ -623,7 +1020,7 @@ class _GalleryTile extends StatelessWidget {
                 border: Border.all(color: Colors.white, width: 1.5),
               ),
               child: selected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  ? const Icon(LucideIcons.check, size: 14, color: Colors.white)
                   : null,
             ),
           ),
@@ -632,11 +1029,7 @@ class _GalleryTile extends StatelessWidget {
     );
   }
 
-  static String _formatDuration(int seconds) {
-    final minutes = seconds ~/ 60;
-    final rest = seconds % 60;
-    return '$minutes:${rest.toString().padLeft(2, '0')}';
-  }
+  static String _formatDuration(int seconds) => _formatMediaDuration(seconds);
 }
 
 class _GalleryMessage extends StatelessWidget {
@@ -670,4 +1063,10 @@ class _GalleryMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatMediaDuration(int seconds) {
+  final minutes = seconds ~/ 60;
+  final rest = seconds % 60;
+  return '$minutes:${rest.toString().padLeft(2, '0')}';
 }

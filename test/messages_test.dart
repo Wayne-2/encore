@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:encore/screens/direct_chat_screen.dart';
 import 'package:encore/screens/group_chat_screen.dart';
@@ -50,7 +52,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.byType(StoryViewerScreen), findsOneWidget);
-    expect(find.text('45m ago'), findsOneWidget);
+    expect(find.textContaining('45 min'), findsOneWidget);
     expect(find.text('Reply to _cypher...'), findsOneWidget);
   });
 
@@ -127,7 +129,7 @@ void main() {
         find.text('This is a test anonymous assignment question'),
         findsOneWidget,
       );
-      expect(find.text('Sent anonymously (No sender ID)'), findsOneWidget);
+      expect(find.text('Anonymous Sender'), findsAtLeastNWidgets(1));
     },
   );
 
@@ -182,11 +184,11 @@ void main() {
       // Bottom input has only plus button and input pill
       expect(find.byKey(const ValueKey('plus-button')), findsOneWidget);
       expect(find.text('Message'), findsOneWidget);
-      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
+      expect(find.byIcon(LucideIcons.mic), findsOneWidget);
 
       // Verify NO separate video or phone icons in the top bar actions
-      expect(find.byIcon(Icons.videocam_outlined), findsNothing);
-      expect(find.byIcon(Icons.phone_outlined), findsNothing);
+      expect(find.byIcon(LucideIcons.video), findsNothing);
+      expect(find.byIcon(LucideIcons.phone), findsNothing);
 
       // Open three dots menu at the top
       await tester.tap(find.byKey(const ValueKey('chat-three-dots-menu')));
@@ -240,6 +242,102 @@ void main() {
       expect(tester.widget<AnimatedRotation>(rotationFinder).turns, 0.0);
     },
   );
+
+  testWidgets('Conversation search expands and filters the list', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
+    );
+
+    expect(
+      find.byKey(const ValueKey('conversations-search-open')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('conversations-search-field')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('conversations-search-open')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('conversations-search-field')),
+      findsOneWidget,
+    );
+    expect(find.text('Conversations'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('conversations-search-field')),
+      'SOCAHTOA',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('SOCAHTOA'), findsNWidgets(2));
+    expect(find.text('OFFICIAL GROUP CSC 200 LVL'), findsNothing);
+    expect(find.text('_daniel'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('conversations-search-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Conversations'), findsOneWidget);
+    expect(find.text('OFFICIAL GROUP CSC 200 LVL'), findsOneWidget);
+    expect(find.text('_daniel'), findsOneWidget);
+  });
+
+  testWidgets('Empty conversation search fills the remaining space', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('conversations-search-open')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('conversations-search-field')),
+      'no such conversation',
+    );
+    await tester.pumpAndSettle();
+
+    final empty = find.byKey(const ValueKey('messages-empty'));
+    expect(empty, findsOneWidget);
+    expect(
+      find.text('No conversations match “no such conversation”.'),
+      findsOneWidget,
+    );
+    expect(tester.getCenter(empty).dy, greaterThan(450));
+    expect(
+      find.descendant(of: empty, matching: find.byType(SvgPicture)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Conversation overflow menu exposes Archive and settings', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('conversations-more')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Archive'), findsOneWidget);
+    expect(find.text('Message settings'), findsOneWidget);
+
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Archived conversations are coming soon.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'Navigating to Messages tab from HomeShell displays MessagesScreen',

@@ -119,10 +119,21 @@ class ContactStore {
     final ref = _firestore
         .collection(_requests)
         .doc(contactRequestId(uid, peer.id));
-    final existing = await ref.get();
-    if (existing.exists) {
-      final data = existing.data() ?? const {};
-      if (data['status'] == 'accepted' || data['fromUid'] == uid) return;
+    Map<String, dynamic>? existingData;
+    try {
+      final existing = await ref.get();
+      if (existing.exists) existingData = existing.data();
+    } on FirebaseException catch (error) {
+      // Reading a missing request is denied by older rules because the
+      // resource-based read condition cannot resolve a null document. The
+      // create below still validates ownership, so treat it as "not found".
+      if (error.code != 'permission-denied') rethrow;
+    }
+    if (existingData != null) {
+      if (existingData['status'] == 'accepted' ||
+          existingData['fromUid'] == uid) {
+        return;
+      }
       throw StateError('This person already sent you a request.');
     }
 
@@ -136,7 +147,7 @@ class ContactStore {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-    unawaited(NotificationService.instance.notifyContactRequest(ref.id));
+    await NotificationService.instance.notifyContactRequest(ref.id);
   }
 
   /// Accepts an incoming request and creates the DM for both participants.

@@ -30,7 +30,7 @@ class ChatAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = borderRadius ?? BorderRadius.circular(size * 0.23);
+    final radius = borderRadius ?? BorderRadius.circular(4);
     final dotSize = size * 0.22;
 
     Widget content;

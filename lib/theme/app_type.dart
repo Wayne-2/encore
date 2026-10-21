@@ -79,6 +79,16 @@ abstract final class AppType {
     ),
   );
 
+  /// Long-form reading copy — 16sp regular with generous leading so library
+  /// documents stay comfortable over several screens.
+  static TextStyle reading(ColorScheme s) => TextStyle(
+    fontFamily: AppTheme.fontFamily,
+    fontSize: 16,
+    height: 1.75,
+    fontWeight: FontWeight.w400,
+    color: s.onSurface,
+  );
+
   /// Card and list-item titles — 15sp bold primary text, one step below
   /// [name] so headings stay dominant.
   static TextStyle cardTitle(ColorScheme s) => withHierarchy(

@@ -1,14 +1,18 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-import '../theme/app_theme.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../models/library_material.dart';
+import '../navigation/app_route.dart';
+import '../services/auth_service.dart';
+import '../services/library_import_service.dart';
+import '../services/library_store.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import 'library_preview_screen.dart';
 
-/// The "Library" destination reached from [MoreScreen].
-///
-/// Structured after the Medium app's Library (reading list) screen: a large
-/// title, an underlined tab row, and a feed of saved items with a trailing
-/// thumbnail.
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
 
@@ -17,253 +21,412 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  static const List<String> _tabs = ['Reading list', 'Lists', 'Highlights'];
+  static const List<String> _tabs = [
+    'Your lists',
+    'Highlights',
+    'Reading history',
+  ];
 
   int _tab = 0;
+  bool _uploading = false;
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  LibraryStore get _store => LibraryStore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_store.listen());
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _pickAndUpload() async {
+    if (_uploading) return;
+    if (!AuthService.isAvailable || AuthService.instance.currentUser == null) {
+      _showSnack('Sign in to publish a document.');
+      return;
+    }
+
+    PlatformFile? file;
+    try {
+      file = await FilePicker.pickFile(
+        dialogTitle: 'Choose a PDF or image',
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
+      );
+    } catch (_) {
+      _showSnack('Could not open the file picker.');
+      return;
+    }
+    if (file == null || !mounted) return;
+
+    final details = await showModalBottomSheet<_PublishDetails>(
+      context: context,
+      backgroundColor: SpotifyColors.surface,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _PublishDetailsSheet(fileName: file!.name),
+    );
+    if (details == null || !mounted) return;
+
+    final user = AuthService.instance.currentUser;
+    final uploaderName = user?.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!.trim()
+        : user?.email?.split('@').first ?? 'Encore student';
+
+    setState(() => _uploading = true);
+    try {
+      final material = await LibraryImportService.instance.import(
+        file: file,
+        id: _store.newMaterialId(),
+        uploaderId: user?.uid ?? '',
+        uploaderName: uploaderName,
+        title: details.title,
+        subject: details.subject,
+      );
+      await _store.publish(material);
+      if (!mounted) return;
+      _search.clear();
+      setState(() {
+        _tab = 0;
+        _query = '';
+      });
+      _showSnack('Published to the Public library.');
+    } on LibraryImportException catch (error) {
+      _showSnack(error.message);
+    } catch (_) {
+      _showSnack('Upload failed. Check your connection and try again.');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  void _openMaterial(LibraryMaterial material) {
+    Navigator.of(
+      context,
+    ).push(sharedAxisRoute(LibraryPreviewScreen(material: material)));
+  }
+
+  LibraryMaterial? _materialById(String id) {
+    for (final material in _store.materials) {
+      if (material.id == id) return material;
+    }
+    return null;
+  }
+
+  void _showSavedList() {
+    final scheme = Theme.of(context).colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: SpotifyColors.surface,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return FractionallySizedBox(
+          heightFactor: 0.72,
+          child: ListenableBuilder(
+            listenable: _store,
+            builder: (context, _) {
+              final saved = _store.savedMaterials;
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Saved list', style: AppType.sectionTitle(scheme)),
+                    const SizedBox(height: 4),
+                    Text(
+                      saved.isEmpty
+                          ? 'Save materials to find them here.'
+                          : '${saved.length} saved '
+                                '${saved.length == 1 ? 'material' : 'materials'}',
+                      style: AppType.subtitle(scheme),
+                    ),
+                    const SizedBox(height: 16),
+                    if (saved.isEmpty)
+                      const Expanded(child: _SavedEmpty())
+                    else
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: saved.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final material = saved[index];
+                            return _MaterialTile(
+                              material: material,
+                              saved: true,
+                              onTap: () {
+                                Navigator.of(sheetContext).pop();
+                                _openMaterial(material);
+                              },
+                              onToggleSaved: () => _toggleSaved(material.id),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleSaved(String materialId) async {
+    try {
+      await _store.toggleSaved(materialId);
+      final saved = _store.isSaved(materialId);
+      _showSnack(saved ? 'Saved to your list.' : 'Removed from Saved list.');
+    } catch (_) {
+      _showSnack("Couldn't update your saved list.");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final canPop = Navigator.of(context).canPop();
 
-    return Scaffold(
-      backgroundColor: SpotifyColors.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 52,
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                    color: scheme.onSurface,
-                    onPressed: () => Navigator.of(context).maybePop(),
+    return ListenableBuilder(
+      listenable: _store,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: SpotifyColors.background,
+          floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+          floatingActionButton: _uploading
+              ? null
+              : FloatingActionButton(
+                  key: const ValueKey('library-upload'),
+                  onPressed: _pickAndUpload,
+                  tooltip: 'Publish a document',
+                  backgroundColor: SpotifyColors.accent,
+                  foregroundColor: Colors.white,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.search, size: 22),
-                    color: scheme.onSurface,
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.more_horiz, size: 22),
-                    color: scheme.onSurface,
-                    onPressed: () {},
-                  ),
-                  const SizedBox(width: 4),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Text(
-                'Library',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: scheme.onSurface,
+                  child: const Icon(LucideIcons.upload, size: 22),
+                ),
+          body: Stack(
+            children: [
+              SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 12, 20, 0),
+                      child: Row(
+                        children: [
+                          if (canPop)
+                            IconButton(
+                              key: const ValueKey('library-back'),
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: const Icon(LucideIcons.chevronLeft),
+                              iconSize: 17,
+                              color: scheme.onSurface,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 28,
+                                height: 40,
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              'Library',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppType.sectionTitle(
+                                scheme,
+                              ).copyWith(height: 1.1, letterSpacing: -0.2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _LibraryTabs(
+                      tabs: _tabs,
+                      selected: _tab,
+                      onSelected: (index) => setState(() => _tab = index),
+                    ),
+                    Expanded(child: _content(scheme)),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  _LibraryTab(
-                    label: _tabs[i],
-                    selected: _tab == i,
-                    onTap: () => setState(() => _tab = i),
+              if (_uploading)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: SpotifyColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: SpotifyColors.border),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: SpotifyColors.accent,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              'Building your document…',
+                              style: AppType.body(scheme),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Extracting text, then publishing the doc. '
+                              'The original file is not uploaded.',
+                              textAlign: TextAlign.center,
+                              style: AppType.meta(scheme),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-              ],
-            ),
-            Expanded(child: _content(scheme)),
-          ],
-        ),
-      ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _content(ColorScheme scheme) {
-    switch (_tab) {
-      case 1:
-        return const _ListsTab();
-      case 2:
-        return const _HighlightsTab();
-      default:
-        return const _ReadingListTab();
-    }
-  }
-}
-
-/// A single underlined tab in the [LibraryScreen] header.
-class _LibraryTab extends StatelessWidget {
-  const _LibraryTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: selected ? scheme.onSurface : SpotifyColors.border,
-              width: selected ? 2 : 1,
-            ),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 14,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
-          ),
-        ),
+    return switch (_tab) {
+      1 => _HighlightsTab(
+        scheme: scheme,
+        highlights: _store.highlights,
+        onOpen: (highlight) {
+          final material = _materialById(highlight.materialId);
+          if (material == null) {
+            _showSnack('That document is no longer in the public library.');
+            return;
+          }
+          _openMaterial(material);
+        },
       ),
-    );
+      2 => _ReadingHistoryTab(
+        scheme: scheme,
+        entries: _store.history,
+        onOpen: (entry) {
+          final material = _materialById(entry.materialId);
+          if (material == null) {
+            _showSnack('That document is no longer in the public library.');
+            return;
+          }
+          _openMaterial(material);
+        },
+      ),
+      _ => _YourListsTab(
+        scheme: scheme,
+        savedCount: _store.savedMaterials.length,
+        materials: _store.materials,
+        continueReading: _store.continueReading,
+        query: _query,
+        searchController: _search,
+        onQueryChanged: (value) => setState(() => _query = value),
+        onClearQuery: () {
+          _search.clear();
+          setState(() => _query = '');
+        },
+        isSaved: _store.isSaved,
+        onOpenSavedList: _showSavedList,
+        onOpenMaterial: _openMaterial,
+        onToggleSaved: _toggleSaved,
+        onContinue: (entry) {
+          final material = _materialById(entry.materialId);
+          if (material == null) {
+            _showSnack('That document is no longer in the public library.');
+            return;
+          }
+          _openMaterial(material);
+        },
+      ),
+    };
   }
 }
 
-/// A saved item in the reading list.
-class _ReadingItem {
-  const _ReadingItem({
-    required this.title,
-    required this.source,
-    required this.meta,
-    required this.thumb,
+class _LibraryTabs extends StatelessWidget {
+  const _LibraryTabs({
+    required this.tabs,
+    required this.selected,
+    required this.onSelected,
   });
 
-  final String title;
-  final String source;
-  final String meta;
-  final String thumb;
-}
-
-const List<_ReadingItem> _readingItems = [
-  _ReadingItem(
-    title: 'Data Structures & Algorithms — Complete Lecture Notes',
-    source: 'Dr. A. Mensah',
-    meta: '24 min read',
-    thumb: 'assets/background.jpeg',
-  ),
-  _ReadingItem(
-    title: 'Database Systems: From Normalization to Transactions',
-    source: 'Faculty of Science',
-    meta: '18 min read',
-    thumb: 'assets/background-2.jpeg',
-  ),
-  _ReadingItem(
-    title: 'CSC 200 Past Questions & Marking Scheme (2019–2024)',
-    source: 'Encore Library',
-    meta: '6 min read',
-    thumb: 'assets/Encore.png',
-  ),
-  _ReadingItem(
-    title: 'Linear Algebra Cheat Sheet for Engineers',
-    source: 'Prof. K. Okafor',
-    meta: '9 min read',
-    thumb: 'assets/background-3.jpeg',
-  ),
-  _ReadingItem(
-    title: 'Operating Systems: Process Scheduling Summary',
-    source: 'Dr. A. Mensah',
-    meta: '12 min read',
-    thumb: 'assets/launch_icon_foreground.png',
-  ),
-];
-
-class _ReadingListTab extends StatelessWidget {
-  const _ReadingListTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 4),
-      itemCount: _readingItems.length,
-      separatorBuilder: (context, _) =>
-          const Divider(height: 1, thickness: 1, color: SpotifyColors.border),
-      itemBuilder: (context, i) => _ReadingRow(item: _readingItems[i]),
-    );
-  }
-}
-
-class _ReadingRow extends StatelessWidget {
-  const _ReadingRow({required this.item});
-
-  final _ReadingItem item;
+  final List<String> tabs;
+  final int selected;
+  final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Opening “${item.title}”'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: SpotifyColors.border)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppType.name(scheme).copyWith(height: 1.25),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        item.source,
-                        style: AppType.subtitle(scheme).copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurface,
-                        ),
+            for (var i = 0; i < tabs.length; i++)
+              InkWell(
+                key: ValueKey('library-tab-$i'),
+                onTap: () => onSelected(i),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(0, 12, 28, 12),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: selected == i
+                            ? scheme.onSurface
+                            : Colors.transparent,
+                        width: 2,
                       ),
-                      Text(' · ', style: AppType.subtitle(scheme)),
-                      Text(item.meta, style: AppType.subtitle(scheme)),
-                    ],
+                    ),
                   ),
-                ],
+                  child: Text(
+                    tabs[i],
+                    style: selected == i
+                        ? AppType.cardTitle(
+                            scheme,
+                          ).copyWith(fontSize: 14, color: scheme.onSurface)
+                        : AppType.subtitle(scheme).copyWith(
+                            fontSize: 14,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: Image.asset(
-                item.thumb,
-                width: 56,
-                height: 56,
-                fit: BoxFit.cover,
-              ),
-            ),
           ],
         ),
       ),
@@ -271,79 +434,520 @@ class _ReadingRow extends StatelessWidget {
   }
 }
 
-/// A saved list (collection) in the library.
-class _LibraryList {
-  const _LibraryList({
-    required this.name,
-    required this.count,
-    required this.thumb,
+class _YourListsTab extends StatelessWidget {
+  const _YourListsTab({
+    required this.scheme,
+    required this.savedCount,
+    required this.materials,
+    required this.continueReading,
+    required this.query,
+    required this.searchController,
+    required this.onQueryChanged,
+    required this.onClearQuery,
+    required this.isSaved,
+    required this.onOpenSavedList,
+    required this.onOpenMaterial,
+    required this.onToggleSaved,
+    required this.onContinue,
   });
 
-  final String name;
-  final int count;
-  final String thumb;
-}
-
-const List<_LibraryList> _lists = [
-  _LibraryList(
-    name: 'CSC 200 Materials',
-    count: 12,
-    thumb: 'assets/background-2.jpeg',
-  ),
-  _LibraryList(name: 'MTH 101', count: 8, thumb: 'assets/background-3.jpeg'),
-  _LibraryList(
-    name: 'Second Semester',
-    count: 20,
-    thumb: 'assets/background.jpeg',
-  ),
-];
-
-class _ListsTab extends StatelessWidget {
-  const _ListsTab();
+  final ColorScheme scheme;
+  final int savedCount;
+  final List<LibraryMaterial> materials;
+  final LibraryHistoryEntry? continueReading;
+  final String query;
+  final TextEditingController searchController;
+  final ValueChanged<String> onQueryChanged;
+  final VoidCallback onClearQuery;
+  final bool Function(String id) isSaved;
+  final VoidCallback onOpenSavedList;
+  final ValueChanged<LibraryMaterial> onOpenMaterial;
+  final ValueChanged<String> onToggleSaved;
+  final ValueChanged<LibraryHistoryEntry> onContinue;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 4),
-      itemCount: _lists.length,
-      separatorBuilder: (context, _) =>
-          const Divider(height: 1, thickness: 1, color: SpotifyColors.border),
-      itemBuilder: (context, i) {
-        final list = _lists[i];
-        final scheme = Theme.of(context).colorScheme;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+    final query = this.query.trim().toLowerCase();
+    final visible = query.isEmpty
+        ? materials
+        : [
+            for (final material in materials)
+              if (material.title.toLowerCase().contains(query) ||
+                  material.subject.toLowerCase().contains(query) ||
+                  material.uploaderName.toLowerCase().contains(query))
+                material,
+          ];
+
+    return ListView(
+      key: const ValueKey('library-public-list'),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+      children: [
+        _SavedListCard(
+          scheme: scheme,
+          count: savedCount,
+          onTap: onOpenSavedList,
+        ),
+        if (continueReading != null) ...[
+          const SizedBox(height: 12),
+          _ContinueCard(
+            scheme: scheme,
+            entry: continueReading!,
+            onTap: () => onContinue(continueReading!),
+          ),
+        ],
+        const SizedBox(height: 28),
+        Text('Public library', style: AppType.sectionTitle(scheme)),
+        const SizedBox(height: 4),
+        Text(
+          'Document uploads from the Encore community. Original files stay '
+          'on the uploader’s device.',
+          style: AppType.subtitle(scheme),
+        ),
+        const SizedBox(height: 14),
+        _SearchField(
+          scheme: scheme,
+          controller: searchController,
+          query: query,
+          onChanged: onQueryChanged,
+          onClear: onClearQuery,
+        ),
+        const SizedBox(height: 14),
+        if (query.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              '${visible.length} ${visible.length == 1 ? 'result' : 'results'}',
+              style: AppType.meta(scheme),
+            ),
+          ),
+        if (materials.isEmpty)
+          Text('No documents published yet.', style: AppType.subtitle(scheme))
+        else if (visible.isEmpty)
+          const _NoSearchResults()
+        else
+          for (var i = 0; i < visible.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _MaterialTile(
+              material: visible[i],
+              saved: isSaved(visible[i].id),
+              onTap: () => onOpenMaterial(visible[i]),
+              onToggleSaved: () => onToggleSaved(visible[i].id),
+            ),
+          ],
+      ],
+    );
+  }
+}
+
+class _ContinueCard extends StatelessWidget {
+  const _ContinueCard({
+    required this.scheme,
+    required this.entry,
+    required this.onTap,
+  });
+
+  final ColorScheme scheme;
+  final LibraryHistoryEntry entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (entry.progress * 100).round();
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: SpotifyColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: SpotifyColors.accent.withValues(alpha: 0.35)),
+      ),
+      child: InkWell(
+        key: const ValueKey('library-continue'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    LucideIcons.bookOpen,
+                    size: 15,
+                    color: SpotifyColors.accent,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Continue reading',
+                    style: AppType.tag(SpotifyColors.accent),
+                  ),
+                  const Spacer(),
+                  Text('$percent%', style: AppType.meta(scheme)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                entry.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.cardTitle(scheme).copyWith(height: 1.3),
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: entry.progress,
+                  minHeight: 3,
+                  backgroundColor: SpotifyColors.border,
+                  color: SpotifyColors.accent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    required this.scheme,
+    required this.controller,
+    required this.query,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final ColorScheme scheme;
+  final TextEditingController controller;
+  final String query;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const ValueKey('library-search'),
+      controller: controller,
+      onChanged: onChanged,
+      cursorColor: SpotifyColors.accent,
+      style: AppType.body(scheme).copyWith(color: scheme.onSurface),
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Search title, subject or uploader',
+        hintStyle: AppType.subtitle(scheme),
+        prefixIcon: Icon(
+          LucideIcons.search,
+          size: 17,
+          color: scheme.onSurfaceVariant,
+        ),
+        suffixIcon: query.isEmpty
+            ? null
+            : IconButton(
+                onPressed: onClear,
+                icon: const Icon(LucideIcons.x, size: 16),
+                color: scheme.onSurfaceVariant,
+                tooltip: 'Clear search',
+              ),
+        filled: true,
+        fillColor: SpotifyColors.surface,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: SpotifyColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: SpotifyColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: SpotifyColors.borderStrong),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoSearchResults extends StatelessWidget {
+  const _NoSearchResults();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: SpotifyColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: SpotifyColors.border),
+      ),
+      child: Column(
+        children: [
+          Icon(LucideIcons.searchX, size: 24, color: scheme.onSurfaceVariant),
+          const SizedBox(height: 10),
+          Text('No matching documents', style: AppType.name(scheme)),
+          const SizedBox(height: 4),
+          Text(
+            'Try a different title, subject or uploader.',
+            textAlign: TextAlign.center,
+            style: AppType.subtitle(scheme),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavedListCard extends StatelessWidget {
+  const _SavedListCard({
+    required this.scheme,
+    required this.count,
+    required this.onTap,
+  });
+
+  final ColorScheme scheme;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: SpotifyColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: SpotifyColors.border),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
           child: Row(
             children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: SpotifyColors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  LucideIcons.bookmark,
+                  size: 21,
+                  color: SpotifyColors.accent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Saved list', style: AppType.name(scheme)),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Text(
+                          count == 1 ? '1 material' : '$count materials',
+                          style: AppType.subtitle(scheme),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          LucideIcons.lock,
+                          size: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 18,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MaterialTile extends StatelessWidget {
+  const _MaterialTile({
+    required this.material,
+    required this.saved,
+    required this.onTap,
+    required this.onToggleSaved,
+  });
+
+  final LibraryMaterial material;
+  final bool saved;
+  final VoidCallback onTap;
+  final VoidCallback onToggleSaved;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final meta = [
+      if (material.subjectLabel.isNotEmpty) material.subjectLabel,
+      material.metaLabel,
+    ].join(' · ');
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: SpotifyColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: SpotifyColors.border),
+      ),
+      child: InkWell(
+        key: ValueKey('library-material-${material.id}'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: SpotifyColors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  material.isPdf ? LucideIcons.fileText : LucideIcons.image,
+                  size: 20,
+                  color: SpotifyColors.accent,
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      list.name,
+                      material.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.cardTitle(scheme).copyWith(height: 1.25),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meta,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppType.name(scheme),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${list.count} items',
                       style: AppType.subtitle(scheme),
                     ),
+                    if (material.uploaderName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Published by ${material.uploaderName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppType.meta(scheme),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(width: 14),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: Image.asset(
-                  list.thumb,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
+              IconButton(
+                key: ValueKey('library-material-save-${material.id}'),
+                onPressed: onToggleSaved,
+                icon: Icon(
+                  saved ? LucideIcons.bookmarkCheck : LucideIcons.bookmark,
+                ),
+                iconSize: 19,
+                color: saved ? SpotifyColors.accent : scheme.onSurfaceVariant,
+                tooltip: saved ? 'Remove from Saved list' : 'Save material',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 40,
+                  height: 40,
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HighlightsTab extends StatelessWidget {
+  const _HighlightsTab({
+    required this.scheme,
+    required this.highlights,
+    required this.onOpen,
+  });
+
+  final ColorScheme scheme;
+  final List<LibraryHighlight> highlights;
+  final ValueChanged<LibraryHighlight> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (highlights.isEmpty) {
+      return const _EmptyTab(
+        icon: LucideIcons.highlighter,
+        title: 'No highlights yet',
+        body: 'Open a document, select a passage, then tap Highlight.',
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+      itemCount: highlights.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final highlight = highlights[index];
+        return InkWell(
+          onTap: () => onOpen(highlight),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: SpotifyColors.surface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: SpotifyColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  highlight.text,
+                  style: AppType.body(scheme).copyWith(
+                    color: scheme.onSurface,
+                    fontStyle: FontStyle.italic,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        highlight.materialTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppType.subtitle(
+                          scheme,
+                        ).copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _relativeTime(highlight.createdAt),
+                      style: AppType.meta(scheme),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -351,70 +955,375 @@ class _ListsTab extends StatelessWidget {
   }
 }
 
-/// A highlighted passage in the library.
-class _Highlight {
-  const _Highlight({required this.quote, required this.source});
+class _ReadingHistoryTab extends StatelessWidget {
+  const _ReadingHistoryTab({
+    required this.scheme,
+    required this.entries,
+    required this.onOpen,
+  });
 
-  final String quote;
-  final String source;
+  final ColorScheme scheme;
+  final List<LibraryHistoryEntry> entries;
+  final ValueChanged<LibraryHistoryEntry> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return const _EmptyTab(
+        icon: LucideIcons.history,
+        title: 'Nothing read yet',
+        body: 'Documents you open will appear here.',
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+      itemCount: entries.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        return InkWell(
+          onTap: () => onOpen(entry),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SpotifyColors.surface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: SpotifyColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: SpotifyColors.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    entry.kind == LibraryMaterialKind.pdf
+                        ? LucideIcons.fileText
+                        : LucideIcons.image,
+                    size: 20,
+                    color: SpotifyColors.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppType.name(scheme).copyWith(height: 1.3),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        entry.progress >= 0.98
+                            ? 'Finished · ${_relativeTime(entry.lastReadAt)}'
+                            : '${(entry.progress * 100).round()}% read · '
+                                  '${_relativeTime(entry.lastReadAt)}',
+                        style: AppType.subtitle(scheme),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: entry.progress,
+                          minHeight: 3,
+                          backgroundColor: SpotifyColors.border,
+                          color: entry.progress >= 0.98
+                              ? SpotifyColors.textSubdued
+                              : SpotifyColors.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  LucideIcons.chevronRight,
+                  size: 18,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
-const List<_Highlight> _highlights = [
-  _Highlight(
-    quote:
-        'A stack is a linear structure that follows the last in, first out '
-        'principle — the most recent element is the first to leave.',
-    source: 'CSC 200 Notes',
-  ),
-  _Highlight(
-    quote:
-        'Normalization removes redundancy by decomposing a relation into '
-        'smaller, well-structured relations.',
-    source: 'Database Systems',
-  ),
-  _Highlight(
-    quote:
-        'An operating system schedules processes to maximise CPU usage '
-        'while keeping response times fair.',
-    source: 'Operating Systems',
-  ),
-];
+class _EmptyTab extends StatelessWidget {
+  const _EmptyTab({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
 
-class _HighlightsTab extends StatelessWidget {
-  const _HighlightsTab();
+  final IconData icon;
+  final String title;
+  final String body;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 30, color: scheme.onSurfaceVariant),
+            const SizedBox(height: 14),
+            Text(title, style: AppType.name(scheme)),
+            const SizedBox(height: 6),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: AppType.subtitle(scheme),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _highlights.length,
-      separatorBuilder: (context, _) => const SizedBox(height: 14),
-      itemBuilder: (context, i) {
-        final highlight = _highlights[i];
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: SpotifyColors.surface,
-            borderRadius: BorderRadius.circular(8),
+class _SavedEmpty extends StatelessWidget {
+  const _SavedEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.bookmark, size: 28, color: scheme.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text('Your Saved list is empty', style: AppType.name(scheme)),
+          const SizedBox(height: 6),
+          Text(
+            'Tap the bookmark on any public document.',
+            textAlign: TextAlign.center,
+            style: AppType.subtitle(scheme),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PublishDetails {
+  const _PublishDetails({required this.title, required this.subject});
+
+  final String title;
+  final String subject;
+}
+
+class _PublishDetailsSheet extends StatefulWidget {
+  const _PublishDetailsSheet({required this.fileName});
+
+  final String fileName;
+
+  @override
+  State<_PublishDetailsSheet> createState() => _PublishDetailsSheetState();
+}
+
+class _PublishDetailsSheetState extends State<_PublishDetailsSheet> {
+  late final TextEditingController _title = TextEditingController(
+    text: _titleFromFile(widget.fileName),
+  );
+  final TextEditingController _subject = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _subject.dispose();
+    super.dispose();
+  }
+
+  void _publish() {
+    final title = _title.text.trim();
+    if (title.isEmpty) return;
+    Navigator.of(
+      context,
+    ).pop(_PublishDetails(title: title, subject: _subject.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final canPublish = _title.text.trim().isNotEmpty;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text('Publish document', style: AppType.sectionTitle(scheme)),
+              const SizedBox(height: 4),
               Text(
-                highlight.quote,
-                style: AppType.body(scheme).copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: scheme.onSurface,
+                'We extract the text and publish it as a readable document. '
+                'Your original file is never uploaded or stored.',
+                style: AppType.subtitle(scheme),
+              ),
+              const SizedBox(height: 18),
+              _FieldLabel(label: 'Title', scheme: scheme),
+              const SizedBox(height: 6),
+              TextField(
+                key: const ValueKey('library-publish-title'),
+                controller: _title,
+                onChanged: (_) => setState(() {}),
+                maxLength: 200,
+                cursorColor: SpotifyColors.accent,
+                style: AppType.body(scheme).copyWith(color: scheme.onSurface),
+                decoration: _inputDecoration(
+                  scheme,
+                  hint: 'e.g. CSC 200 Data Structures Notes',
                 ),
               ),
               const SizedBox(height: 10),
-              Text(highlight.source, style: AppType.subtitle(scheme)),
+              _FieldLabel(label: 'Subject (optional)', scheme: scheme),
+              const SizedBox(height: 6),
+              TextField(
+                key: const ValueKey('library-publish-subject'),
+                controller: _subject,
+                maxLength: 40,
+                cursorColor: SpotifyColors.accent,
+                style: AppType.body(scheme).copyWith(color: scheme.onSurface),
+                decoration: _inputDecoration(scheme, hint: 'e.g. CSC 200'),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: SpotifyColors.accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: SpotifyColors.accent.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      LucideIcons.shieldCheck,
+                      size: 16,
+                      color: SpotifyColors.accent,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Only the extracted text is published. The source '
+                        '${widget.fileName} stays on your device.',
+                        style: AppType.meta(scheme),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      key: const ValueKey('library-publish-confirm'),
+                      onPressed: canPublish ? _publish : null,
+                      child: const Text('Publish'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel({required this.label, required this.scheme});
+
+  final String label;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(label, style: AppType.subtitle(scheme));
+  }
+}
+
+InputDecoration _inputDecoration(ColorScheme scheme, {required String hint}) {
+  return InputDecoration(
+    isDense: true,
+    hintText: hint,
+    hintStyle: AppType.subtitle(scheme),
+    counterStyle: AppType.meta(scheme),
+    filled: true,
+    fillColor: SpotifyColors.surface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: const BorderSide(color: SpotifyColors.border),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: const BorderSide(color: SpotifyColors.border),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: const BorderSide(color: SpotifyColors.borderStrong),
+    ),
+  );
+}
+
+String _titleFromFile(String fileName) {
+  final withoutExtension = fileName.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  final spaced = withoutExtension.replaceAll(RegExp(r'[_-]+'), ' ').trim();
+  return spaced.isEmpty ? 'Untitled document' : spaced;
+}
+
+String _relativeTime(DateTime? date) {
+  if (date == null) return '';
+  final diff = DateTime.now().difference(date);
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours} hr ago';
+  if (diff.inDays < 7) {
+    return '${diff.inDays} ${diff.inDays == 1 ? 'day' : 'days'} ago';
+  }
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${months[date.month - 1]} ${date.day}, ${date.year}';
 }

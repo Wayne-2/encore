@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image/image.dart' as img;
 
 import 'package:encore/main.dart';
@@ -30,6 +32,7 @@ import 'package:encore/theme/spotify_colors.dart';
 import 'package:encore/widgets/compose_announcement_sheet.dart';
 import 'package:encore/widgets/edit_profile_sheet.dart';
 import 'package:encore/widgets/trend_cover.dart';
+import 'package:encore/widgets/user_avatar.dart';
 
 /// Fills the in-memory feed for tests that need announcements to exist.
 void seedAnnouncements() {
@@ -293,7 +296,7 @@ void main() {
     expect(find.text('School details'), findsOneWidget);
 
     // The return arrow steps back to the personal details.
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byIcon(LucideIcons.chevronLeft));
     await tester.pumpAndSettle();
     expect(find.text('Create your account'), findsOneWidget);
   });
@@ -369,12 +372,13 @@ void main() {
       findsOneWidget,
     );
 
-    // Three announcement tiles, each falling back to the person glyph because
-    // the seeded posters have no profile picture.
+    // Three announcement tiles, each falling back to the poster's initials.
     expect(find.byKey(const ValueKey('announcement-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('announcement-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('announcement-2')), findsOneWidget);
-    expect(find.byIcon(Icons.person_outline), findsNWidgets(3));
+    expect(find.text('PA'), findsOneWidget);
+    expect(find.text('CR'), findsOneWidget);
+    expect(find.text('DM'), findsOneWidget);
 
     // Priority subtitles under each sender.
     expect(find.text('Highly prior'), findsOneWidget);
@@ -390,26 +394,23 @@ void main() {
 
     expect(find.text('No announcement posted yet'), findsOneWidget);
     expect(find.byKey(const ValueKey('announcement-empty')), findsOneWidget);
-    expect(find.byIcon(Icons.campaign_outlined), findsOneWidget);
+    expect(find.byIcon(LucideIcons.megaphone), findsOneWidget);
     expect(find.byKey(const ValueKey('announcement-0')), findsNothing);
   });
 
-  testWidgets('Updates exposes refresh controls', (WidgetTester tester) async {
+  testWidgets('Updates keeps pull-to-refresh without an app-bar button', (
+    WidgetTester tester,
+  ) async {
     AnnouncementStore.instance.clear();
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: UpdatesScreen())),
     );
 
-    expect(find.byKey(const ValueKey('updates-refresh')), findsOneWidget);
+    expect(find.byKey(const ValueKey('updates-refresh')), findsNothing);
     expect(
       find.byKey(const ValueKey('updates-refresh-indicator')),
       findsOneWidget,
     );
-
-    await tester.tap(find.byKey(const ValueKey('updates-refresh')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('updates-refresh')), findsOneWidget);
     expect(find.text('No announcement posted yet'), findsOneWidget);
   });
 
@@ -439,7 +440,7 @@ void main() {
     expect(find.text('Trending'), findsOneWidget);
     expect(find.text('No Trending news available'), findsOneWidget);
     expect(find.byKey(const ValueKey('trending-empty')), findsOneWidget);
-    expect(find.byIcon(Icons.trending_up), findsOneWidget);
+    expect(find.byIcon(LucideIcons.trendingUp), findsOneWidget);
     expect(find.byKey(const ValueKey('trending-show-more')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('trending-show-more')));
@@ -448,7 +449,7 @@ void main() {
     expect(find.byType(TrendingMoreScreen), findsOneWidget);
   });
 
-  testWidgets('Trending For you feed opens the full trend page', (
+  testWidgets('All trending topics feed opens the full trend page', (
     WidgetTester tester,
   ) async {
     TrendStore.instance.clear();
@@ -461,12 +462,12 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: TrendingMoreScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('For you'), findsOneWidget);
+    expect(find.text('All trending topics'), findsOneWidget);
     expect(find.byKey(const ValueKey('trend-feed-list')), findsOneWidget);
     expect(find.byKey(const ValueKey('trend-feed-0')), findsOneWidget);
     expect(find.text('Library hours'), findsOneWidget);
     expect(find.text('Ama Boateng'), findsOneWidget);
-    expect(find.text('Read story'), findsOneWidget);
+    expect(find.text('View info'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('trend-feed-0')));
     await tester.pumpAndSettle();
@@ -476,6 +477,20 @@ void main() {
     expect(find.text('Library hours'), findsOneWidget);
 
     TrendStore.instance.clear();
+  });
+
+  testWidgets('Empty trending feed uses the same icon as Updates', (
+    WidgetTester tester,
+  ) async {
+    TrendStore.instance.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: TrendingMoreScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('trend-feed-empty')), findsOneWidget);
+    expect(find.byIcon(LucideIcons.trendingUp), findsOneWidget);
+    expect(find.byIcon(LucideIcons.sparkles), findsNothing);
+    expect(find.text('No trending stories yet'), findsOneWidget);
   });
 
   testWidgets('Trend cover keeps the local thumbnail when the URL fails', (
@@ -526,7 +541,7 @@ void main() {
         .getSize(find.byKey(const ValueKey('trending-section')))
         .height;
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Post Trends'));
     await tester.pumpAndSettle();
@@ -535,6 +550,8 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
 
     expect(find.text('Post Trend'), findsOneWidget);
+    expect(find.byKey(const ValueKey('trend-add-media')), findsOneWidget);
+    expect(find.byKey(const ValueKey('trend-media-section')), findsNothing);
 
     await tester.enterText(
       find.byKey(const ValueKey('trend-title')),
@@ -592,7 +609,7 @@ void main() {
 
     expect(find.byKey(const ValueKey('activity-empty')), findsOneWidget);
     expect(find.text('No upcoming activities yet'), findsOneWidget);
-    expect(find.byIcon(Icons.event_available_outlined), findsOneWidget);
+    expect(find.byIcon(LucideIcons.calendarCheck), findsOneWidget);
   });
 
   testWidgets('Adding an activity opens the composer and updates the grid', (
@@ -601,7 +618,7 @@ void main() {
     ActivityStore.instance.clear();
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add Activity'));
     await tester.pumpAndSettle();
@@ -887,6 +904,46 @@ void main() {
     expect(find.text('You'), findsOneWidget);
   });
 
+  testWidgets('Long pressing a comment starts a reply', (
+    WidgetTester tester,
+  ) async {
+    CommentStore.instance.clear();
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AnnouncementDetailScreen(
+          announcement: Announcement(
+            id: 'test-announcement-reply',
+            author: 'Dr. Mensah',
+            time: '9:41 AM',
+            tag: 'Highly prior',
+            tagColor: Color(0xFFE8A33D),
+            body: 'The lab report is due this Friday before 5:00 PM.',
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'When is the deadline?');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('comment-send-button')));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('When is the deadline?'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('comment-reply-preview')), findsOneWidget);
+    expect(find.text('Replying to You'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Friday at 5 PM.');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('comment-send-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('comment-reply-preview')), findsNothing);
+    expect(find.text('Friday at 5 PM.'), findsOneWidget);
+    expect(find.text('Replying to You'), findsOneWidget);
+  });
+
   testWidgets('Trending detail supports posting a comment', (
     WidgetTester tester,
   ) async {
@@ -932,8 +989,15 @@ void main() {
       MaterialApp(home: TrendingDetailScreen(trend: trend)),
     );
 
-    await tester.tap(find.byIcon(Icons.add_reaction_outlined));
+    await tester.tap(find.byIcon(LucideIcons.smilePlus));
     await tester.pumpAndSettle();
+
+    // The picker offers a broader emoji set than the old nine reactions.
+    expect(find.text('😍'), findsOneWidget);
+    expect(find.text('💯'), findsOneWidget);
+    expect(find.text('🙏'), findsOneWidget);
+    expect(find.text('🚀'), findsOneWidget);
+
     await tester.tap(find.text('🔥').last);
     await tester.pumpAndSettle();
 
@@ -1205,19 +1269,19 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.byIcon(LucideIcons.plus), findsOneWidget);
     expect(find.text('New Announcement'), findsNothing);
     expect(find.text('Post Trends'), findsNothing);
     expect(find.text('Add Activity'), findsNothing);
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
 
     expect(find.text('New Announcement'), findsOneWidget);
     expect(find.text('Post Trends'), findsOneWidget);
     expect(find.text('Add Activity'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
 
     expect(find.text('New Announcement'), findsNothing);
@@ -1232,19 +1296,24 @@ void main() {
       const MaterialApp(home: Scaffold(body: MessagesScreen())),
     );
 
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.byIcon(LucideIcons.plus), findsOneWidget);
     expect(find.text('Add Story'), findsNothing);
     expect(find.text('New DM'), findsNothing);
     expect(find.text('New Group'), findsNothing);
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
 
     expect(find.text('Add Story'), findsOneWidget);
     expect(find.text('New DM'), findsOneWidget);
     expect(find.text('New Group'), findsOneWidget);
+    expect(
+      tester.widget<Widget>(find.byKey(const ValueKey('compose-icon-New DM'))),
+      isA<SvgPicture>(),
+    );
+    expect(find.byIcon(LucideIcons.pencil), findsNothing);
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
 
     expect(find.text('Add Story'), findsNothing);
@@ -1305,7 +1374,7 @@ void main() {
     );
 
     expect(find.text('More'), findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
+    expect(find.byType(UserAvatar), findsOneWidget);
     expect(find.text('Profile'), findsNothing);
     expect(find.text('Library'), findsOneWidget);
     expect(find.text('CGPA Tracker'), findsOneWidget);
@@ -1319,7 +1388,7 @@ void main() {
     AnnouncementStore.instance.clear();
     await tester.pumpWidget(const MaterialApp(home: UpdatesScreen()));
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('New Announcement'));

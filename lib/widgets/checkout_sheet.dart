@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
@@ -79,18 +80,14 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                 children: [
                   Text('Checkout', style: AppType.name(scheme)),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(LucideIcons.x),
                     color: scheme.onSurface,
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
             ),
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: SpotifyColors.border,
-            ),
+            const Divider(height: 1, thickness: 1, color: SpotifyColors.border),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
@@ -124,11 +121,7 @@ class _CheckoutSheetState extends State<CheckoutSheet> {
                 ),
                 onRemove: () => setState(() => _items.removeAt(i)),
               ),
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: SpotifyColors.border,
-            ),
+            const Divider(height: 1, thickness: 1, color: SpotifyColors.border),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Row(
@@ -203,7 +196,7 @@ class _CheckoutTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 11),
+            icon: const Icon(LucideIcons.x, size: 11),
             color: scheme.onSurfaceVariant,
             onPressed: onRemove,
           ),

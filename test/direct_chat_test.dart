@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:encore/models/chat_conversation.dart';
 import 'package:encore/models/direct_chat.dart';
 import 'package:encore/screens/persistent_direct_chat_screen.dart';
 import 'package:encore/services/chat_store.dart';
+import 'package:encore/theme/spotify_colors.dart';
 import 'package:encore/widgets/chat_bubble.dart';
 
 const _peer = ChatUser(
@@ -74,6 +76,59 @@ void main() {
       ).preview(myUid: 'ama'),
       'You: Hello',
     );
+  });
+
+  test('a cleared DM stays hidden until a newer message arrives', () {
+    final cleared = DirectChat(
+      id: 'dm_ama_zoe',
+      peer: _peer,
+      members: const ['ama', 'zoe'],
+      lastMessage: 'Old message',
+      lastMessageAt: DateTime(2026, 10, 20, 12),
+      lastSenderId: 'zoe',
+      clearedAt: DateTime(2026, 10, 20, 13),
+    );
+    final fresh = DirectChat(
+      id: cleared.id,
+      peer: cleared.peer,
+      members: cleared.members,
+      lastMessage: 'New message',
+      lastMessageAt: DateTime(2026, 10, 20, 14),
+      lastSenderId: 'zoe',
+      clearedAt: cleared.clearedAt,
+    );
+
+    expect(cleared.isCleared, isTrue);
+    expect(cleared.preview(myUid: 'ama'), 'No messages yet');
+    expect(fresh.isCleared, isFalse);
+    expect(fresh.preview(myUid: 'ama'), 'New message');
+  });
+
+  test('deleted messages drop their replied-to preview', () {
+    final message = DirectMessage.fromMap('m2', {
+      'senderId': 'ama',
+      'senderName': 'Ama Mensah',
+      'senderUsername': 'ama',
+      'text': '',
+      'type': 'deleted',
+      'deleted': true,
+      'createdAt': 1700000000000,
+      'replyTo': {
+        'id': 'm0',
+        'senderId': 'zoe',
+        'senderName': 'Zoe',
+        'text': 'Are we still meeting?',
+        'type': 'text',
+      },
+    });
+
+    final ui = message.toUiMessage(myUid: 'zoe', isSeen: false);
+
+    expect(message.deleted, isTrue);
+    expect(message.replyTo, isNull);
+    expect(ui.text, 'This message was deleted');
+    expect(ui.replyToText, isNull);
+    expect(ui.replyToSender, isNull);
   });
 
   test('direct message parses cached Firestore map data', () {
@@ -179,6 +234,169 @@ void main() {
     expect(find.text('Ama'), findsOneWidget);
     expect(find.text('Are we still meeting?'), findsOneWidget);
     expect(find.text('edited'), findsOneWidget);
-    expect(find.byIcon(Icons.done_all_rounded), findsOneWidget);
+    expect(find.byIcon(LucideIcons.checkCheck), findsOneWidget);
+  });
+
+  testWidgets('pending messages show a clock instead of sent ticks', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ChatBubble(
+            message: ChatMessage(
+              id: 'pending',
+              text: 'Queued while offline',
+              time: '4:00 pm',
+              isMe: true,
+              isSeen: false,
+              isPending: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(LucideIcons.clock), findsOneWidget);
+    expect(find.byIcon(LucideIcons.checkCheck), findsNothing);
+    expect(find.byIcon(LucideIcons.check), findsNothing);
+  });
+
+  test('queued messages keep a local timestamp until the server confirms', () {
+    final message = DirectMessage.fromMap('pending', {
+      'senderId': 'zoe',
+      'senderName': 'Zoe',
+      'senderUsername': 'zoe',
+      'text': 'Queued while offline',
+      'type': 'text',
+      'createdAt': null,
+      'localCreatedAt': DateTime(2026, 10, 21, 16),
+    }, pending: true);
+
+    expect(message.pending, isTrue);
+    expect(message.createdAt, DateTime(2026, 10, 21, 16));
+    expect(message.toUiMessage(myUid: 'zoe', isSeen: false).isPending, isTrue);
+  });
+
+  testWidgets('emoji button inserts a pick into the composer', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PersistentDirectChatScreen(chatId: 'dm_ama_peer-1', peer: _peer),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('persistent-emoji-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('chat-emoji-picker')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('emoji-😀')));
+    await tester.pump();
+    Navigator.of(
+      tester.element(find.byKey(const ValueKey('chat-emoji-picker'))),
+    ).pop();
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(
+      find.byKey(const ValueKey('persistent-message-input')),
+    );
+    expect(input.controller?.text, contains('😀'));
+  });
+
+  testWidgets('swiping a bubble triggers reply in both directions', (
+    WidgetTester tester,
+  ) async {
+    var replies = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              ChatBubble(
+                message: const ChatMessage(
+                  id: 'in',
+                  text: 'Incoming',
+                  time: '4:00 pm',
+                ),
+                onReply: () => replies++,
+              ),
+              ChatBubble(
+                message: const ChatMessage(
+                  id: 'out',
+                  text: 'Outgoing',
+                  time: '4:01 pm',
+                  isMe: true,
+                ),
+                onReply: () => replies++,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.drag(find.text('Incoming'), const Offset(90, 0));
+    await tester.pumpAndSettle();
+    expect(replies, 1);
+
+    await tester.drag(find.text('Outgoing'), const Offset(-90, 0));
+    await tester.pumpAndSettle();
+    expect(replies, 2);
+  });
+
+  testWidgets('outgoing bubbles use the muted green chat colour', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ChatBubble(
+            message: ChatMessage(
+              id: 'out',
+              text: 'Outgoing',
+              time: '4:01 pm',
+              isMe: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final colours = tester
+        .widgetList<Container>(find.byType(Container))
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .map((decoration) => decoration.color);
+    expect(colours, contains(SpotifyColors.chatOutgoing));
+  });
+
+  testWidgets('deleted bubble only shows the inactive placeholder', (
+    WidgetTester tester,
+  ) async {
+    const message = ChatMessage(
+      id: 'm2',
+      text: 'This message was deleted',
+      time: '4:00 pm',
+      isMe: true,
+      isSeen: true,
+      isEdited: true,
+      isDeleted: true,
+      replyToSender: 'Ama',
+      replyToText: 'Are we still meeting?',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: ChatBubble(message: message)),
+      ),
+    );
+
+    expect(find.text('This message was deleted'), findsOneWidget);
+    expect(find.text('Ama'), findsNothing);
+    expect(find.text('Are we still meeting?'), findsNothing);
+    expect(find.text('edited'), findsNothing);
+    expect(find.byIcon(LucideIcons.checkCheck), findsNothing);
   });
 }

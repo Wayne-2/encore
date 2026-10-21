@@ -7,12 +7,7 @@ import '../theme/app_type.dart';
 /// Shared by the home sections (Updates, Finance, …) so their titles stay
 /// visually identical.
 class SectionHeading extends StatelessWidget {
-  const SectionHeading(
-    this.title, {
-    super.key,
-    this.style,
-    this.glyphStyle,
-  });
+  const SectionHeading(this.title, {super.key, this.style, this.glyphStyle});
 
   final String title;
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/departments.dart';
 import '../models/activity.dart';
@@ -24,7 +25,7 @@ import '../widgets/floating_empty_state.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/shimmer.dart';
 import '../widgets/trend_cover.dart';
-import '../widgets/cached_profile_image.dart';
+import '../widgets/user_avatar.dart';
 import '../widgets/workspace_app_bar.dart';
 import 'announcement_detail_screen.dart';
 import 'announcements_screen.dart';
@@ -33,9 +34,9 @@ import 'trending_more_screen.dart';
 
 /// Quick actions revealed by the Updates compose button.
 const List<ComposeAction> _updatesComposeActions = [
-  (label: 'New Announcement', icon: Icons.campaign_outlined),
-  (label: 'Post Trends', icon: Icons.trending_up),
-  (label: 'Add Activity', icon: Icons.event_available_outlined),
+  ComposeAction(label: 'New Announcement', icon: LucideIcons.megaphone),
+  ComposeAction(label: 'Post Trends', icon: LucideIcons.trendingUp),
+  ComposeAction(label: 'Add Activity', icon: LucideIcons.calendarCheck),
 ];
 
 /// The workspace bar, with the title and avatar sourced from the signed-in
@@ -70,14 +71,7 @@ class _UpdatesWorkspaceBarState extends State<_UpdatesWorkspaceBar> {
       return WorkspaceAppBar(
         heading: 'Update',
         title: 'Csc 200 level',
-        trailing: _barActions(
-          const Image(
-            image: AssetImage('assets/Encore.png'),
-            width: 38,
-            height: 38,
-            filterQuality: FilterQuality.medium,
-          ),
-        ),
+        trailing: _barActions(const CurrentUserAvatar(size: 38)),
       );
     }
 
@@ -87,6 +81,8 @@ class _UpdatesWorkspaceBarState extends State<_UpdatesWorkspaceBar> {
         final data = snapshot.data;
         final department = (data?['department'] as String?)?.trim();
         final level = (data?['level'] as String?)?.trim();
+        final fullName = (data?['fullName'] as String?)?.trim();
+        final username = (data?['username'] as String?)?.trim();
         final photoUrl = (data?['photoUrl'] as String?)?.trim();
 
         final title =
@@ -98,61 +94,22 @@ class _UpdatesWorkspaceBarState extends State<_UpdatesWorkspaceBar> {
           heading: 'Update',
           title: title,
           trailing: _barActions(
-            (photoUrl == null || photoUrl.isEmpty)
-                ? const Image(
-                    image: AssetImage('assets/Encore.png'),
-                    width: 38,
-                    height: 38,
-                    filterQuality: FilterQuality.medium,
-                  )
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: CachedProfileImage(
-                      url: photoUrl,
-                      width: 38,
-                      height: 38,
-                      fallback: Image.asset(
-                        'assets/Encore.png',
-                        width: 38,
-                        height: 38,
-                        filterQuality: FilterQuality.medium,
-                      ),
-                    ),
-                  ),
+            UserAvatar(
+              name: fullName != null && fullName.isNotEmpty
+                  ? fullName
+                  : username != null && username.isNotEmpty
+                  ? username
+                  : 'You',
+              photoUrl: photoUrl,
+              size: 38,
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _barActions(Widget avatar) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          key: const ValueKey('updates-refresh'),
-          tooltip: 'Refresh updates',
-          onPressed: widget.refreshing ? null : widget.onRefresh,
-          color: SpotifyColors.textSubdued,
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-          icon: widget.refreshing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: SpotifyColors.accent,
-                  ),
-                )
-              : const Icon(Icons.refresh_rounded, size: 21),
-        ),
-        const SizedBox(width: 8),
-        avatar,
-      ],
-    );
-  }
+  Widget _barActions(Widget avatar) => avatar;
 }
 
 /// The Updates section — the first tab of [HomeShell].
@@ -327,11 +284,16 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
     var author = AuthService.isAvailable
         ? AuthService.instance.currentUser?.displayName
         : null;
+    var photoUrl = AuthService.isAvailable
+        ? AuthService.instance.currentUser?.photoURL
+        : null;
     if (AuthService.isAvailable) {
       try {
         final profile = await AuthService.instance.currentUserProfile();
         final fullName = (profile?['fullName'] as String?)?.trim();
         if (fullName != null && fullName.isNotEmpty) author = fullName;
+        final photo = (profile?['photoUrl'] as String?)?.trim();
+        if (photo != null && photo.isNotEmpty) photoUrl = photo;
       } catch (_) {
         // Fall back to the Firebase Auth display name.
       }
@@ -342,6 +304,7 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
       body: draft.body,
       author: author ?? 'You',
       media: draft.media,
+      photoUrl: photoUrl,
     );
     NotificationService.instance.showTrendPosted(title: trend.title);
 
@@ -651,7 +614,7 @@ class _AnnouncementEmptyState extends StatelessWidget {
     return const Center(
       child: FloatingEmptyState(
         key: ValueKey('announcement-empty'),
-        icon: Icons.campaign_outlined,
+        icon: LucideIcons.megaphone,
         message: 'No announcement posted yet',
       ),
     );
@@ -760,7 +723,7 @@ class _TrendingEmptyState extends StatelessWidget {
     return const Center(
       child: FloatingEmptyState(
         key: ValueKey('trending-empty'),
-        icon: Icons.trending_up,
+        icon: LucideIcons.trendingUp,
         message: 'No Trending news available',
       ),
     );
@@ -842,7 +805,7 @@ class _UpcomingActivitiesSection extends StatelessWidget {
                 child: Center(
                   child: FloatingEmptyState(
                     key: ValueKey('activity-empty'),
-                    icon: Icons.event_available_outlined,
+                    icon: LucideIcons.calendarCheck,
                     message: 'No upcoming activities yet',
                   ),
                 ),
@@ -979,7 +942,7 @@ class _ActivityCardState extends State<_ActivityCard> {
                         key: ValueKey('activity-delete-${widget.item.id}'),
                         tooltip: 'Remove activity',
                         onPressed: _delete,
-                        icon: const Icon(Icons.close, size: 16),
+                        icon: const Icon(LucideIcons.x, size: 16),
                         style: IconButton.styleFrom(
                           backgroundColor: SpotifyColors.accent,
                           foregroundColor: Colors.white,

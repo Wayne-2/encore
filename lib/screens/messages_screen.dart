@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/chat_conversation.dart';
@@ -9,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/chat_store.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
+import '../utils/active_time.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
 import '../widgets/chat_avatar.dart';
@@ -27,9 +31,9 @@ import 'story_viewer_screen.dart';
 
 /// Quick actions revealed by the Messages compose button.
 const List<ComposeAction> _messagesComposeActions = [
-  (label: 'Add Story', icon: Icons.auto_stories_outlined),
-  (label: 'New DM', icon: Icons.edit_outlined),
-  (label: 'New Group', icon: Icons.group_add_outlined),
+  ComposeAction(label: 'Add Story', icon: LucideIcons.bookOpen),
+  ComposeAction(label: 'New DM', iconAsset: 'assets/icons/messages.svg'),
+  ComposeAction(label: 'New Group', icon: LucideIcons.userPlus),
 ];
 
 /// The Messages section — the second tab of [HomeShell].
@@ -104,14 +108,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
           children: [
             const WorkspaceAppBar(heading: 'Messages'),
             Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  const SizedBox(height: 12),
-                  const _StorySection(),
-                  const SizedBox(height: 24),
+              child: CustomScrollView(
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                  const SliverToBoxAdapter(child: _StorySection()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
                   const _ConversationsSection(),
-                  const SizedBox(height: 24),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
               ),
             ),
@@ -209,15 +212,111 @@ class _ConversationsSection extends StatefulWidget {
 class _ConversationsSectionState extends State<_ConversationsSection> {
   static const List<String> _filters = ['All', 'DMs', 'Groups', 'Unread'];
   late final Stream<ChatInbox> _inbox = ChatStore.instance.watchInbox();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+  final Set<String> _locallyDeleted = {};
   int _filter = 0;
+  bool _searching = false;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
 
   List<ChatConversation> _filtered(List<ChatConversation> all) {
-    return switch (_filter) {
+    final filtered = switch (_filter) {
       1 => all.where((c) => !c.isGroup).toList(),
       2 => all.where((c) => c.isGroup).toList(),
       3 => all.where((c) => c.hasUnread).toList(),
       _ => all,
     };
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return filtered;
+
+    return filtered
+        .where((conversation) {
+          return conversation.title.toLowerCase().contains(query) ||
+              conversation.lastMessage.toLowerCase().contains(query) ||
+              (conversation.lastMessageSender ?? '').toLowerCase().contains(
+                query,
+              ) ||
+              conversation.membersDescription.toLowerCase().contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  void _openSearch() {
+    setState(() => _searching = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    _searchFocus.unfocus();
+    setState(() {
+      _searching = false;
+      _query = '';
+    });
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _onMoreSelected(String value) {
+    switch (value) {
+      case 'archive':
+        _showSnack('Archived conversations are coming soon.');
+      case 'settings':
+        _showSnack('Message settings are coming soon.');
+    }
+  }
+
+  Future<bool> _confirmDeleteConversation(ChatConversation item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: SpotifyColors.surface,
+        title: const Text('Delete chat?'),
+        content: Text(
+          'This removes ${item.title} from your conversations. '
+          'New messages will still appear in a fresh conversation.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: SpotifyColors.danger,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _deleteConversation(ChatConversation item) async {
+    final cleared = await ChatStore.instance.clearChat(item.id);
+    if (!mounted) return;
+    if (!cleared) {
+      setState(() => _locallyDeleted.remove(item.id));
+      _showSnack('Could not delete this chat. Try again.');
+      return;
+    }
+    _showSnack('Chat deleted from your end.');
   }
 
   void _openMockChat(ChatConversation item) {
@@ -236,30 +335,104 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 240),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return SizeTransition(
+                  sizeFactor: animation,
+                  axis: Axis.horizontal,
+                  alignment: Alignment.centerLeft,
+                  child: FadeTransition(opacity: animation, child: child),
+                );
+              },
+              child: _searching
+                  ? _buildSearchBar(scheme)
+                  : _buildHeaderActions(scheme),
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+        SliverToBoxAdapter(
+          child: FilterPills(
+            filters: _filters,
+            selected: _filter,
+            onSelected: (i) => setState(() => _filter = i),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        _buildContent(),
+      ],
+    );
+  }
+
+  Widget _buildHeaderActions(ColorScheme scheme) {
+    return Row(
+      key: const ValueKey('conversations-header'),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
-          child: Row(
-            children: [
-              SectionHeading(
-                'Conversations',
-                style: SlackType.sectionTitle(scheme),
-                glyphStyle: SlackType.glyph(scheme),
+        SectionHeading(
+          'Conversations',
+          style: SlackType.sectionTitle(scheme),
+          glyphStyle: SlackType.glyph(scheme),
+        ),
+        const Spacer(),
+        IconButton(
+          key: const ValueKey('conversations-search-open'),
+          onPressed: _openSearch,
+          icon: SvgPicture.asset(
+            'assets/icons/searching.svg',
+            width: 20,
+            height: 20,
+            colorFilter: ColorFilter.mode(scheme.onSurface, BlendMode.srcIn),
+          ),
+          tooltip: 'Search conversations',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          visualDensity: VisualDensity.compact,
+        ),
+        const SizedBox(width: 6),
+        PopupMenuButton<String>(
+          key: const ValueKey('conversations-more'),
+          tooltip: 'Conversation options',
+          padding: EdgeInsets.zero,
+          position: PopupMenuPosition.under,
+          color: SpotifyColors.surface,
+          onSelected: _onMoreSelected,
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: 'archive',
+              child: Row(
+                children: [
+                  Icon(LucideIcons.archive, size: 18),
+                  SizedBox(width: 10),
+                  Text('Archive'),
+                ],
               ),
-              const Spacer(),
-              SvgPicture.asset(
-                'assets/icons/searching.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  scheme.onSurface,
-                  BlendMode.srcIn,
-                ),
+            ),
+            PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(LucideIcons.slidersHorizontal, size: 18),
+                  SizedBox(width: 10),
+                  Text('Message settings'),
+                ],
               ),
-              const SizedBox(width: 16),
-              SvgPicture.asset(
+            ),
+          ],
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(
+              child: SvgPicture.asset(
                 'assets/icons/option.svg',
                 width: 20,
                 height: 20,
@@ -268,20 +441,73 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
                   BlendMode.srcIn,
                 ),
               ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        FilterPills(
-          filters: _filters,
-          selected: _filter,
-          onSelected: (i) => setState(() => _filter = i),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        const SizedBox(height: 8),
-        _buildContent(),
       ],
+    );
+  }
+
+  Widget _buildSearchBar(ColorScheme scheme) {
+    return Container(
+      key: const ValueKey('conversations-search'),
+      height: 36,
+      decoration: BoxDecoration(
+        color: SpotifyColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: SpotifyColors.border),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 11),
+          SvgPicture.asset(
+            'assets/icons/searching.svg',
+            width: 17,
+            height: 17,
+            colorFilter: ColorFilter.mode(
+              scheme.onSurfaceVariant,
+              BlendMode.srcIn,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('conversations-search-field'),
+              controller: _searchController,
+              focusNode: _searchFocus,
+              onChanged: (value) => setState(() => _query = value),
+              textInputAction: TextInputAction.search,
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: 13,
+                color: scheme.onSurface,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Search conversations',
+                hintStyle: TextStyle(
+                  fontFamily: 'Montserrat',
+                  fontSize: 13,
+                  color: scheme.onSurfaceVariant,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          IconButton(
+            key: const ValueKey('conversations-search-close'),
+            onPressed: _closeSearch,
+            icon: Icon(LucideIcons.x, size: 18, color: scheme.onSurfaceVariant),
+            tooltip: 'Close search',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
     );
   }
 
@@ -299,23 +525,26 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
       stream: _inbox,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
+          return const SliverFillRemaining(
+            hasScrollBody: false,
             child: Center(
-              child: Text(
-                'Could not load conversations. Check your connection.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  color: Colors.white70,
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Could not load conversations. Check your connection.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ),
           );
         }
         if (!snapshot.hasData) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
+          return const SliverFillRemaining(
+            hasScrollBody: false,
             child: Center(child: AppLoader()),
           );
         }
@@ -325,10 +554,11 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
         final entries =
             <({ChatConversation item, DateTime? activityAt})>[
               for (final chat in inbox.directChats)
-                (
-                  item: chat.toConversation(myUid: myUid),
-                  activityAt: chat.lastMessageAt ?? chat.createdAt,
-                ),
+                if (!(_locallyDeleted.contains(chat.id) && chat.isCleared))
+                  (
+                    item: chat.toConversation(myUid: myUid),
+                    activityAt: chat.lastMessageAt ?? chat.createdAt,
+                  ),
               for (final group in inbox.groups)
                 (
                   item: group.toConversation(myUid: myUid),
@@ -369,6 +599,11 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
               }),
             );
           },
+          onDelete: _confirmDeleteConversation,
+          onDismissed: (item) {
+            setState(() => _locallyDeleted.add(item.id));
+            unawaited(_deleteConversation(item));
+          },
           emptyMessage: _filter == 2
               ? 'No group chats yet.'
               : _filter == 3
@@ -383,29 +618,76 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
     List<ChatConversation> conversations, {
     required ValueChanged<ChatConversation> onTap,
     required String emptyMessage,
+    Future<bool> Function(ChatConversation)? onDelete,
+    ValueChanged<ChatConversation>? onDismissed,
   }) {
     if (conversations.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 24),
-        child: FloatingEmptyState(
-          key: const ValueKey('messages-empty'),
-          icon: Icons.forum_outlined,
-          message: emptyMessage,
+      final query = _query.trim();
+      final message = query.isEmpty
+          ? emptyMessage
+          : 'No conversations match “$query”.';
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: FloatingEmptyState(
+            key: const ValueKey('messages-empty'),
+            iconAsset: 'assets/icons/messages.svg',
+            message: message,
+          ),
         ),
       );
     }
 
-    return Column(
-      children: [
-        for (var i = 0; i < conversations.length; i++) ...[
-          if (i > 0)
-            const Divider(height: 1, thickness: 1, color: SpotifyColors.border),
-          _ConversationTile(
-            item: conversations[i],
-            onTap: () => onTap(conversations[i]),
-          ),
+    return SliverToBoxAdapter(
+      child: Column(
+        children: [
+          for (var i = 0; i < conversations.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: SpotifyColors.border,
+              ),
+            if (onDelete != null && !conversations[i].isGroup)
+              Dismissible(
+                key: ValueKey('conversation-swipe-${conversations[i].id}'),
+                direction: DismissDirection.endToStart,
+                confirmDismiss: (_) => onDelete(conversations[i]),
+                onDismissed: (_) => onDismissed?.call(conversations[i]),
+                background: Container(
+                  color: SpotifyColors.danger,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.trash2, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text(
+                        'Delete',
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                child: _ConversationTile(
+                  item: conversations[i],
+                  onTap: () => onTap(conversations[i]),
+                ),
+              )
+            else
+              _ConversationTile(
+                item: conversations[i],
+                onTap: () => onTap(conversations[i]),
+              ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -457,8 +739,9 @@ class _ConversationTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          item.time,
+                        ActiveTimestamp(
+                          at: item.updatedAt,
+                          fallback: item.time,
                           style: SlackType.timestamp(scheme).copyWith(
                             color: item.hasUnread ? SpotifyColors.accent : null,
                           ),

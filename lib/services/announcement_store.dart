@@ -147,6 +147,7 @@ class AnnouncementStore extends ChangeNotifier {
     final doc = firestore?.collection(_collection).doc();
     final groupDepartment = normalizeDepartment(department ?? _department);
     final groupLevel = (level ?? _level).trim();
+    final now = DateTime.now();
 
     final announcement = Announcement(
       id:
@@ -160,12 +161,13 @@ class AnnouncementStore extends ChangeNotifier {
       tagColor: tagColor,
       body: body,
       unread: true,
+      createdAt: now,
     );
 
     // Show the post immediately; the live snapshot reconciles it shortly.
     _items.insert(0, announcement);
     _unreadIds.add(announcement.id);
-    _createdAtMillis[announcement.id] = DateTime.now().millisecondsSinceEpoch;
+    _createdAtMillis[announcement.id] = now.millisecondsSinceEpoch;
     notifyListeners();
     unawaited(_saveCache());
 
@@ -247,6 +249,7 @@ class AnnouncementStore extends ChangeNotifier {
       tagColor: _tagColorFrom(data['tagColor']),
       body: data['body'] as String? ?? '',
       unread: _unreadIds.contains(doc.id),
+      createdAt: _dateFrom(data['createdAt']),
     );
   }
 
@@ -264,6 +267,7 @@ class AnnouncementStore extends ChangeNotifier {
       tagColor: _tagColorFrom(data['tagColor']),
       body: data['body'] as String? ?? '',
       unread: _unreadIds.contains(id),
+      createdAt: _dateFrom(data['createdAt']),
     );
   }
 
@@ -295,6 +299,15 @@ class AnnouncementStore extends ChangeNotifier {
       DateTime time => time.millisecondsSinceEpoch,
       int millis => millis,
       _ => DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
+  static DateTime? _dateFrom(Object? value) {
+    return switch (value) {
+      Timestamp timestamp => timestamp.toDate(),
+      DateTime time => time,
+      int millis => DateTime.fromMillisecondsSinceEpoch(millis),
+      _ => null,
     };
   }
 

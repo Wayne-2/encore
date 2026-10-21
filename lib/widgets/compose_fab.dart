@@ -2,12 +2,24 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 
 /// A single quick action rendered by [ComposeFab].
-typedef ComposeAction = ({String label, IconData icon});
+///
+/// Uses either a Material [icon] or a bundled [iconAsset] so actions can match
+/// the SVG icons used elsewhere in the app.
+class ComposeAction {
+  const ComposeAction({required this.label, this.icon, this.iconAsset})
+    : assert(icon != null || iconAsset != null);
+
+  final String label;
+  final IconData? icon;
+  final String? iconAsset;
+}
 
 /// Twitter-style expandable compose button.
 ///
@@ -105,6 +117,7 @@ class _ComposeFabState extends State<ComposeFab>
                       _ComposeAction(
                         label: widget.actions[i].label,
                         icon: widget.actions[i].icon,
+                        iconAsset: widget.actions[i].iconAsset,
                         animation: _reveals[i],
                         onTap: widget.onActionSelected == null
                             ? null
@@ -134,7 +147,7 @@ class _ComposeFabState extends State<ComposeFab>
                       child: Transform.rotate(
                         angle: _controller.value * math.pi / 4,
                         child: const Icon(
-                          Icons.add,
+                          LucideIcons.plus,
                           color: Colors.white,
                           size: 28,
                         ),
@@ -156,12 +169,14 @@ class _ComposeAction extends StatelessWidget {
   const _ComposeAction({
     required this.label,
     required this.icon,
+    required this.iconAsset,
     required this.animation,
     this.onTap,
   });
 
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
   final Animation<double> animation;
   final VoidCallback? onTap;
 
@@ -203,7 +218,23 @@ class _ComposeAction extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: SpotifyColors.border),
                   ),
-                  child: Icon(icon, size: 20, color: scheme.onSurfaceVariant),
+                  child: iconAsset != null
+                      ? SvgPicture.asset(
+                          iconAsset!,
+                          key: ValueKey('compose-icon-$label'),
+                          width: 20,
+                          height: 20,
+                          colorFilter: ColorFilter.mode(
+                            scheme.onSurfaceVariant,
+                            BlendMode.srcIn,
+                          ),
+                        )
+                      : Icon(
+                          icon,
+                          key: ValueKey('compose-icon-$label'),
+                          size: 20,
+                          color: scheme.onSurfaceVariant,
+                        ),
                 ),
               ],
             ),

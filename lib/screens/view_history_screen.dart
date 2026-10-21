@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
@@ -16,7 +17,7 @@ class ViewHistoryScreen extends StatelessWidget {
         backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(LucideIcons.chevronLeft),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -26,11 +27,7 @@ class ViewHistoryScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 34,
-              color: scheme.onSurfaceVariant,
-            ),
+            Icon(LucideIcons.receipt, size: 34, color: scheme.onSurfaceVariant),
             const SizedBox(height: 12),
             Text(
               'No history yet',

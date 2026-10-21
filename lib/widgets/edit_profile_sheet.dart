@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -13,6 +14,7 @@ import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import 'cached_profile_image.dart';
 import 'shimmer.dart';
+import 'user_avatar.dart';
 
 /// Opens the edit-profile sheet over the profile page.
 ///
@@ -178,12 +180,12 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
+              leading: const Icon(LucideIcons.image),
               title: const Text('Choose from gallery'),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
+              leading: const Icon(LucideIcons.camera),
               title: const Text('Take a photo'),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
@@ -414,7 +416,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 child: const Padding(
                   padding: EdgeInsets.all(8),
                   child: Icon(
-                    Icons.camera_alt_outlined,
+                    LucideIcons.camera,
                     size: 18,
                     color: Colors.white,
                   ),
@@ -428,15 +430,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
   }
 
   Widget _placeholder() {
-    return Container(
-      color: SpotifyColors.surfaceHover,
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.person_outline,
-        size: 52,
-        color: SpotifyColors.textSubdued,
-      ),
-    );
+    final username = _username.text.trim();
+    return UserAvatar(name: username.isEmpty ? 'You' : username, size: 104);
   }
 
   /// The cropper re-encodes to JPEG or PNG (or BMP/ICO for those inputs), so

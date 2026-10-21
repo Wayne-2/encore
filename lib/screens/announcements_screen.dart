@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/announcement.dart';
 import '../navigation/app_route.dart';
@@ -63,7 +64,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         backgroundColor: SpotifyColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(LucideIcons.chevronLeft),
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -135,7 +136,7 @@ class _EmptyState extends StatelessWidget {
 
     return FloatingEmptyState(
       key: const ValueKey('announcements-empty'),
-      icon: Icons.campaign_outlined,
+      icon: LucideIcons.megaphone,
       message: message,
     );
   }

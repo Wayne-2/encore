@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:animations/animations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,6 +21,7 @@ import '../../widgets/app_loader.dart';
 import '../../widgets/auth_dialog.dart';
 import '../../widgets/loading_overlay.dart';
 import '../../widgets/shimmer.dart';
+import '../../widgets/user_avatar.dart';
 import '../getting_ready_screen.dart';
 import 'auth_field.dart';
 import 'auth_scaffold.dart';
@@ -417,12 +419,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
+              leading: const Icon(LucideIcons.image),
               title: const Text('Choose from gallery'),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
+              leading: const Icon(LucideIcons.camera),
               title: const Text('Take a photo'),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
@@ -868,7 +870,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
                     child: const Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(
-                        Icons.camera_alt_outlined,
+                        LucideIcons.camera,
                         size: 18,
                         color: Colors.white,
                       ),
@@ -922,25 +924,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         url: url,
         fallback: bytes != null
             ? Image.memory(bytes, fit: BoxFit.cover)
-            : _avatarPlaceholder(theme),
+            : _avatarPlaceholder(),
       );
     }
     if (bytes != null) {
       return Image.memory(bytes, fit: BoxFit.cover);
     }
-    return _avatarPlaceholder(theme);
+    return _avatarPlaceholder();
   }
 
-  Widget _avatarPlaceholder(ThemeData theme) {
-    return Container(
-      color: theme.colorScheme.surfaceContainerHigh,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.person_outline,
-        size: 52,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-    );
+  Widget _avatarPlaceholder() {
+    final name = _fullName.text.trim();
+    return UserAvatar(name: name.isEmpty ? 'You' : name, size: 104);
   }
 }
 
@@ -964,7 +959,7 @@ class _StepHeader extends StatelessWidget {
             padding: EdgeInsets.zero,
             iconSize: 22,
             color: Colors.white,
-            icon: const Icon(Icons.arrow_back_ios_new),
+            icon: const Icon(LucideIcons.chevronLeft),
           ),
         ),
         const SizedBox(width: 8),

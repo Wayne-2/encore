@@ -3,11 +3,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
+import 'user_avatar.dart';
 
 /// Slack-style workspace bar shared by the sections of [HomeShell].
 ///
 /// Shows an anchor glyph, a section [heading], an optional [title] underneath,
-/// and a trailing widget (the Encore logo by default).
+/// and a trailing widget (the signed-in user's avatar by default).
 class WorkspaceAppBar extends StatelessWidget {
   const WorkspaceAppBar({
     super.key,
@@ -25,7 +26,7 @@ class WorkspaceAppBar extends StatelessWidget {
   /// Optional replacement for the anchor glyph, such as a back button.
   final Widget? leading;
 
-  /// Widget shown at the far right. Defaults to the Encore logo.
+  /// Widget shown at the far right. Defaults to the signed-in user's avatar.
   final Widget? trailing;
 
   /// Custom font size for the heading. Defaults to 16.
@@ -89,13 +90,7 @@ class WorkspaceAppBar extends StatelessWidget {
               ],
             ),
           ),
-          trailing ??
-              Image.asset(
-                'assets/Encore.png',
-                width: 38,
-                height: 38,
-                filterQuality: FilterQuality.medium,
-              ),
+          trailing ?? const CurrentUserAvatar(size: 38),
         ],
       ),
     );
