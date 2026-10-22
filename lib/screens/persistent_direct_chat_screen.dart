@@ -59,7 +59,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
   DirectChat? _chat;
   List<DirectMessage> _messages = const [];
   DirectMessage? _replyTo;
-  DateTime _now = DateTime.now();
+  final ValueNotifier<DateTime> _now = ValueNotifier(DateTime.now());
   DateTime? _lastTypingWrite;
   bool _typingActive = false;
   bool _uploading = false;
@@ -74,8 +74,8 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
     super.initState();
     MessageNotificationWatcher.instance.setActiveChat(widget.chatId);
     WidgetsBinding.instance.addObserver(this);
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
+    _clock = Timer.periodic(const Duration(seconds: 4), (_) {
+      _now.value = DateTime.now();
     });
     _subscribe();
     unawaited(ChatStore.instance.markOnline());
@@ -97,6 +97,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
     WidgetsBinding.instance.removeObserver(this);
     _stopTyping();
     _clock?.cancel();
+    _now.dispose();
     _presence?.cancel();
     _focusScroll?.cancel();
     _chatSubscription?.cancel();
@@ -235,7 +236,6 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
   }
 
   void _handleTyping(String value) {
-    setState(() {});
     if (value.trim().isEmpty) {
       _stopTyping();
       return;
@@ -638,7 +638,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => _ChatProfileSheet(peer: peer, now: _now),
+      builder: (context) => _ChatProfileSheet(peer: peer, now: _now.value),
     );
   }
 
@@ -647,9 +647,6 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
     final scheme = Theme.of(context).colorScheme;
     final chat = _chat;
     final peer = chat?.peer ?? widget.peer;
-    final typing = chat?.isTypingAt(_now) ?? false;
-    final online = peer.isOnlineAt(_now);
-    final subtitle = typing ? 'typing…' : peer.presenceLabel(_now);
     final messages = _visibleMessages;
 
     return Scaffold(
@@ -663,53 +660,61 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
           color: scheme.onSurface,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: InkWell(
-          onTap: _showProfile,
-          borderRadius: BorderRadius.circular(12),
-          child: Row(
-            children: [
-              ChatAvatar(
-                avatarUrl: peer.photoUrl,
-                avatarColor: peer.avatarColor,
-                avatarInitials: peer.initials,
-                size: 40,
-                showOnlineDot: online,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      peer.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurface,
-                      ),
+        title: ValueListenableBuilder<DateTime>(
+          valueListenable: _now,
+          builder: (context, now, _) {
+            final typing = chat?.isTypingAt(now) ?? false;
+            final online = peer.isOnlineAt(now);
+            final subtitle = typing ? 'typing…' : peer.presenceLabel(now);
+            return InkWell(
+              onTap: _showProfile,
+              borderRadius: BorderRadius.circular(12),
+              child: Row(
+                children: [
+                  ChatAvatar(
+                    avatarUrl: peer.photoUrl,
+                    avatarColor: peer.avatarColor,
+                    avatarInitials: peer.initials,
+                    size: 40,
+                    showOnlineDot: online,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          peer.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12,
+                            color: typing || online
+                                ? SpotifyColors.accent
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12,
-                        color: typing || online
-                            ? SpotifyColors.accent
-                            : scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
         actions: [
           PopupMenuButton<String>(
@@ -766,7 +771,6 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                             _ProfileHeader(
                               peer: peer,
                               chat: chat,
-                              now: _now,
                               onViewProfile: _showProfile,
                             ),
                             if (messages.isEmpty)
@@ -827,7 +831,6 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
   Widget _buildInputBar() {
     final scheme = Theme.of(context).colorScheme;
     final reply = _replyTo;
-    final hasText = _textController.text.trim().isNotEmpty;
 
     return Container(
       color: SpotifyColors.background,
@@ -989,36 +992,42 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                           ),
                         ),
                       ),
-                      if (_uploading)
-                        const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: SpotifyColors.accent,
-                            ),
-                          ),
-                        )
-                      else if (hasText)
-                        IconButton(
-                          key: const ValueKey('persistent-send-button'),
-                          icon: const Icon(
-                            LucideIcons.arrowUp,
-                            color: SpotifyColors.accent,
-                            size: 22,
-                          ),
-                          tooltip: 'Send message',
-                          onPressed: _send,
-                        )
-                      else
-                        HoldToRecordButton(
-                          key: const ValueKey('direct-voice-button'),
-                          onRecorded: _sendVoice,
-                          onMessage: _showSnack,
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _textController,
+                        builder: (context, value, _) {
+                          if (_uploading) {
+                            return const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: SpotifyColors.accent,
+                                ),
+                              ),
+                            );
+                          }
+                          if (value.text.trim().isNotEmpty) {
+                            return IconButton(
+                              key: const ValueKey('persistent-send-button'),
+                              icon: const Icon(
+                                LucideIcons.arrowUp,
+                                color: SpotifyColors.accent,
+                                size: 22,
+                              ),
+                              tooltip: 'Send message',
+                              onPressed: _send,
+                            );
+                          }
+                          return HoldToRecordButton(
+                            key: const ValueKey('direct-voice-button'),
+                            onRecorded: _sendVoice,
+                            onMessage: _showSnack,
+                            color: scheme.onSurfaceVariant,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -1269,13 +1278,11 @@ class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.peer,
     required this.chat,
-    required this.now,
     required this.onViewProfile,
   });
 
   final ChatUser peer;
   final DirectChat? chat;
-  final DateTime now;
   final VoidCallback onViewProfile;
 
   @override
@@ -1324,7 +1331,7 @@ class _ProfileHeader extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           started == null
-              ? peer.presenceLabel(now)
+              ? peer.presenceLabel(DateTime.now())
               : 'Chat started ${formatShortDate(started)}',
           style: AppType.timestamp(
             Theme.of(context).colorScheme,

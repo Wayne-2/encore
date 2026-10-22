@@ -66,14 +66,32 @@ void main() {
       expect(find.text(name), findsAtLeastNWidgets(1));
     }
 
-    // Conversation titles
-    expect(find.text('SOCAHTOA'), findsOneWidget);
-    expect(find.text('OFFICIAL GROUP CSC 200 LVL'), findsOneWidget);
-    expect(find.text('_daniel'), findsOneWidget);
-    expect(find.text('_james'), findsOneWidget);
-    expect(find.text('_lfx'), findsOneWidget);
+    // Conversation titles (the list is lazy, so scroll each into view)
+    final conversationScrollable = find.descendant(
+      of: find.byType(CustomScrollView),
+      matching: find.byType(Scrollable),
+    ).first;
+    for (final entry in {
+      'chat-socahtoa': 'SOCAHTOA',
+      'chat-official-group': 'OFFICIAL GROUP CSC 200 LVL',
+      'chat-daniel': '_daniel',
+      'chat-james': '_james',
+      'chat-lfx': '_lfx',
+    }.entries) {
+      await tester.scrollUntilVisible(
+        find.byKey(ValueKey('conversation-${entry.key}')),
+        120,
+        scrollable: conversationScrollable,
+      );
+      expect(find.text(entry.value), findsOneWidget);
+    }
 
     // Group sender prefix
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('conversation-chat-socahtoa')),
+      -120,
+      scrollable: conversationScrollable,
+    );
     expect(find.textContaining('_cypher:'), findsOneWidget);
   });
 
@@ -221,9 +239,16 @@ void main() {
       );
 
       // Scroll to and tap _wayne in conversations list
-      await tester.ensureVisible(find.text('_wayne').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('_wayne').last);
+      final conversationScrollable = find.descendant(
+        of: find.byType(CustomScrollView),
+        matching: find.byType(Scrollable),
+      ).first;
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('conversation-chat-wayne')),
+        120,
+        scrollable: conversationScrollable,
+      );
+      await tester.tap(find.byKey(const ValueKey('conversation-chat-wayne')));
       await tester.pumpAndSettle();
 
       expect(find.byType(DirectChatScreen), findsOneWidget);

@@ -57,7 +57,7 @@ class TrendCover extends StatelessWidget {
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildImage(cover, placeholder),
+                  _buildImage(context, cover, placeholder),
                   if (cover.isVideo) ...[
                     const _Scrim(),
                     const Center(child: _PlayBadge()),
@@ -119,16 +119,31 @@ class TrendCover extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(TrendMedia cover, Widget Function() placeholder) {
+  Widget _buildImage(
+    BuildContext context,
+    TrendMedia cover,
+    Widget Function() placeholder,
+  ) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth = _targetPixels(width, dpr);
+    final cacheHeight = _targetPixels(height, dpr);
     final thumbnail = cover.thumbnail;
     final fallback = thumbnail == null
         ? placeholder()
-        : Image.memory(thumbnail, fit: BoxFit.cover, gaplessPlayback: true);
+        : Image.memory(
+            thumbnail,
+            fit: BoxFit.cover,
+            cacheWidth: cacheWidth,
+            cacheHeight: cacheHeight,
+            gaplessPlayback: true,
+          );
 
     if (cover.url.isNotEmpty) {
       return Image.network(
         cover.url,
         fit: BoxFit.cover,
+        cacheWidth: cacheWidth,
+        cacheHeight: cacheHeight,
         gaplessPlayback: true,
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
           if (wasSynchronouslyLoaded || frame != null) return child;
@@ -139,6 +154,11 @@ class TrendCover extends StatelessWidget {
     }
 
     return fallback;
+  }
+
+  static int? _targetPixels(double? size, double dpr) {
+    if (size == null || !size.isFinite || size <= 0) return null;
+    return (size * dpr).round();
   }
 
   static String _formatDuration(Duration duration) {

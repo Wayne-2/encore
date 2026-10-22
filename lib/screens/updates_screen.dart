@@ -128,7 +128,8 @@ class UpdatesScreen extends StatefulWidget {
   State<UpdatesScreen> createState() => _UpdatesScreenState();
 }
 
-class _UpdatesScreenState extends State<UpdatesScreen> {
+class _UpdatesScreenState extends State<UpdatesScreen>
+    with AutomaticKeepAliveClientMixin {
   /// How long the skeleton state is shown on first open. Replace this with the
   /// real Firestore load when the feeds are wired up.
   static const _skeletonDuration = Duration(milliseconds: 900);
@@ -164,7 +165,11 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Stack(
       children: [
         Column(

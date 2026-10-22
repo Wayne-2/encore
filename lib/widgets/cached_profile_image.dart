@@ -96,6 +96,9 @@ class _CachedProfileImageState extends State<CachedProfileImage> {
   Widget build(BuildContext context) {
     final bytes = _bytes;
     final showImage = bytes != null && _bytesUrl == widget.url;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheWidth = _targetPixels(widget.width, dpr);
+    final cacheHeight = _targetPixels(widget.height, dpr);
 
     return SizedBox(
       width: widget.width,
@@ -108,11 +111,18 @@ class _CachedProfileImageState extends State<CachedProfileImage> {
               fit: widget.fit,
               alignment: widget.alignment,
               filterQuality: widget.filterQuality,
+              cacheWidth: cacheWidth,
+              cacheHeight: cacheHeight,
               gaplessPlayback: true,
               errorBuilder: (_, _, _) =>
                   widget.fallback ?? const SizedBox.shrink(),
             )
           : (widget.fallback ?? const SizedBox.shrink()),
     );
+  }
+
+  static int? _targetPixels(double? size, double dpr) {
+    if (size == null || !size.isFinite || size <= 0) return null;
+    return (size * dpr).round();
   }
 }

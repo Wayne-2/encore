@@ -32,6 +32,7 @@ class ChatAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = borderRadius ?? BorderRadius.circular(4);
     final dotSize = size * 0.22;
+    final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
 
     Widget content;
 
@@ -116,6 +117,8 @@ class ChatAvatar extends StatelessWidget {
           child: Image.asset(
             avatarAsset!,
             fit: BoxFit.contain,
+            cacheWidth: cacheSize,
+            cacheHeight: cacheSize,
             filterQuality: FilterQuality.medium,
           ),
         );
@@ -126,6 +129,8 @@ class ChatAvatar extends StatelessWidget {
             avatarAsset!,
             width: size,
             height: size,
+            cacheWidth: cacheSize,
+            cacheHeight: cacheSize,
             fit: BoxFit.cover,
             filterQuality: FilterQuality.medium,
           ),

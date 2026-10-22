@@ -31,7 +31,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with AutomaticKeepAliveClientMixin {
   static const String _bioPlaceholder = 'Edit your profile to add your bio';
 
   String _fullName = 'Odeh\nSolomon';
@@ -233,7 +234,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final scheme = Theme.of(context).colorScheme;
     final topInset = MediaQuery.of(context).padding.top;
     final hasBio = _bio.trim().isNotEmpty;

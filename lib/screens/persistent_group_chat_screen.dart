@@ -1162,7 +1162,6 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
     }
 
     final reply = _replyTo;
-    final hasText = _textController.text.trim().isNotEmpty;
     final canAnonymous = group?.anonymousMessagesEnabled ?? false;
     final anonymous = canAnonymous && _sendAnonymously;
 
@@ -1358,7 +1357,6 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                             color: scheme.onSurface,
                             fontSize: 15,
                           ),
-                          onChanged: (_) => setState(() {}),
                           decoration: InputDecoration(
                             hintText: anonymous
                                 ? 'Send anonymously…'
@@ -1416,36 +1414,42 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                             () => _sendAnonymously = !_sendAnonymously,
                           ),
                         ),
-                      if (_uploading)
-                        const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: SpotifyColors.accent,
-                            ),
-                          ),
-                        )
-                      else if (hasText)
-                        IconButton(
-                          key: const ValueKey('group-send-button'),
-                          icon: const Icon(
-                            LucideIcons.arrowUp,
-                            color: SpotifyColors.accent,
-                            size: 22,
-                          ),
-                          tooltip: 'Send message',
-                          onPressed: _send,
-                        )
-                      else
-                        HoldToRecordButton(
-                          key: const ValueKey('group-voice-button'),
-                          onRecorded: _sendVoice,
-                          onMessage: _showSnack,
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _textController,
+                        builder: (context, value, _) {
+                          if (_uploading) {
+                            return const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: SpotifyColors.accent,
+                                ),
+                              ),
+                            );
+                          }
+                          if (value.text.trim().isNotEmpty) {
+                            return IconButton(
+                              key: const ValueKey('group-send-button'),
+                              icon: const Icon(
+                                LucideIcons.arrowUp,
+                                color: SpotifyColors.accent,
+                                size: 22,
+                              ),
+                              tooltip: 'Send message',
+                              onPressed: _send,
+                            );
+                          }
+                          return HoldToRecordButton(
+                            key: const ValueKey('group-voice-button'),
+                            onRecorded: _sendVoice,
+                            onMessage: _showSnack,
+                            color: scheme.onSurfaceVariant,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),

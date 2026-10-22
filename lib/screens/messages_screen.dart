@@ -70,7 +70,8 @@ class MessagesScreen extends StatefulWidget {
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
-class _MessagesScreenState extends State<MessagesScreen> {
+class _MessagesScreenState extends State<MessagesScreen>
+    with AutomaticKeepAliveClientMixin {
   late final Stream<List<ContactRequest>> _requestStream =
       widget.requestStream ?? ContactStore.instance.watchRequests();
 
@@ -131,7 +132,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Stack(
       children: [
         Column(
@@ -808,56 +813,54 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
       );
     }
 
-    return SliverToBoxAdapter(
-      child: Column(
-        children: [
-          for (var i = 0; i < conversations.length; i++) ...[
-            if (i > 0)
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: SpotifyColors.border,
-              ),
-            if (onDelete != null && !conversations[i].isGroup)
-              Dismissible(
-                key: ValueKey('conversation-swipe-${conversations[i].id}'),
-                direction: DismissDirection.endToStart,
-                confirmDismiss: (_) => onDelete(conversations[i]),
-                onDismissed: (_) => onDismissed?.call(conversations[i]),
-                background: Container(
-                  color: SpotifyColors.accent,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(LucideIcons.trash2, color: Colors.white),
-                      SizedBox(width: 6),
-                      Text(
-                        'Delete',
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final i = index ~/ 2;
+        if (index.isOdd) {
+          return const Divider(
+            height: 1,
+            thickness: 1,
+            color: SpotifyColors.border,
+          );
+        }
+
+        final item = conversations[i];
+        final tile = _ConversationTile(
+          key: ValueKey('conversation-${item.id}'),
+          item: item,
+          onTap: () => onTap(item),
+        );
+        if (onDelete == null || item.isGroup) return tile;
+
+        return Dismissible(
+          key: ValueKey('conversation-swipe-${item.id}'),
+          direction: DismissDirection.endToStart,
+          confirmDismiss: (_) => onDelete(item),
+          onDismissed: (_) => onDismissed?.call(item),
+          background: Container(
+            color: SpotifyColors.accent,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.trash2, color: Colors.white),
+                SizedBox(width: 6),
+                Text(
+                  'Delete',
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
-                child: _ConversationTile(
-                  item: conversations[i],
-                  onTap: () => onTap(conversations[i]),
-                ),
-              )
-            else
-              _ConversationTile(
-                item: conversations[i],
-                onTap: () => onTap(conversations[i]),
-              ),
-          ],
-        ],
-      ),
+              ],
+            ),
+          ),
+          child: tile,
+        );
+      }, childCount: conversations.length * 2 - 1),
     );
   }
 }
@@ -866,7 +869,11 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
 /// right-aligned 12sp timestamp, and up to two lines of 15sp preview copy over
 /// 16/10 padding — matching the announcement feed's dimensions and fonts.
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.item, required this.onTap});
+  const _ConversationTile({
+    super.key,
+    required this.item,
+    required this.onTap,
+  });
 
   final ChatConversation item;
   final VoidCallback onTap;
