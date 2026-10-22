@@ -173,6 +173,18 @@ class LocalCache {
   }
 
   // -------------------------------------------------------------------------
+  // Personal todos (scoped to the signed-in account)
+  // -------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>?> todos(String uid) async {
+    return _mapList(await read('todos:$uid'));
+  }
+
+  Future<void> saveTodos(String uid, List<Map<String, dynamic>> items) {
+    return write('todos:$uid', items);
+  }
+
+  // -------------------------------------------------------------------------
   // Direct messages (scoped to the signed-in account)
   // -------------------------------------------------------------------------
 

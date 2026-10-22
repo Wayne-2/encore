@@ -574,9 +574,9 @@ class _LibraryTabs extends StatelessWidget {
                     style: selected == i
                         ? AppType.cardTitle(
                             scheme,
-                          ).copyWith(fontSize: 14, color: scheme.onSurface)
+                          ).copyWith(fontSize: 15, color: scheme.onSurface)
                         : AppType.subtitle(scheme).copyWith(
-                            fontSize: 14,
+                            fontSize: 15,
                             color: scheme.onSurfaceVariant,
                           ),
                   ),
@@ -1662,10 +1662,7 @@ class _LibraryShareSheet extends StatelessWidget {
                               color: scheme.onSurfaceVariant,
                             ),
                             const SizedBox(height: 10),
-                            Text(
-                              'No chats yet',
-                              style: AppType.name(scheme),
-                            ),
+                            Text('No chats yet', style: AppType.name(scheme)),
                             const SizedBox(height: 4),
                             Text(
                               'Start a conversation from Messages, then share '
@@ -1768,11 +1765,7 @@ class _LibraryShareSheet extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: AppType.meta(scheme),
       ),
-      trailing: Icon(
-        LucideIcons.send,
-        size: 18,
-        color: SpotifyColors.accent,
-      ),
+      trailing: Icon(LucideIcons.send, size: 18, color: SpotifyColors.accent),
       onTap: onTap,
     );
   }

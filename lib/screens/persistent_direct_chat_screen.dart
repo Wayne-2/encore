@@ -690,7 +690,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: scheme.onSurface,
                           ),
@@ -880,7 +880,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 12.5,
+                            fontSize: 12,
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
@@ -1130,7 +1130,7 @@ class _ChatProfileSheetState extends State<_ChatProfileSheet> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
@@ -1140,7 +1140,7 @@ class _ChatProfileSheetState extends State<_ChatProfileSheet> {
                   'This profile is private',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
+                    fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.65),
                   ),
                 ),
@@ -1150,7 +1150,7 @@ class _ChatProfileSheetState extends State<_ChatProfileSheet> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
@@ -1167,7 +1167,7 @@ class _ChatProfileSheetState extends State<_ChatProfileSheet> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
@@ -1177,7 +1177,7 @@ class _ChatProfileSheetState extends State<_ChatProfileSheet> {
                   user.handle,
                   style: const TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 14,
+                    fontSize: 15,
                     color: SpotifyColors.accent,
                   ),
                 ),
@@ -1186,7 +1186,7 @@ class _ChatProfileSheetState extends State<_ChatProfileSheet> {
                   user.presenceLabel(widget.now),
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     color: user.isOnlineAt(widget.now)
                         ? SpotifyColors.accent
                         : Colors.white.withValues(alpha: 0.55),
@@ -1252,7 +1252,7 @@ class _ProfileDetailRow extends StatelessWidget {
               label,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 12.5,
+                fontSize: 12,
                 color: Colors.white.withValues(alpha: 0.55),
               ),
             ),
@@ -1262,7 +1262,7 @@ class _ProfileDetailRow extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -1303,7 +1303,7 @@ class _ProfileHeader extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
             color: Colors.white,
           ),
@@ -1313,7 +1313,7 @@ class _ProfileHeader extends StatelessWidget {
           peer.handle,
           style: const TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 13,
+            fontSize: 12,
             color: SpotifyColors.accent,
           ),
         ),
@@ -1323,7 +1323,7 @@ class _ProfileHeader extends StatelessWidget {
             peer.level!,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 12.5,
+              fontSize: 12,
               color: Colors.white.withValues(alpha: 0.55),
             ),
           ),
@@ -1353,7 +1353,7 @@ class _ProfileHeader extends StatelessWidget {
             'View profile',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),

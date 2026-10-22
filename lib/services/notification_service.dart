@@ -9,6 +9,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../config/app_config.dart';
 import '../firebase_options.dart';
@@ -25,6 +27,10 @@ const int _profileUpdatedNotificationId = 1002;
 const int _announcementNotificationId = 1003;
 const int _trendNotificationId = 1004;
 const int _activityNotificationId = 1005;
+
+const String _todoChannelId = 'encore_todos';
+const String _todoChannelName = 'Todo reminders';
+const String _todoChannelDescription = 'Alarms for your personal todo list';
 
 /// FCM handler for messages that arrive while the app is in the background.
 ///
@@ -49,6 +55,7 @@ class NotificationService {
 
   bool _initialized = false;
   bool _chatNotificationsHandledInApp = false;
+  bool _askedForExactAlarms = false;
 
   /// The Firebase Installation ID returned by `register()`, kept so the
   /// sign-up flow can persist it without waiting on the stream again.
@@ -85,18 +92,26 @@ class NotificationService {
     );
 
     if (defaultTargetPlatform == TargetPlatform.android) {
-      await _local
+      final android = _local
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(
-            const AndroidNotificationChannel(
-              _channelId,
-              _channelName,
-              description: _channelDescription,
-              importance: Importance.max,
-            ),
-          );
+          >();
+      await android?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          description: _channelDescription,
+          importance: Importance.max,
+        ),
+      );
+      await android?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _todoChannelId,
+          _todoChannelName,
+          description: _todoChannelDescription,
+          importance: Importance.max,
+        ),
+      );
     }
 
     if (!_supportsPush) return;
@@ -371,6 +386,78 @@ class NotificationService {
     }
   }
 
+  /// Schedules a local alarm for [todoId] at [at].
+  ///
+  /// Exact alarms are used when the OS grants the permission; otherwise the
+  /// notification falls back to an inexact idle-safe alarm. Best-effort: a
+  /// platform that cannot schedule notifications must never break saving.
+  Future<void> scheduleTodo({
+    required String todoId,
+    required String title,
+    required DateTime at,
+    String note = '',
+    int badgeCount = 1,
+  }) async {
+    try {
+      if (!at.isAfter(DateTime.now())) return;
+      if (!_initialized) await initialize();
+      if (!_initialized) return;
+
+      tz.initializeTimeZones();
+      final id = _todoNotificationId(todoId);
+      await _local.cancel(id: id);
+
+      var exact = false;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final android = _local
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+        exact = await android?.canScheduleExactNotifications() ?? false;
+        if (!exact && !_askedForExactAlarms) {
+          _askedForExactAlarms = true;
+          await android?.requestExactAlarmsPermission();
+          exact = await android?.canScheduleExactNotifications() ?? false;
+        }
+      }
+
+      final trimmedNote = note.trim();
+      await _local.zonedSchedule(
+        id: id,
+        title: 'Todo alarm',
+        body: trimmedNote.isEmpty ? title : '$title — $trimmedNote',
+        scheduledDate: tz.TZDateTime.from(at, tz.UTC),
+        notificationDetails: _todoDetails(badgeCount),
+        androidScheduleMode: exact
+            ? AndroidScheduleMode.exactAllowWhileIdle
+            : AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: jsonEncode({'type': 'todo', 'todoId': todoId}),
+      );
+    } catch (_) {
+      // Scheduled notifications are unavailable in this environment.
+    }
+  }
+
+  /// Cancels the alarm previously scheduled for [todoId].
+  Future<void> cancelTodo(String todoId) async {
+    try {
+      if (!_initialized) return;
+      await _local.cancel(id: _todoNotificationId(todoId));
+    } catch (_) {
+      // Cancelling an alarm is best-effort.
+    }
+  }
+
+  /// Stable, collision-resistant notification id for a todo.
+  static int _todoNotificationId(String todoId) {
+    var hash = 0x811c9dc5;
+    for (final unit in todoId.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0x7fffffff;
+    }
+    return 10000 + (hash % 100000000);
+  }
+
   /// Tells the foreground FCM handler whether the signed-in app shell is
   /// already watching chats and posting message notifications itself.
   ///
@@ -441,6 +528,33 @@ class NotificationService {
       ),
       iOS: DarwinNotificationDetails(threadIdentifier: chatId),
       macOS: DarwinNotificationDetails(threadIdentifier: chatId),
+    );
+  }
+
+  static NotificationDetails _todoDetails(int badgeCount) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _todoChannelId,
+        _todoChannelName,
+        channelDescription: _todoChannelDescription,
+        icon: _icon,
+        color: _accent,
+        importance: Importance.max,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.reminder,
+        number: badgeCount,
+        enableVibration: true,
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        badgeNumber: badgeCount,
+      ),
+      macOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        badgeNumber: badgeCount,
+      ),
     );
   }
 

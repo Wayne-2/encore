@@ -327,8 +327,6 @@ class _ChatEmojiStickerPanelState extends State<ChatEmojiStickerPanel> {
                   fontWeight: FontWeight.w700,
                 ),
                 tabs: [
-                  for (final category in _emojiCategories.keys)
-                    Tab(height: 40, text: category),
                   const Tab(
                     key: ValueKey('chat-sticker-tab'),
                     height: 40,
@@ -341,14 +339,16 @@ class _ChatEmojiStickerPanelState extends State<ChatEmojiStickerPanel> {
                       ],
                     ),
                   ),
+                  for (final category in _emojiCategories.keys)
+                    Tab(height: 40, text: category),
                 ],
               ),
               Expanded(
                 child: TabBarView(
                   children: [
+                    _buildStickerTab(),
                     for (final emojis in _emojiCategories.values)
                       _EmojiGrid(emojis: emojis, controller: widget.controller),
-                    _buildStickerTab(),
                   ],
                 ),
               ),
@@ -403,7 +403,7 @@ class _ChatEmojiStickerPanelState extends State<ChatEmojiStickerPanel> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   height: 1.35,
                   color: Colors.white.withValues(alpha: 0.55),
                 ),

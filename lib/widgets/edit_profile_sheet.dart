@@ -301,7 +301,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
               const SizedBox(height: 20),
               Text(
                 'Edit profile',
-                style: AppType.sectionTitle(scheme).copyWith(fontSize: 20),
+                style: AppType.sectionTitle(scheme).copyWith(fontSize: 18),
               ),
               const SizedBox(height: 20),
               Center(child: _buildAvatar()),

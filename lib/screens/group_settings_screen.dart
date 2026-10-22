@@ -500,7 +500,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         label,
         style: const TextStyle(
           fontFamily: AppTheme.fontFamily,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.2,
           color: SpotifyColors.accent,
@@ -553,7 +553,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 21,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
@@ -564,7 +564,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             '${group.adminIds.length == 1 ? 'admin' : 'admins'}',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 12.5,
+              fontSize: 12,
               color: Colors.white.withValues(alpha: 0.58),
             ),
           ),
@@ -595,7 +595,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       : group.description,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
+                    fontSize: 12,
                     height: 1.4,
                     fontStyle: group.description.isEmpty
                         ? FontStyle.italic
@@ -716,7 +716,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       'Only admins can change these settings',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.5,
+                        fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.45),
                       ),
                     ),
@@ -754,7 +754,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         title,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
           color: Colors.white.withValues(alpha: enabled ? 0.92 : 0.6),
         ),
@@ -763,7 +763,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         subtitle,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
-          fontSize: 11.5,
+          fontSize: 12,
           height: 1.3,
           color: Colors.white.withValues(alpha: 0.45),
         ),
@@ -801,14 +801,14 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   onChanged: (value) => setState(() => _query = value),
                   style: const TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 13.5,
+                    fontSize: 12,
                     color: Colors.white,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Search members',
                     hintStyle: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      fontSize: 13.5,
+                      fontSize: 12,
                       color: Colors.white.withValues(alpha: 0.4),
                     ),
                     prefixIcon: Icon(
@@ -889,7 +889,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 14.5,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: isMe ? SpotifyColors.accent : Colors.white,
               ),
@@ -907,7 +907,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                 'Admin',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 9.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: SpotifyColors.accent,
                 ),
@@ -1026,7 +1026,7 @@ class _AddGroupMembersSheetState extends State<AddGroupMembersSheet> {
                 style: const TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 15,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Search people',
@@ -1117,7 +1117,7 @@ class _AddGroupMembersSheetState extends State<AddGroupMembersSheet> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 14.5,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: scheme.onSurface,
                           ),

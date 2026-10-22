@@ -56,11 +56,12 @@ class StoryStore extends ChangeNotifier {
 
   /// The active stories, newest first.
   List<StoryItem> get items {
+    final uid = viewerId;
     if (Firebase.apps.isEmpty) {
       return [
         for (final story in MockChatData.stories)
           story.copyWith(
-            hasUnread: !_seenIds.contains(story.id) && !story.isMine(viewerId),
+            hasUnread: !_seenIds.contains(story.id) && !story.isMine(uid),
             viewers: story.viewers,
           ),
       ];
@@ -70,7 +71,11 @@ class StoryStore extends ChangeNotifier {
         _items
             .where(
               (story) =>
-                  story.createdAt == null || story.createdAt!.isAfter(cutoff),
+                  (story.createdAt == null ||
+                      story.createdAt!.isAfter(cutoff)) &&
+                  (story.isMine(uid) ||
+                      uid == null ||
+                      !story.hiddenFrom.contains(uid)),
             )
             .toList()
           ..sort((a, b) {
@@ -230,6 +235,7 @@ class StoryStore extends ChangeNotifier {
     required String filePath,
     required bool isVideo,
     String? caption,
+    Set<String> hiddenFrom = const {},
   }) async {
     final file = File(filePath);
     if (!await file.exists()) {
@@ -255,6 +261,7 @@ class StoryStore extends ChangeNotifier {
         caption: _cleanCaption(caption),
         isVideo: isVideo,
         hasUnread: false,
+        hiddenFrom: hiddenFrom.toList(growable: false),
       );
       _insert(story);
       return story;
@@ -308,6 +315,7 @@ class StoryStore extends ChangeNotifier {
       isVideo: isVideo,
       hasUnread: false,
       viewers: viewers,
+      hiddenFrom: hiddenFrom.toList(growable: false),
       department: _department,
       level: _level,
     );
@@ -323,6 +331,8 @@ class StoryStore extends ChangeNotifier {
       'mediaType': isVideo ? 'video' : 'image',
       'caption': story.caption,
       'viewers': viewers,
+      if (hiddenFrom.isNotEmpty)
+        'hiddenFrom': hiddenFrom.toList(growable: false),
       'createdAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(now.add(_lifetime)),
     });
@@ -438,6 +448,7 @@ class StoryStore extends ChangeNotifier {
           'mediaType': story.isVideo ? 'video' : 'image',
           'caption': story.caption,
           'viewers': story.viewers,
+          'hiddenFrom': story.hiddenFrom,
           'createdAt':
               _createdAtMillis[story.id] ??
               DateTime.now().millisecondsSinceEpoch,
@@ -463,6 +474,7 @@ class StoryStore extends ChangeNotifier {
       isVideo: data['mediaType'] == 'video',
       hasUnread: !_seenIds.contains(doc.id) && authorId != viewerId,
       viewers: _stringList(data['viewers']),
+      hiddenFrom: _stringList(data['hiddenFrom']),
       department: data['department'] as String? ?? '',
       level: data['level'] as String? ?? '',
     );
@@ -486,6 +498,7 @@ class StoryStore extends ChangeNotifier {
       isVideo: data['mediaType'] == 'video',
       hasUnread: !_seenIds.contains(id) && authorId != viewerId,
       viewers: _stringList(data['viewers']),
+      hiddenFrom: _stringList(data['hiddenFrom']),
       department: _department,
       level: _level,
     );

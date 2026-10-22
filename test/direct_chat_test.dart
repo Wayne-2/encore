@@ -436,6 +436,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('chat-emoji-picker')), findsOneWidget);
 
+    await tester.tap(find.text('Smileys'));
+    await tester.pumpAndSettle();
+
     final inputFinder = find.byKey(const ValueKey('persistent-message-input'));
     final panel = find.byKey(const ValueKey('chat-emoji-picker'));
     expect(inputFinder, findsOneWidget);

@@ -21,6 +21,7 @@ class StoryItem {
     this.caption,
     this.isVideo = false,
     this.viewers = const [],
+    this.hiddenFrom = const [],
     this.department = '',
     this.level = '',
   });
@@ -39,6 +40,9 @@ class StoryItem {
   final String? caption;
   final bool isVideo;
   final List<String> viewers;
+
+  /// UIDs of contacts who should not see this story.
+  final List<String> hiddenFrom;
   final String department;
   final String level;
 
@@ -62,6 +66,7 @@ class StoryItem {
       caption: caption,
       isVideo: isVideo,
       viewers: viewers ?? this.viewers,
+      hiddenFrom: hiddenFrom,
       department: department,
       level: level,
     );

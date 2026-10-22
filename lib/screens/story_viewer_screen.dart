@@ -464,7 +464,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                       'This video could not be played.',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ),
@@ -681,7 +681,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                 '${_story.viewers.length} ${_story.viewers.length == 1 ? 'view' : 'views'}',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 13,
+                  fontSize: 12,
                   color: Colors.white.withValues(alpha: 0.75),
                 ),
               ),

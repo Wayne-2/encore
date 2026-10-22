@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -24,6 +25,7 @@ import '../widgets/compose_fab.dart';
 import '../widgets/filter_pills.dart';
 import '../widgets/floating_empty_state.dart';
 import '../widgets/section_heading.dart';
+import '../widgets/user_avatar.dart';
 import '../widgets/workspace_app_bar.dart';
 import 'add_story_screen.dart';
 import 'available_contacts_screen.dart';
@@ -36,7 +38,6 @@ import 'story_viewer_screen.dart';
 
 /// Quick actions revealed by the Messages compose button.
 const List<ComposeAction> _messagesComposeActions = [
-  ComposeAction(label: 'Add Story', icon: LucideIcons.bookOpen),
   ComposeAction(label: 'New DM', iconAsset: 'assets/icons/messages.svg'),
   ComposeAction(label: 'New Group', icon: LucideIcons.userPlus),
 ];
@@ -74,6 +75,7 @@ class _MessagesScreenState extends State<MessagesScreen>
     with AutomaticKeepAliveClientMixin {
   late final Stream<List<ContactRequest>> _requestStream =
       widget.requestStream ?? ContactStore.instance.watchRequests();
+  final GlobalKey<_ConversationsSectionState> _conversationsKey = GlobalKey();
 
   int _incomingRequestCount(List<ContactRequest>? requests) {
     if (requests == null || requests.isEmpty) return 0;
@@ -90,8 +92,6 @@ class _MessagesScreenState extends State<MessagesScreen>
         await _startNewDm();
       case 'New Group':
         await _startNewGroup();
-      case 'Add Story':
-        await _openAddStory();
     }
   }
 
@@ -124,31 +124,108 @@ class _MessagesScreenState extends State<MessagesScreen>
     ).push(sharedAxisRoute(const CreateGroupScreen()));
   }
 
-  Future<void> _openAddStory() async {
-    final posted = await Navigator.of(
-      context,
-    ).push<bool>(sharedAxisRoute(const AddStoryScreen()));
-    if (posted == true) _showSnack('Your story is live for 24 hours.');
-  }
-
   @override
   bool get wantKeepAlive => true;
+
+  void _onMoreSelected(String value) {
+    switch (value) {
+      case 'archive':
+        _showSnack('Archived conversations are coming soon.');
+      case 'settings':
+        _showSnack('Message settings are coming soon.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final scheme = Theme.of(context).colorScheme;
     return Stack(
       children: [
         Column(
           children: [
-            const WorkspaceAppBar(heading: 'Messages'),
+            WorkspaceAppBar(
+              heading: 'Messages',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: const ValueKey('conversations-search-open'),
+                    onPressed: () =>
+                        _conversationsKey.currentState?._openSearch(),
+                    icon: SvgPicture.asset(
+                      'assets/icons/searching.svg',
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(
+                        scheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    tooltip: 'Search conversations',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 36,
+                      height: 36,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 6),
+                  PopupMenuButton<String>(
+                    key: const ValueKey('conversations-more'),
+                    tooltip: 'Conversation options',
+                    padding: EdgeInsets.zero,
+                    position: PopupMenuPosition.under,
+                    color: SpotifyColors.surface,
+                    onSelected: _onMoreSelected,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'archive',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.archive, size: 18),
+                            SizedBox(width: 10),
+                            Text('Archive'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'settings',
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.slidersHorizontal, size: 18),
+                            SizedBox(width: 10),
+                            Text('Message settings'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Center(
+                        child: SvgPicture.asset(
+                          'assets/icons/option.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: ColorFilter.mode(
+                            scheme.onSurface,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: CustomScrollView(
                 slivers: [
                   const SliverToBoxAdapter(child: SizedBox(height: 12)),
                   const SliverToBoxAdapter(child: _StorySection()),
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  const _ConversationsSection(),
+                  _ConversationsSection(key: _conversationsKey),
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
               ),
@@ -204,6 +281,44 @@ class _StorySectionState extends State<_StorySection> {
     ).push(fadeRoute(StoryViewerScreen(stories: group.stories)));
   }
 
+  Future<void> _deleteStoryGroup(StoryGroup group) async {
+    if (!group.isMine(StoryStore.instance.viewerId)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: SpotifyColors.surface,
+        title: const Text('Delete story?'),
+        content: const Text('This removes your story from the status reel.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: SpotifyColors.accent,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    for (final story in [...group.stories]) {
+      try {
+        await StoryStore.instance.delete(story);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not delete that story.')),
+        );
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -220,10 +335,22 @@ class _StorySectionState extends State<_StorySection> {
             separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
               if (index == 0) {
-                return _AddStoryTile(onTap: _addStory);
+                final mine = StoryStore.instance.myGroup;
+                return _AddStoryTile(
+                  onTap: _addStory,
+                  onLongPress: mine == null
+                      ? null
+                      : () => _deleteStoryGroup(mine),
+                );
               }
               final group = groups[index - 1];
-              return _StoryTile(group: group, onTap: () => _openGroup(group));
+              return _StoryTile(
+                group: group,
+                onTap: () => _openGroup(group),
+                onLongPress: group.isMine(StoryStore.instance.viewerId)
+                    ? () => _deleteStoryGroup(group)
+                    : null,
+              );
             },
           ),
         );
@@ -233,18 +360,19 @@ class _StorySectionState extends State<_StorySection> {
 }
 
 class _AddStoryTile extends StatelessWidget {
-  const _AddStoryTile({required this.onTap});
+  const _AddStoryTile({required this.onTap, this.onLongPress});
 
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final mine = StoryStore.instance.myGroup;
 
     return InkWell(
       key: const ValueKey('add-story-tile'),
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(14),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -255,35 +383,26 @@ class _AddStoryTile extends StatelessWidget {
               Container(
                 width: 68,
                 height: 68,
-                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    color: mine == null
-                        ? scheme.outlineVariant
-                        : SpotifyColors.accent,
-                    width: 2,
-                  ),
                 ),
-                child: mine != null
-                    ? ChatAvatar(
-                        avatarUrl: mine.latest.avatarUrl,
-                        avatarColor: mine.latest.avatarColor,
-                        avatarInitials: mine.latest.avatarText,
-                        size: 60,
-                        showOnlineDot: true,
-                      )
-                    : Container(
-                        decoration: BoxDecoration(
-                          color: scheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Icon(
-                          LucideIcons.camera,
-                          color: scheme.onSurfaceVariant,
-                          size: 27,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const CurrentUserAvatar(size: 60),
+                      Positioned.fill(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: ColoredBox(
+                            color: Colors.black.withValues(alpha: 0.38),
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
               ),
               Positioned(
                 right: -2,
@@ -324,39 +443,36 @@ class _AddStoryTile extends StatelessWidget {
 }
 
 class _StoryTile extends StatelessWidget {
-  const _StoryTile({required this.group, required this.onTap});
+  const _StoryTile({
+    required this.group,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   final StoryGroup group;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final story = group.latest;
-    final ring = group.hasUnread
-        ? SpotifyColors.accent
-        : scheme.onSurface.withValues(alpha: 0.16);
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(14),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 68,
-            height: 68,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: ring, width: 2),
-            ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(15),
             child: ChatAvatar(
               avatarAsset: story.avatarAsset,
               avatarUrl: story.avatarUrl,
               avatarColor: story.avatarColor,
               avatarInitials: story.avatarText,
-              size: 60,
+              size: 68,
               showOnlineDot: true,
             ),
           ),
@@ -378,7 +494,7 @@ class _StoryTile extends StatelessWidget {
 /// Vertical conversations list under `# Conversations`, with All / DMs /
 /// Groups / Unread filters.
 class _ConversationsSection extends StatefulWidget {
-  const _ConversationsSection();
+  const _ConversationsSection({super.key});
 
   @override
   State<_ConversationsSection> createState() => _ConversationsSectionState();
@@ -444,15 +560,6 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _onMoreSelected(String value) {
-    switch (value) {
-      case 'archive':
-        _showSnack('Archived conversations are coming soon.');
-      case 'settings':
-        _showSnack('Message settings are coming soon.');
-    }
   }
 
   Future<bool> _confirmDeleteConversation(ChatConversation item) async {
@@ -558,67 +665,6 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
           style: SlackType.sectionTitle(scheme),
           glyphStyle: SlackType.glyph(scheme),
         ),
-        const Spacer(),
-        IconButton(
-          key: const ValueKey('conversations-search-open'),
-          onPressed: _openSearch,
-          icon: SvgPicture.asset(
-            'assets/icons/searching.svg',
-            width: 20,
-            height: 20,
-            colorFilter: ColorFilter.mode(scheme.onSurface, BlendMode.srcIn),
-          ),
-          tooltip: 'Search conversations',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-          visualDensity: VisualDensity.compact,
-        ),
-        const SizedBox(width: 6),
-        PopupMenuButton<String>(
-          key: const ValueKey('conversations-more'),
-          tooltip: 'Conversation options',
-          padding: EdgeInsets.zero,
-          position: PopupMenuPosition.under,
-          color: SpotifyColors.surface,
-          onSelected: _onMoreSelected,
-          itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: 'archive',
-              child: Row(
-                children: [
-                  Icon(LucideIcons.archive, size: 18),
-                  SizedBox(width: 10),
-                  Text('Archive'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'settings',
-              child: Row(
-                children: [
-                  Icon(LucideIcons.slidersHorizontal, size: 18),
-                  SizedBox(width: 10),
-                  Text('Message settings'),
-                ],
-              ),
-            ),
-          ],
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: Center(
-              child: SvgPicture.asset(
-                'assets/icons/option.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  scheme.onSurface,
-                  BlendMode.srcIn,
-                ),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -629,8 +675,11 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
       height: 36,
       decoration: BoxDecoration(
         color: SpotifyColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SpotifyColors.border),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: _query.trim().isEmpty ? SpotifyColors.border : scheme.primary,
+          width: _query.trim().isEmpty ? 1 : 1.5,
+        ),
       ),
       child: Row(
         children: [
@@ -654,15 +703,15 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
               textInputAction: TextInputAction.search,
               style: TextStyle(
                 fontFamily: 'Montserrat',
-                fontSize: 13,
+                fontSize: 12,
                 color: scheme.onSurface,
               ),
               decoration: InputDecoration(
                 isDense: true,
-                hintText: 'Search conversations',
+                hintText: 'Search messages',
                 hintStyle: TextStyle(
                   fontFamily: 'Montserrat',
-                  fontSize: 13,
+                  fontSize: 12,
                   color: scheme.onSurfaceVariant,
                 ),
                 border: InputBorder.none,
@@ -850,7 +899,7 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
                   'Delete',
                   style: TextStyle(
                     fontFamily: 'Montserrat',
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -869,11 +918,7 @@ class _ConversationsSectionState extends State<_ConversationsSection> {
 /// right-aligned 12sp timestamp, and up to two lines of 15sp preview copy over
 /// 16/10 padding — matching the announcement feed's dimensions and fonts.
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({
-    super.key,
-    required this.item,
-    required this.onTap,
-  });
+  const _ConversationTile({super.key, required this.item, required this.onTap});
 
   final ChatConversation item;
   final VoidCallback onTap;
@@ -940,7 +985,7 @@ class _ConversationTile extends StatelessWidget {
                                   : item.unreadCount.toString(),
                               style: const TextStyle(
                                 fontFamily: 'Montserrat',
-                                fontSize: 9.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                               ),

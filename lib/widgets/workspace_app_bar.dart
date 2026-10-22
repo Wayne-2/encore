@@ -14,6 +14,7 @@ class WorkspaceAppBar extends StatelessWidget {
     super.key,
     required this.heading,
     this.title,
+    this.subtitle,
     this.leading,
     this.trailing,
     this.headingSize,
@@ -22,6 +23,9 @@ class WorkspaceAppBar extends StatelessWidget {
 
   final String heading;
   final String? title;
+
+  /// Optional custom widget rendered beneath [heading] instead of [title].
+  final Widget? subtitle;
 
   /// Optional replacement for the anchor glyph, such as a back button.
   final Widget? leading;
@@ -73,7 +77,10 @@ class WorkspaceAppBar extends StatelessWidget {
                     color: scheme.onSurface,
                   ),
                 ),
-                if (title != null) ...[
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  subtitle!,
+                ] else if (title != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     title!,

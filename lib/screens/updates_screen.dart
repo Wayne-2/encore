@@ -138,6 +138,7 @@ class _UpdatesScreenState extends State<UpdatesScreen>
   final _trendingKey = GlobalKey();
   final _activitiesKey = GlobalKey();
 
+  Timer? _expiryTimer;
   bool _loading = AuthService.isAvailable;
   bool _refreshing = false;
 
@@ -151,6 +152,11 @@ class _UpdatesScreenState extends State<UpdatesScreen>
     AnnouncementStore.instance.listen();
     TrendStore.instance.listen();
     ActivityStore.instance.listen();
+    _expiryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      AnnouncementStore.instance.pruneExpired();
+      TrendStore.instance.pruneExpired();
+      ActivityStore.instance.pruneExpired();
+    });
     if (_loading) {
       Future<void>.delayed(_skeletonDuration, () {
         if (mounted) setState(() => _loading = false);
@@ -160,6 +166,7 @@ class _UpdatesScreenState extends State<UpdatesScreen>
 
   @override
   void dispose() {
+    _expiryTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -437,7 +444,7 @@ class _AnnouncementHeader extends StatelessWidget {
                 'Show more',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: SpotifyColors.accent,
                 ),
@@ -468,7 +475,7 @@ class _AnnouncementList extends StatefulWidget {
 class _AnnouncementListState extends State<_AnnouncementList> {
   /// Measured height of an [AnnouncementTile] with a two-line body (the
   /// tallest case) at the default text scale.
-  static const double _tileHeight = 103;
+  static const double _tileHeight = 104;
 
   /// Two dividers sit between the three slots.
   static const double _sectionHeight = _tileHeight * 3 + 2;
@@ -677,7 +684,7 @@ class _TrendingSection extends StatelessWidget {
   final String? viewerId;
 
   /// Height reserved for the row, kept even when there are no trends.
-  static const double _height = 200;
+  static const double _height = 204;
 
   @override
   Widget build(BuildContext context) {
@@ -710,7 +717,7 @@ class _TrendingSection extends StatelessWidget {
                     'Show more',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: SpotifyColors.accent,
                     ),

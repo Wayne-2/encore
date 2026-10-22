@@ -37,7 +37,7 @@ class StudentAgentScreen extends StatelessWidget {
                       child: Text(
                         'Good afternoon, Solomon.',
                         style: AppType.sectionTitle(scheme).copyWith(
-                          fontSize: 28,
+                          fontSize: 18,
                           fontWeight: FontWeight.w800,
                           height: 1.15,
                         ),

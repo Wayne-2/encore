@@ -575,7 +575,7 @@ void main() {
         .getSize(find.byKey(const ValueKey('trending-section')))
         .height;
     expect(postedHeight, emptyHeight);
-    expect(emptyHeight, 200);
+    expect(emptyHeight, 204);
   });
 
   testWidgets('Updates shows the Upcoming Activities grid', (
@@ -1103,45 +1103,21 @@ void main() {
     expect(find.widgetWithText(MenuItemButton, 'Manuals'), findsNothing);
   });
 
-  testWidgets('Finance Add Funds shows account details and copies', (
+  testWidgets('Finance header and account banner match the semester layout', (
     WidgetTester tester,
   ) async {
-    final calls = <MethodCall>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') calls.add(call);
-        return null;
-      },
-    );
-    addTearDown(() {
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      );
-    });
-
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: FinanceScreen())),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('add-funds-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Add Funds'), findsWidgets);
-    expect(find.text('Account name'), findsOneWidget);
-    expect(find.text('Odeh Solomon'), findsNWidgets(2));
-    expect(find.text('4267438338'), findsNWidgets(2));
-    expect(find.text('Kuda Bank'), findsNWidgets(2));
-    expect(find.text('Student details'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('copy-funds-account')));
-    await tester.pump();
-
-    expect(calls, isNotEmpty);
-    expect(calls.last.arguments['text'], '4267438338');
-    expect(find.text('Account number copied'), findsOneWidget);
+    expect(find.text('Finance'), findsOneWidget);
+    expect(find.text('2026/2027 First Semester'), findsOneWidget);
+    expect(find.text('TOTAL FUNDS PAID INTO'), findsOneWidget);
+    expect(find.text('Recepient account'), findsOneWidget);
+    expect(find.text('Assigned for Computer science - 200lvl'), findsOneWidget);
+    expect(find.text('View History'), findsWidgets);
+    expect(find.text('Odeh Solomon'), findsNothing);
   });
 
   testWidgets('Finance copy icon copies the account number', (
@@ -1321,7 +1297,7 @@ void main() {
     await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
 
-    expect(find.text('Add Story'), findsOneWidget);
+    expect(find.text('Add Story'), findsNothing);
     expect(find.text('New DM'), findsOneWidget);
     expect(find.text('New Group'), findsOneWidget);
     expect(

@@ -96,7 +96,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Add group photo',
-                  style: AppType.name(scheme).copyWith(fontSize: 16),
+                  style: AppType.name(scheme).copyWith(fontSize: 15),
                 ),
               ),
             ),
@@ -313,7 +313,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                       'Create',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: _canCreate
                             ? SpotifyColors.accent
@@ -334,7 +334,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                     children: [
                       Text(
                         'Group photo',
-                        style: AppType.name(scheme).copyWith(fontSize: 14),
+                        style: AppType.name(scheme).copyWith(fontSize: 15),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -360,7 +360,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: scheme.onSurface,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
@@ -369,7 +369,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 hintStyle: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: scheme.onSurfaceVariant,
-                  fontSize: 16,
+                  fontSize: 15,
                 ),
                 prefixIcon: Icon(
                   LucideIcons.users,
@@ -411,7 +411,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                               : member.displayName,
                           style: const TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 12.5,
+                            fontSize: 12,
                             color: Colors.white,
                           ),
                         ),
@@ -434,14 +434,14 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: scheme.onSurface,
-                fontSize: 14,
+                fontSize: 15,
               ),
               decoration: InputDecoration(
                 hintText: 'Search people',
                 hintStyle: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: scheme.onSurfaceVariant,
-                  fontSize: 14,
+                  fontSize: 15,
                 ),
                 prefixIcon: Icon(
                   LucideIcons.search,
@@ -545,7 +545,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: scheme.onSurface,
                         ),

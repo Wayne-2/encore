@@ -287,12 +287,15 @@ service cloud.firestore {
             && request.resource.data.caption.size() <= 300))
         && request.resource.data.viewers is list
         && request.resource.data.viewers.size() == 0
+        && (!request.resource.data.keys().hasAny(['hiddenFrom'])
+          || (request.resource.data.hiddenFrom is list
+            && request.resource.data.hiddenFrom.size() <= 500))
         && request.resource.data.createdAt == request.time
         && request.resource.data.expiresAt is timestamp
         && request.resource.data.keys().hasOnly([
           'authorId', 'authorName', 'username', 'photoUrl', 'department',
           'level', 'mediaUrl', 'mediaType', 'caption', 'viewers',
-          'createdAt', 'expiresAt'
+          'hiddenFrom', 'createdAt', 'expiresAt'
         ]);
       allow update: if inGroup()
         && request.resource.data.diff(resource.data).affectedKeys()

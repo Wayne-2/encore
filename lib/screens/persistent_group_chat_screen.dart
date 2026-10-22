@@ -491,7 +491,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                         'Tag someone',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                         ),
@@ -527,7 +527,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                         entry.name,
                         style: const TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
@@ -561,7 +561,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                                 'You',
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
-                                  fontSize: 10.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: SpotifyColors.accent,
                                 ),
@@ -841,7 +841,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -851,7 +851,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                 'Group • ${group.memberCount} members',
                 style: const TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 13,
+                  fontSize: 12,
                   color: SpotifyColors.accent,
                 ),
               ),
@@ -875,7 +875,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                   'Group settings',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -884,7 +884,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                   'Anonymous messages, posting permissions and admins',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: Colors.white54,
                   ),
                 ),
@@ -923,7 +923,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
-                                fontSize: 14.5,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
                                 color: isMe
                                     ? SpotifyColors.accent
@@ -948,7 +948,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                                 'Admin',
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: SpotifyColors.accent,
                                 ),
@@ -1018,7 +1018,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: scheme.onSurface,
                       ),
@@ -1204,7 +1204,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                       'Sending as Anonymous Sender — your name will be hidden.',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.5,
+                        fontSize: 12,
                         color: SpotifyColors.tagUrgent.withValues(alpha: 0.95),
                       ),
                     ),
@@ -1257,7 +1257,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 12.5,
+                            fontSize: 12,
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
@@ -1495,7 +1495,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                   'Only admins can send messages',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -1505,7 +1505,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                   'The group is in announcement mode.',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
@@ -1542,7 +1542,7 @@ class _GroupHeader extends StatelessWidget {
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
             color: Colors.white,
           ),
@@ -1554,7 +1554,7 @@ class _GroupHeader extends StatelessWidget {
               : 'Group • ${group.memberCount} members',
           style: const TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 13,
+            fontSize: 12,
             color: SpotifyColors.accent,
           ),
         ),
@@ -1608,7 +1608,7 @@ class _GroupHeader extends StatelessWidget {
                 'Only admins can send messages',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: SpotifyColors.tagUrgent.withValues(alpha: 0.9),
                 ),
@@ -1632,7 +1632,7 @@ class _GroupHeader extends StatelessWidget {
             'Group info',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),

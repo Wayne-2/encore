@@ -223,14 +223,14 @@ class _CommentThreadState extends State<CommentThread> {
                           overflow: TextOverflow.ellipsis,
                           style: AppType.meta(
                             scheme,
-                          ).copyWith(fontSize: 11, color: SpotifyColors.accent),
+                          ).copyWith(fontSize: 12, color: SpotifyColors.accent),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           replyTo.text,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppType.meta(scheme).copyWith(fontSize: 11),
+                          style: AppType.meta(scheme).copyWith(fontSize: 12),
                         ),
                       ],
                     ),
@@ -379,7 +379,7 @@ class _CommentTile extends StatelessWidget {
                           comment.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppType.name(scheme).copyWith(fontSize: 13),
+                          style: AppType.name(scheme).copyWith(fontSize: 12),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -411,7 +411,7 @@ class _CommentTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     comment.text,
-                    style: AppType.body(scheme).copyWith(fontSize: 13),
+                    style: AppType.body(scheme).copyWith(fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                   ReactionBar(
@@ -462,7 +462,7 @@ class _QuotedComment extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppType.meta(
               scheme,
-            ).copyWith(fontSize: 10, color: scheme.primary),
+            ).copyWith(fontSize: 12, color: scheme.primary),
           ),
           if (comment.replyToText.trim().isNotEmpty) ...[
             const SizedBox(height: 2),
@@ -470,7 +470,7 @@ class _QuotedComment extends StatelessWidget {
               comment.replyToText,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: AppType.meta(scheme).copyWith(fontSize: 11),
+              style: AppType.meta(scheme).copyWith(fontSize: 12),
             ),
           ],
         ],

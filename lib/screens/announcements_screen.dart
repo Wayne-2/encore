@@ -72,7 +72,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           'Announcements',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
             color: scheme.onSurface,
           ),

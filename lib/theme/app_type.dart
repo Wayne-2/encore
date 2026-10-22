@@ -2,27 +2,21 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// Shared text hierarchy used across the non-auth pages, following Spotify's
-/// type scale. The announcement feed opts into `SlackType` instead.
+/// Shared four-tier type scale used across the app.
 ///
-/// Prominence is expressed through size, weight and colour, top → bottom:
+/// | tier       | size | weight | colour                    |
+/// |------------|------|--------|---------------------------|
+/// | heading    | 18   | w700   | onSurface                 |
+/// | title      | 15   | w700   | onSurface (hierarchy)     |
+/// | subtitle   | 15   | w400   | onSurface (hierarchy)     |
+/// | functional | 12   | w400   | onSurfaceVariant (lifted) |
 ///
-/// | tier       | size | weight | colour      |
-/// |------------|------|--------|-------------|
-/// | section    | 22   | w700   | primary     |
-/// | name       | 16   | w700   | primary     |
-/// | card title | 15   | w700   | primary     |
-/// | body       | 15   | w400   | subdued     |
-/// | subtitle   | 13   | w400   | subdued     |
-/// | timestamp  | 12   | w400   | lifted      |
-/// | meta / tag | 11   | w400/600 | faint/subdued |
+/// The navigation bar and workspace app bar keep their own compact sizes.
 abstract final class AppType {
   /// Opacity step between adjacent hierarchy tiers.
   static const double opacityStep = 0.2;
 
-  /// Opacity for [fontSize], encoding the hierarchy in [opacityStep] steps: the
-  /// largest tier (18sp+ section headings) stays fully opaque and each smaller
-  /// tier drops by [opacityStep], bottoming out at 0.2 for the caption tier.
+  /// Opacity for [fontSize], encoding the hierarchy in [opacityStep] steps.
   static double hierarchyOpacity(double fontSize) {
     if (fontSize >= 18) return 1.0;
     if (fontSize >= 16) return 1.0 - opacityStep;
@@ -40,59 +34,27 @@ abstract final class AppType {
     );
   }
 
-  /// Section titles — Spotify's 22sp bold headings.
-  static TextStyle sectionTitle(ColorScheme s) => withHierarchy(
+  /// Section and page headings — 18sp bold primary text.
+  static TextStyle heading(ColorScheme s) => withHierarchy(
     TextStyle(
       fontFamily: AppTheme.fontFamily,
-      fontSize: 22,
+      fontSize: 18,
       fontWeight: FontWeight.w700,
       color: s.onSurface,
     ),
   );
 
-  /// The muted `#` glyph that prefixes a section title.
+  /// The muted `#` glyph that prefixes a section heading.
   static TextStyle glyph(ColorScheme s) => TextStyle(
     fontFamily: AppTheme.fontFamily,
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: FontWeight.w700,
     height: 1,
     color: s.onSurfaceVariant.withValues(alpha: 0.7),
   );
 
-  /// Names and primary list titles — Spotify's 16sp bold item titles.
-  static TextStyle name(ColorScheme s) => withHierarchy(
-    TextStyle(
-      fontFamily: AppTheme.fontFamily,
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-      color: s.onSurface,
-    ),
-  );
-
-  /// Message copy — 15sp regular subdued text.
-  static TextStyle body(ColorScheme s) => withHierarchy(
-    TextStyle(
-      fontFamily: AppTheme.fontFamily,
-      fontSize: 15,
-      height: 1.3,
-      fontWeight: FontWeight.w400,
-      color: s.onSurfaceVariant,
-    ),
-  );
-
-  /// Long-form reading copy — 16sp regular with generous leading so library
-  /// documents stay comfortable over several screens.
-  static TextStyle reading(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 16,
-    height: 1.75,
-    fontWeight: FontWeight.w400,
-    color: s.onSurface,
-  );
-
-  /// Card and list-item titles — 15sp bold primary text, one step below
-  /// [name] so headings stay dominant.
-  static TextStyle cardTitle(ColorScheme s) => withHierarchy(
+  /// Names and primary item titles — 15sp bold text.
+  static TextStyle title(ColorScheme s) => withHierarchy(
     TextStyle(
       fontFamily: AppTheme.fontFamily,
       fontSize: 15,
@@ -101,40 +63,42 @@ abstract final class AppType {
     ),
   );
 
-  /// Supporting copy such as card subtitles and dates — 13sp subdued.
+  /// Supporting copy such as previews and descriptions — 15sp regular text.
   static TextStyle subtitle(ColorScheme s) => withHierarchy(
     TextStyle(
       fontFamily: AppTheme.fontFamily,
-      fontSize: 13,
+      fontSize: 15,
+      height: 1.4,
       fontWeight: FontWeight.w400,
-      color: s.onSurfaceVariant,
+      color: s.onSurface,
     ),
   );
 
-  /// Timestamps and compact supporting copy — 12sp, lifted above the
-  /// size-based opacity ramp so dates and captions stay legible everywhere.
-  static TextStyle timestamp(ColorScheme s) => TextStyle(
+  /// Timestamps, labels and compact utility copy — 12sp regular text.
+  static TextStyle functional(ColorScheme s) => TextStyle(
     fontFamily: AppTheme.fontFamily,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: s.onSurfaceVariant.withValues(alpha: 0.7),
   );
 
-  /// Timestamps — the faintest tier.
-  static TextStyle meta(ColorScheme s) => withHierarchy(
-    TextStyle(
-      fontFamily: AppTheme.fontFamily,
-      fontSize: 11,
-      fontWeight: FontWeight.w400,
-      color: s.onSurfaceVariant,
-    ),
-  );
+  // Backwards-compatible semantic aliases mapped onto the four tiers.
+  static TextStyle sectionTitle(ColorScheme s) => heading(s);
+  static TextStyle name(ColorScheme s) => title(s);
+  static TextStyle cardTitle(ColorScheme s) => title(s);
+  static TextStyle body(ColorScheme s) => subtitle(s);
+  static TextStyle timestamp(ColorScheme s) => functional(s);
+  static TextStyle meta(ColorScheme s) => functional(s);
+
+  /// Long-form reading copy — 15sp regular with generous leading.
+  static TextStyle reading(ColorScheme s) =>
+      subtitle(s).copyWith(height: 1.75, color: s.onSurface);
 
   /// Coloured priority/tag label.
   static TextStyle tag(Color color) => TextStyle(
     fontFamily: AppTheme.fontFamily,
-    fontSize: 11,
-    fontWeight: FontWeight.w600,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
     color: color,
   );
 }

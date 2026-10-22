@@ -9,12 +9,13 @@ import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
+import '../theme/slack_type.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/add_expenditure_sheet.dart';
-import '../widgets/add_funds_sheet.dart';
 import '../widgets/checkout_sheet.dart';
 import '../widgets/compose_fab.dart';
-import '../widgets/user_avatar.dart';
+import '../widgets/section_heading.dart';
+import '../widgets/workspace_app_bar.dart';
 import 'view_history_screen.dart';
 
 /// The Finance section — the third tab of [HomeShell].
@@ -32,12 +33,8 @@ class _FinanceScreenState extends State<FinanceScreen>
     with AutomaticKeepAliveClientMixin {
   StreamSubscription<Map<String, dynamic>?>? _profileSubscription;
 
-  String _fullName = 'Odeh Solomon';
   String _accountNumber = '4267438338';
   String _bankName = 'Kuda Bank';
-  String _registrationNumber = '20241426282';
-  String _department = 'Computer Science';
-  String _level = '300 Level';
   double _availablePoints = 0;
 
   late List<_Due> _dues = List.of(_initialDues);
@@ -64,29 +61,17 @@ class _FinanceScreenState extends State<FinanceScreen>
   void _applyProfile(Map<String, dynamic>? data) {
     if (!mounted || data == null) return;
 
-    final fullName = (data['fullName'] as String?)?.trim();
     final accountNumber = (data['accountNumber'] as String?)?.trim();
     final bankName =
         (data['bankName'] as String?)?.trim() ??
         (data['bank'] as String?)?.trim();
-    final registrationNumber = (data['registrationNumber'] as String?)?.trim();
-    final department = (data['department'] as String?)?.trim();
-    final level = (data['level'] as String?)?.trim();
     final points = data['availablePoints'];
 
     setState(() {
-      if (fullName != null && fullName.isNotEmpty) _fullName = fullName;
       if (accountNumber != null && accountNumber.isNotEmpty) {
         _accountNumber = accountNumber;
       }
       if (bankName != null && bankName.isNotEmpty) _bankName = bankName;
-      if (registrationNumber != null && registrationNumber.isNotEmpty) {
-        _registrationNumber = registrationNumber;
-      }
-      if (department != null && department.isNotEmpty) {
-        _department = department;
-      }
-      if (level != null && level.isNotEmpty) _level = level;
       if (points is num) _availablePoints = points.toDouble();
     });
   }
@@ -102,104 +87,138 @@ class _FinanceScreenState extends State<FinanceScreen>
 
     return Stack(
       children: [
-        ListView(
-          padding: EdgeInsets.zero,
+        Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: _FinanceHero(
-                fullName: _fullName,
-                accountNumber: _accountNumber,
-                bankName: _bankName,
-                availablePoints: _availablePoints.toStringAsFixed(2),
-                onCopy: () => _copyAccountNumber(context),
-                onAddFunds: () => _showAddFunds(context),
-                onViewHistory: () => Navigator.of(
-                  context,
-                ).push(sharedAxisRoute(const ViewHistoryScreen())),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: _DuesCard(
-                completed: completed,
-                total: total,
-                unpaid: unpaid,
-                progress: progress,
-                onPayAll: () => _showCheckout(context),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-              child: Text(
-                'Budgeted Semester Expenditure',
-                style: AppType.sectionTitle(scheme),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Text(
-                'Assigned for computer science - 200lvl',
-                style: AppType.timestamp(scheme),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Row(
+            WorkspaceAppBar(
+              heading: 'Finance',
+              subtitle: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const _ExpenditureFilter(),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      height: 42,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: SpotifyColors.surface,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: SpotifyColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          SvgPicture.asset(
-                            'assets/icons/searching.svg',
-                            width: 16,
-                            height: 16,
-                            colorFilter: ColorFilter.mode(
-                              scheme.onSurfaceVariant.withValues(alpha: 0.8),
-                              BlendMode.srcIn,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              style: AppType.timestamp(scheme),
-                              cursorColor: scheme.primary,
-                              cursorHeight: 14,
-                              textAlignVertical: TextAlignVertical.center,
-                              decoration: InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                disabledBorder: InputBorder.none,
-                                errorBorder: InputBorder.none,
-                                focusedErrorBorder: InputBorder.none,
-                                hintText: 'Search',
-                                hintStyle: AppType.timestamp(scheme),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Text(
+                    '2026/2027 First Semester',
+                    style: AppType.subtitle(scheme),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    LucideIcons.chevronDown,
+                    size: 14,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ],
               ),
+              trailing: SvgPicture.asset(
+                'assets/icons/notification.svg',
+                width: 22,
+                height: 22,
+                colorFilter: ColorFilter.mode(
+                  scheme.onSurface,
+                  BlendMode.srcIn,
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            for (final due in _dues) _ExpenditureTile(due: due),
-            const SizedBox(height: 96),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: _FinanceHero(
+                      accountNumber: _accountNumber,
+                      bankName: _bankName,
+                      availablePoints: _availablePoints.toStringAsFixed(2),
+                      onCopy: () => _copyAccountNumber(context),
+                      onViewHistory: () => Navigator.of(
+                        context,
+                      ).push(sharedAxisRoute(const ViewHistoryScreen())),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: SectionHeading(
+                      'Semester Expenditure',
+                      style: SlackType.sectionTitle(scheme),
+                      glyphStyle: SlackType.glyph(scheme),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Text(
+                      'Assigned for Computer science - 200lvl',
+                      style: AppType.timestamp(scheme),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _DuesCard(
+                      completed: completed,
+                      total: total,
+                      unpaid: unpaid,
+                      progress: progress,
+                      onPayAll: () => _showCheckout(context),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: Row(
+                      children: [
+                        const _ExpenditureFilter(),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            height: 42,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: SpotifyColors.surface,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: SpotifyColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                SvgPicture.asset(
+                                  'assets/icons/searching.svg',
+                                  width: 16,
+                                  height: 16,
+                                  colorFilter: ColorFilter.mode(
+                                    scheme.onSurfaceVariant.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    style: AppType.timestamp(scheme),
+                                    cursorColor: scheme.primary,
+                                    cursorHeight: 14,
+                                    textAlignVertical: TextAlignVertical.center,
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      disabledBorder: InputBorder.none,
+                                      errorBorder: InputBorder.none,
+                                      focusedErrorBorder: InputBorder.none,
+                                      hintText: 'Search',
+                                      hintStyle: AppType.timestamp(scheme),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final due in _dues) _ExpenditureTile(due: due),
+                  const SizedBox(height: 96),
+                ],
+              ),
+            ),
           ],
         ),
         Positioned.fill(
@@ -224,19 +243,6 @@ class _FinanceScreenState extends State<FinanceScreen>
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(const SnackBar(content: Text('Account number copied')));
-  }
-
-  void _showAddFunds(BuildContext context) {
-    showAddFundsSheet(
-      context,
-      fullName: _fullName,
-      accountNumber: _accountNumber,
-      bankName: _bankName,
-      availablePoints: _availablePoints.toStringAsFixed(2),
-      registrationNumber: _registrationNumber,
-      department: _department,
-      level: _level,
-    );
   }
 
   Future<void> _addExpenditure(BuildContext context) async {
@@ -282,27 +288,22 @@ class _FinanceScreenState extends State<FinanceScreen>
 /// Full-bleed finance header. The Encore mark is used as a muted backdrop.
 class _FinanceHero extends StatelessWidget {
   const _FinanceHero({
-    required this.fullName,
     required this.accountNumber,
     required this.bankName,
     required this.availablePoints,
     required this.onCopy,
-    required this.onAddFunds,
     required this.onViewHistory,
   });
 
-  final String fullName;
   final String accountNumber;
   final String bankName;
   final String availablePoints;
   final VoidCallback onCopy;
-  final VoidCallback onAddFunds;
   final VoidCallback onViewHistory;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final topInset = MediaQuery.of(context).padding.top;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -316,69 +317,10 @@ class _FinanceHero extends StatelessWidget {
           opacity: 0.18,
         ),
       ),
-      padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'ENCORE',
-                style: AppType.tag(
-                  scheme.onSurfaceVariant,
-                ).copyWith(letterSpacing: 1.2),
-              ),
-              const Spacer(),
-              SvgPicture.asset(
-                'assets/icons/notification.svg',
-                width: 20,
-                height: 20,
-                colorFilter: ColorFilter.mode(
-                  scheme.onSurface,
-                  BlendMode.srcIn,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const CurrentUserAvatar(size: 34),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Finances',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 40,
-              height: 1,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1.2,
-              color: scheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '2025/2026 FIRST SEMESTER',
-                  style: AppType.tag(
-                    scheme.onSurfaceVariant,
-                  ).copyWith(letterSpacing: 0.8),
-                ),
-              ),
-              GestureDetector(
-                key: const ValueKey('view-history-button'),
-                onTap: onViewHistory,
-                child: Text(
-                  'View History',
-                  style: AppType.timestamp(scheme).copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -387,7 +329,7 @@ class _FinanceHero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AVAILABLE POINTS',
+                      'TOTAL FUNDS PAID INTO',
                       style: AppType.tag(scheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 4),
@@ -395,7 +337,7 @@ class _FinanceHero extends StatelessWidget {
                       availablePoints,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 32,
+                        fontSize: 18,
                         height: 1,
                         fontWeight: FontWeight.w700,
                         color: scheme.primary,
@@ -404,7 +346,7 @@ class _FinanceHero extends StatelessWidget {
                   ],
                 ),
               ),
-              _FundButton(onTap: onAddFunds),
+              _ViewHistoryButton(onTap: onViewHistory),
             ],
           ),
           const SizedBox(height: 16),
@@ -414,7 +356,7 @@ class _FinanceHero extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  fullName,
+                  'Recepient account',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppType.cardTitle(scheme),
@@ -534,7 +476,7 @@ class _DuesCard extends StatelessWidget {
                 ),
                 textStyle: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -547,9 +489,9 @@ class _DuesCard extends StatelessWidget {
   }
 }
 
-/// The green "Fund" action shown on the account banner.
-class _FundButton extends StatelessWidget {
-  const _FundButton({required this.onTap});
+/// The green "View History" action shown on the account banner.
+class _ViewHistoryButton extends StatelessWidget {
+  const _ViewHistoryButton({required this.onTap});
 
   final VoidCallback onTap;
 
@@ -561,7 +503,7 @@ class _FundButton extends StatelessWidget {
       color: buttonColor,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
-        key: const ValueKey('add-funds-button'),
+        key: const ValueKey('view-history-button'),
         borderRadius: BorderRadius.circular(4),
         onTap: onTap,
         child: Padding(
@@ -569,10 +511,10 @@ class _FundButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.plus, size: 14, color: Colors.white),
+              const Icon(LucideIcons.history, size: 14, color: Colors.white),
               const SizedBox(width: 4),
               Text(
-                'Add Funds',
+                'View History',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 12,
@@ -792,9 +734,11 @@ class _ExpenditureTile extends StatelessWidget {
                 children: [
                   Text(
                     due.title,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppType.cardTitle(scheme),
+                    style: AppType.cardTitle(
+                      scheme,
+                    ).copyWith(fontWeight: FontWeight.w400),
                   ),
                   const SizedBox(height: 5),
                   _PaidBadge(paid: due.paid),

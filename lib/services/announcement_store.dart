@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../data/departments.dart';
 import '../models/announcement.dart';
 import '../theme/spotify_colors.dart';
+import '../utils/content_lifetime.dart';
 import 'auth_service.dart';
 import 'local_cache.dart';
 
@@ -36,10 +37,27 @@ class AnnouncementStore extends ChangeNotifier {
   String _level = '';
   int _nextId = 0;
 
-  List<Announcement> get items => List.unmodifiable(_items);
+  /// Announcements expire after 24 hours.
+  List<Announcement> get items => List.unmodifiable(
+    _items.where(
+      (item) => !ContentLifetime.isExpired(
+        item.createdAt,
+        ContentLifetime.announcement,
+      ),
+    ),
+  );
 
-  /// Number of announcements that arrived but have not been opened yet.
-  int get unreadCount => _unreadIds.length;
+  /// Number of active announcements that have not been opened yet.
+  int get unreadCount => _items
+      .where(
+        (item) =>
+            item.unread &&
+            !ContentLifetime.isExpired(
+              item.createdAt,
+              ContentLifetime.announcement,
+            ),
+      )
+      .length;
 
   /// Starts the live Firestore listener for the signed-in user's group.
   /// Cached posts appear immediately, then Firestore reconciles them.
@@ -97,8 +115,10 @@ class AnnouncementStore extends ChangeNotifier {
       if (unread) _unreadIds.add(item.id);
       _items.add(item.copyWith(unread: unread));
     }
+    _dropExpired();
     _hasLoaded = true;
     notifyListeners();
+    unawaited(_saveCache());
   }
 
   /// Forces a server read and refreshes the feed plus its Hive cache.
@@ -113,12 +133,16 @@ class AnnouncementStore extends ChangeNotifier {
   }
 
   void _onSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
-    // Ignore docs whose optimistic deletion has not reached the server yet.
+    // Ignore docs whose optimistic deletion has not reached the server yet,
+    // and posts that have outlived the 24-hour announcement window.
     final docs = snapshot.docs
         .where((doc) => !_deletedIds.contains(doc.id))
         .toList();
+    final expired = docs.where(_isExpiredDoc).toList();
+    _purgeRemote(expired.map(_fromDoc).toList());
+    final activeDocs = docs.where((doc) => !_isExpiredDoc(doc)).toList();
 
-    final visibleIds = docs.map((doc) => doc.id).toSet();
+    final visibleIds = activeDocs.map((doc) => doc.id).toSet();
     _unreadIds.removeWhere((id) => !visibleIds.contains(id));
 
     // Announcements that appear after the first snapshot are new arrivals, so
@@ -127,7 +151,7 @@ class AnnouncementStore extends ChangeNotifier {
     if (_hasLoaded) {
       final existingIds = _items.map((item) => item.id).toSet();
       final myUid = AuthService.instance.currentUser?.uid;
-      for (final doc in docs) {
+      for (final doc in activeDocs) {
         if (existingIds.contains(doc.id)) continue;
         if (myUid != null && doc.data()['authorId'] == myUid) continue;
         _unreadIds.add(doc.id);
@@ -136,8 +160,8 @@ class AnnouncementStore extends ChangeNotifier {
 
     _items
       ..clear()
-      ..addAll(docs.map(_fromDoc));
-    for (final doc in docs) {
+      ..addAll(activeDocs.map(_fromDoc));
+    for (final doc in activeDocs) {
       _createdAtMillis[doc.id] = _timestampMillis(doc.data()['createdAt']);
     }
     _hasLoaded = true;
@@ -329,6 +353,60 @@ class AnnouncementStore extends ChangeNotifier {
             .delete()
             .catchError((Object _) {}),
       );
+    }
+  }
+
+  /// Removes announcements older than 24 hours from the feed, cache and
+  /// (when authored by the signed-in user) Firestore.
+  void pruneExpired() {
+    if (!_dropExpired()) return;
+    notifyListeners();
+    unawaited(_saveCache());
+  }
+
+  bool _dropExpired() {
+    final expired = _items
+        .where(
+          (item) => ContentLifetime.isExpired(
+            item.createdAt,
+            ContentLifetime.announcement,
+          ),
+        )
+        .toList();
+    if (expired.isEmpty) return false;
+
+    for (final item in expired) {
+      _items.remove(item);
+      _unreadIds.remove(item.id);
+      _createdAtMillis.remove(item.id);
+      _deletedIds.add(item.id);
+    }
+    _purgeRemote(expired);
+    return true;
+  }
+
+  bool _isExpiredDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    return ContentLifetime.isExpired(
+      _dateFrom(doc.data()['createdAt']),
+      ContentLifetime.announcement,
+    );
+  }
+
+  void _purgeRemote(List<Announcement> expired) {
+    if (expired.isEmpty || Firebase.apps.isEmpty) return;
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    final batch = FirebaseFirestore.instance.batch();
+    var queued = false;
+    for (final item in expired) {
+      if (item.id.isEmpty || item.authorId != uid) continue;
+      batch.delete(
+        FirebaseFirestore.instance.collection(_collection).doc(item.id),
+      );
+      queued = true;
+    }
+    if (queued) {
+      unawaited(batch.commit().catchError((Object _) {}));
     }
   }
 

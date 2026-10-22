@@ -204,9 +204,10 @@ class DirectChat {
       'image' => 'Photo',
       'sticker' => 'Sticker',
       'voice' => 'Voice note',
-      'library' => lastMessage.trim().isEmpty
-          ? 'Document'
-          : 'Document: ${lastMessage.trim()}',
+      'library' =>
+        lastMessage.trim().isEmpty
+            ? 'Document'
+            : 'Document: ${lastMessage.trim()}',
       'deleted' => 'This message was deleted',
       _ => lastMessage.trim().isEmpty ? 'No messages yet' : lastMessage,
     };

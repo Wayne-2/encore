@@ -1,3 +1,5 @@
+import '../utils/content_lifetime.dart';
+
 /// A single upcoming (or past) activity shown in the Updates grid.
 class Activity {
   const Activity({
@@ -5,6 +7,7 @@ class Activity {
     this.authorId = '',
     required this.title,
     required this.date,
+    this.createdAt,
   });
 
   final String id;
@@ -14,9 +17,21 @@ class Activity {
   /// The calendar day of the activity (time is ignored).
   final DateTime date;
 
+  /// When the activity was posted; used to expire it after one week.
+  final DateTime? createdAt;
+
   /// Whether [userId] is the author and may therefore delete this activity.
   bool canBeDeletedBy(String? userId) =>
       userId != null && userId.isNotEmpty && userId == authorId;
+
+  /// Whether this activity has outlived its one-week lifespan.
+  bool isExpired([DateTime? now]) {
+    return ContentLifetime.isExpired(
+      createdAt,
+      ContentLifetime.activity,
+      now: now,
+    );
+  }
 
   /// Whether the activity's day has already passed.
   bool get isPast {

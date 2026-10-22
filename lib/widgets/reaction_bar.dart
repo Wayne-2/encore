@@ -256,7 +256,7 @@ class _ReactionChip extends StatelessWidget {
               Text(
                 '$count',
                 style: AppType.meta(scheme).copyWith(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: active
                       ? SpotifyColors.accent
                       : scheme.onSurfaceVariant,

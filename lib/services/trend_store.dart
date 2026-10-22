@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../models/comment.dart';
 import '../models/trend.dart';
+import '../utils/content_lifetime.dart';
 import 'auth_service.dart';
 import 'comment_store.dart';
 import 'local_cache.dart';
@@ -38,7 +39,13 @@ class TrendStore extends ChangeNotifier {
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _trendSubscription;
 
-  List<Trend> get items => List.unmodifiable(_items);
+  /// Trends expire after [ContentLifetime.trend].
+  List<Trend> get items => List.unmodifiable(
+    _items.where(
+      (trend) =>
+          !ContentLifetime.isExpired(trend.createdAt, ContentLifetime.trend),
+    ),
+  );
 
   Query<Map<String, dynamic>> get _query => FirebaseFirestore.instance
       .collection(_collection)
@@ -66,7 +73,9 @@ class TrendStore extends ChangeNotifier {
     if (cached == null || cached.isEmpty || _items.isNotEmpty) return;
 
     _items.addAll(cached.map(_fromCachedMap));
+    _dropExpired();
     notifyListeners();
+    unawaited(_saveCache());
   }
 
   /// Forces a server read and refreshes the feed plus its Hive cache.
@@ -84,10 +93,13 @@ class TrendStore extends ChangeNotifier {
         .where((doc) => !_deletedIds.contains(doc.id))
         .toList();
     final localById = {for (final trend in _items) trend.id: trend};
-    final server = serverDocs.map((doc) {
-      final parsed = _fromDoc(doc);
-      return _mergeLocalMedia(parsed, localById[parsed.id]);
+    final parsed = serverDocs.map((doc) {
+      final item = _fromDoc(doc);
+      return _mergeLocalMedia(item, localById[item.id]);
     }).toList();
+    final expired = parsed.where(_isExpired).toList();
+    _purgeRemote(expired);
+    final server = parsed.where((trend) => !_isExpired(trend)).toList();
     for (final doc in serverDocs) {
       _createdAtMillis[doc.id] = _timestampMillis(doc.data()['createdAt']);
     }
@@ -367,6 +379,55 @@ class TrendStore extends ChangeNotifier {
     } catch (_) {
       _removeLocal(trendId, local.id);
       rethrow;
+    }
+  }
+
+  /// Removes trends older than three days from the feed, cache and (when
+  /// authored by the signed-in user) Firestore.
+  void pruneExpired() {
+    if (!_dropExpired()) return;
+    notifyListeners();
+    unawaited(_saveCache());
+  }
+
+  bool _dropExpired() {
+    final expired = _items.where(_isExpired).toList();
+    if (expired.isEmpty) return false;
+
+    for (final trend in expired) {
+      _items.remove(trend);
+      _pendingIds.remove(trend.id);
+      _deletedIds.add(trend.id);
+      _createdAtMillis.remove(trend.id);
+      _comments.remove(trend.id);
+      _loadedComments.remove(trend.id);
+      _listeningComments.remove(trend.id);
+      final subscription = _commentSubscriptions.remove(trend.id);
+      if (subscription != null) unawaited(subscription.cancel());
+    }
+    _purgeRemote(expired);
+    return true;
+  }
+
+  static bool _isExpired(Trend trend) {
+    return ContentLifetime.isExpired(trend.createdAt, ContentLifetime.trend);
+  }
+
+  void _purgeRemote(List<Trend> expired) {
+    if (expired.isEmpty || !AuthService.isAvailable) return;
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    final batch = FirebaseFirestore.instance.batch();
+    var queued = false;
+    for (final trend in expired) {
+      if (trend.id.isEmpty || trend.authorId != uid) continue;
+      batch.delete(
+        FirebaseFirestore.instance.collection(_collection).doc(trend.id),
+      );
+      queued = true;
+    }
+    if (queued) {
+      unawaited(batch.commit().catchError((Object _) {}));
     }
   }
 

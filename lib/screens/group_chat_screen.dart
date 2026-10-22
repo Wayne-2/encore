@@ -119,7 +119,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     : 'Normal Mode restored: Messages will show your ID.',
                 style: const TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 13,
+                  fontSize: 12,
                   color: Colors.white,
                 ),
               ),
@@ -363,7 +363,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         'Voice Call',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -387,7 +387,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         'Video Call',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -414,7 +414,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             : 'Enter Anonymous Mode',
                         style: const TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: SpotifyColors.accent,
                         ),
@@ -439,7 +439,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         'Group info',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -463,7 +463,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         'Group media, links, and docs',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -487,7 +487,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         'Search',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -511,7 +511,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         'Mute notifications',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -535,7 +535,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         'Clear chat',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: SpotifyColors.accent,
                         ),
@@ -625,7 +625,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             'Group info',
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -650,7 +650,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
-                              fontSize: 11,
+                              fontSize: 12,
                               color: scheme.onSurfaceVariant,
                               height: 1.35,
                             ),
@@ -672,7 +672,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               'TODAY',
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: scheme.onSurfaceVariant,
                               ),
@@ -867,7 +867,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 17,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurface,
                 ),
@@ -878,7 +878,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 13,
+                  fontSize: 12,
                   color: scheme.onSurfaceVariant,
                 ),
               ),
@@ -949,7 +949,7 @@ class _FloatingMenuItem extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface,
                 ),
@@ -1042,7 +1042,7 @@ class _AnonymousStatusPill extends StatelessWidget {
                   'Turn Off',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 10.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: SpotifyColors.danger,
                     height: 1.0,

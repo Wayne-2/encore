@@ -290,7 +290,7 @@ class _ReaderBody extends StatelessWidget {
           material.title,
           style: AppType.sectionTitle(
             scheme,
-          ).copyWith(fontSize: 24, height: 1.2, letterSpacing: -0.3),
+          ).copyWith(fontSize: 18, height: 1.2, letterSpacing: -0.3),
         ),
         const SizedBox(height: 10),
         Wrap(

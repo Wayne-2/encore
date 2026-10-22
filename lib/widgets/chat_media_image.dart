@@ -52,8 +52,8 @@ class _ChatMediaImageState extends State<ChatMediaImage> {
   Widget build(BuildContext context) {
     final file = _file;
     if (file != null) {
-      final cacheWidth =
-          (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
+      final cacheWidth = (widget.width * MediaQuery.devicePixelRatioOf(context))
+          .round();
       final image = Hero(
         tag: widget.heroTag ?? widget.url,
         child: Image.file(

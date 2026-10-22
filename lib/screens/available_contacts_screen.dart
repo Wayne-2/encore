@@ -177,14 +177,14 @@ class _AvailableContactsScreenState extends State<AvailableContactsScreen> {
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: scheme.onSurface,
-                fontSize: 14,
+                fontSize: 15,
               ),
               decoration: InputDecoration(
                 hintText: 'Search name, handle or level',
                 hintStyle: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: scheme.onSurfaceVariant,
-                  fontSize: 14,
+                  fontSize: 15,
                 ),
                 prefixIcon: Icon(
                   LucideIcons.search,
@@ -628,7 +628,7 @@ class _PillAction extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: foreground,
                   ),

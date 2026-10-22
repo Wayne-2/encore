@@ -9,10 +9,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:video_player/video_player.dart';
 
+import '../models/contact_request.dart';
+import '../services/contact_store.dart';
 import '../services/media_compressor.dart';
 import '../services/story_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/user_avatar.dart';
 
 /// Snapchat-style story composer.
 ///
@@ -46,6 +49,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
   bool _isVideo = false;
   VideoPlayerController? _videoPreview;
   bool _videoPreviewFailed = false;
+  final Set<String> _hiddenFrom = {};
 
   @override
   void initState() {
@@ -278,6 +282,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
         filePath: path,
         isVideo: _isVideo,
         caption: _captionController.text,
+        hiddenFrom: {for (final uid in _hiddenFrom) uid},
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -342,17 +347,23 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
           ),
           if (media != null)
             Positioned(
-              left: 20,
-              right: 20,
-              bottom: bottomPadding + 128,
-              child: _captionOverlay(),
+              left: 12,
+              right: 12,
+              bottom:
+                  math.max(
+                    MediaQuery.viewInsetsOf(context).bottom,
+                    bottomPadding,
+                  ) +
+                  8,
+              child: _reviewComposer(),
+            )
+          else
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottomPadding + 16,
+              child: _captureControls(),
             ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottomPadding + 16,
-            child: media == null ? _captureControls() : _reviewControls(),
-          ),
           if (_posting)
             Positioned.fill(
               child: ColoredBox(
@@ -370,7 +381,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 14,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -415,7 +426,14 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
             onPressed: _cameras.length > 1 ? _switchCamera : null,
           ),
         ] else
-          _pill(icon: LucideIcons.users, label: StoryStore.instance.groupLabel),
+          _pill(
+            key: const ValueKey('story-audience'),
+            icon: LucideIcons.users,
+            label: _hiddenFrom.isEmpty
+                ? 'All contacts'
+                : '${_hiddenFrom.length} hidden',
+            onTap: _chooseAudience,
+          ),
       ],
     );
   }
@@ -458,7 +476,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
                 _cameraFailed ? 'Camera unavailable' : 'Starting camera…',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: Colors.white.withValues(alpha: 0.9),
                 ),
@@ -470,7 +488,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
+                    fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.6),
                   ),
                 ),
@@ -519,23 +537,24 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
     return Image.file(file, fit: BoxFit.cover);
   }
 
-  Widget _captionOverlay() {
+  Widget _captionField() {
     return TextField(
       controller: _captionController,
       focusNode: _captionFocus,
       maxLength: 150,
-      maxLines: 3,
+      maxLines: 4,
       minLines: 1,
-      textAlign: TextAlign.center,
       textCapitalization: TextCapitalization.sentences,
+      textInputAction: TextInputAction.send,
+      onSubmitted: (_) => _post(),
       style: const TextStyle(
         fontFamily: AppTheme.fontFamily,
-        fontSize: 26,
-        height: 1.15,
-        fontWeight: FontWeight.w700,
+        fontSize: 15,
+        height: 1.25,
+        fontWeight: FontWeight.w400,
         color: Colors.white,
         shadows: [
-          Shadow(color: Colors.black87, blurRadius: 10, offset: Offset(0, 2)),
+          Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 1)),
         ],
       ),
       cursorColor: SpotifyColors.accent,
@@ -545,11 +564,11 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
         hintText: 'Add a caption…',
         hintStyle: TextStyle(
           fontFamily: AppTheme.fontFamily,
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
           color: Colors.white.withValues(alpha: 0.45),
           shadows: const [
-            Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2)),
+            Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 1)),
           ],
         ),
       ),
@@ -625,7 +644,7 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
           _recording ? 'Release to finish' : 'Tap for photo · Hold for video',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
             color: Colors.white.withValues(alpha: 0.7),
           ),
@@ -634,71 +653,92 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
     );
   }
 
-  Widget _reviewControls() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          _circleButton(
-            key: const ValueKey('story-caption-button'),
-            icon: LucideIcons.type,
-            size: 48,
-            onPressed: () => _captionFocus.requestFocus(),
+  Widget _reviewComposer() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.only(left: 16, right: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.clock3,
-                    size: 17,
-                    color: Colors.white70,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Visible for 24 hours',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.72),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 56,
-            height: 48,
-            child: FilledButton(
-              key: const ValueKey('post-story-button'),
-              style: FilledButton.styleFrom(
-                padding: EdgeInsets.zero,
-                backgroundColor: SpotifyColors.accent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(child: Opacity(opacity: 0.7, child: _captionField())),
+              IconButton(
+                key: const ValueKey('post-story-button'),
+                tooltip: 'Post story',
+                onPressed: _posting ? null : _post,
+                icon: const Icon(
+                  LucideIcons.arrowUp,
+                  color: SpotifyColors.accent,
+                  size: 22,
                 ),
               ),
-              onPressed: _posting ? null : _post,
-              child: const Icon(
-                LucideIcons.arrowUp,
-                color: Colors.black,
-                size: 23,
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _composerAction(
+              key: const ValueKey('story-sticker-button'),
+              icon: LucideIcons.sticker,
+              tooltip: 'Add sticker',
+              onTap: () => _showMessage('Sticker overlays are coming soon.'),
+            ),
+            const SizedBox(width: 8),
+            _composerAction(
+              key: const ValueKey('story-visibility-button'),
+              icon: LucideIcons.eye,
+              tooltip: 'Story visibility',
+              onTap: _chooseAudience,
+            ),
+            const SizedBox(width: 8),
+            _composerAction(
+              key: const ValueKey('story-crop-button'),
+              icon: LucideIcons.crop,
+              tooltip: 'Crop media',
+              onTap: () => _showMessage('Cropping is coming soon.'),
+            ),
+            const SizedBox(width: 8),
+            _composerAction(
+              key: const ValueKey('story-music-button'),
+              icon: LucideIcons.music,
+              tooltip: 'Add music',
+              onTap: () => _showMessage('Music is coming soon.'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _composerAction({
+    required Key key,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        key: key,
+        color: Colors.black.withValues(alpha: 0.42),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(icon, size: 18, color: Colors.white),
+          ),
+        ),
       ),
     );
   }
@@ -731,12 +771,29 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
     );
   }
 
+  Future<void> _chooseAudience() async {
+    final selected = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _StoryAudienceSheet(initial: {..._hiddenFrom}),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _hiddenFrom
+        ..clear()
+        ..addAll(selected);
+    });
+  }
+
   Widget _pill({
+    Key? key,
     required IconData icon,
     required String label,
     VoidCallback? onTap,
   }) {
     return Material(
+      key: key,
       color: Colors.black.withValues(alpha: 0.42),
       borderRadius: BorderRadius.circular(21),
       child: InkWell(
@@ -760,6 +817,166 @@ class _AddStoryScreenState extends State<AddStoryScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryAudienceSheet extends StatefulWidget {
+  const _StoryAudienceSheet({required this.initial});
+
+  final Set<String> initial;
+
+  @override
+  State<_StoryAudienceSheet> createState() => _StoryAudienceSheetState();
+}
+
+class _StoryAudienceSheetState extends State<_StoryAudienceSheet> {
+  late final Set<String> _selected = {...widget.initial};
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      height: MediaQuery.sizeOf(context).height * 0.72,
+      decoration: const BoxDecoration(
+        color: SpotifyColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 12, 0),
+              child: Row(
+                children: [
+                  Text(
+                    'Hide story from',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    key: const ValueKey('story-audience-done'),
+                    onPressed: () => Navigator.of(context).pop({..._selected}),
+                    child: Text(
+                      'Done',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Selected contacts will not see this story.',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<ContactDirectory>(
+                stream: ContactStore.instance.watchDirectory(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: SpotifyColors.accent,
+                      ),
+                    );
+                  }
+                  final entries =
+                      (snapshot.data?.entries ?? const <ContactEntry>[])
+                          .where(
+                            (entry) =>
+                                entry.relation == ContactRelation.connected,
+                          )
+                          .toList();
+                  if (entries.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No contacts yet',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 15,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemCount: entries.length,
+                    itemBuilder: (context, index) {
+                      final user = entries[index].user;
+                      final hidden = _selected.contains(user.id);
+                      return CheckboxListTile(
+                        key: ValueKey('story-audience-${user.id}'),
+                        value: hidden,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selected.add(user.id);
+                            } else {
+                              _selected.remove(user.id);
+                            }
+                          });
+                        },
+                        activeColor: SpotifyColors.accent,
+                        checkColor: Colors.black,
+                        side: BorderSide(color: scheme.outlineVariant),
+                        secondary: UserAvatar(
+                          name: user.displayName,
+                          photoUrl: user.photoUrl,
+                          size: 38,
+                        ),
+                        title: Text(
+                          user.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          user.handle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

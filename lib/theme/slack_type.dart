@@ -1,55 +1,16 @@
 import 'package:flutter/material.dart';
 
-import 'app_theme.dart';
 import 'app_type.dart';
 
-/// Slack mobile typography, used by the announcement feed so that section
-/// keeps Slack's exact message-list sizing while the rest of the app follows
-/// the Spotify hierarchy in `AppType`. Most colours carry the shared size-based
-/// opacity ramp from [AppType.hierarchyOpacity]; timestamps are lifted so they
-/// remain legible.
+/// Slack-flavoured aliases backed by the shared four-tier scale in [AppType].
+///
+/// The announcement feed and conversation tiles keep their Slack layout, but
+/// now share the same heading, title, subtitle and functional sizes as the
+/// rest of the app.
 abstract final class SlackType {
-  /// Section heading — Slack's 18sp bold list header.
-  static TextStyle sectionTitle(ColorScheme s) => AppType.withHierarchy(
-    TextStyle(
-      fontFamily: AppTheme.fontFamily,
-      fontSize: 18,
-      fontWeight: FontWeight.w700,
-      color: s.onSurface,
-    ),
-  );
-
-  /// The `#` glyph that prefixes the announcement heading.
-  static TextStyle glyph(ColorScheme s) => TextStyle(
-    fontFamily: AppTheme.fontFamily,
-    fontSize: 22,
-    fontWeight: FontWeight.w700,
-    height: 1,
-    color: s.onSurfaceVariant.withValues(alpha: 0.7),
-  );
-
-  /// Message sender — Slack's 15sp bold name.
-  static TextStyle sender(ColorScheme s) => AppType.withHierarchy(
-    TextStyle(
-      fontFamily: AppTheme.fontFamily,
-      fontSize: 15,
-      fontWeight: FontWeight.w700,
-      color: s.onSurface,
-    ),
-  );
-
-  /// Message body — Slack's 15sp regular copy at 1.4 line-height.
-  static TextStyle body(ColorScheme s) => AppType.withHierarchy(
-    TextStyle(
-      fontFamily: AppTheme.fontFamily,
-      fontSize: 15,
-      fontWeight: FontWeight.w400,
-      height: 1.4,
-      color: s.onSurface,
-    ),
-  );
-
-  /// Message timestamp — Slack's 12sp caption, shared with the rest of the
-  /// app through [AppType.timestamp].
-  static TextStyle timestamp(ColorScheme s) => AppType.timestamp(s);
+  static TextStyle sectionTitle(ColorScheme s) => AppType.heading(s);
+  static TextStyle glyph(ColorScheme s) => AppType.glyph(s);
+  static TextStyle sender(ColorScheme s) => AppType.title(s);
+  static TextStyle body(ColorScheme s) => AppType.subtitle(s);
+  static TextStyle timestamp(ColorScheme s) => AppType.functional(s);
 }

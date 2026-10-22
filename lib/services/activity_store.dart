@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/activity.dart';
+import '../utils/content_lifetime.dart';
 import 'auth_service.dart';
 import 'local_cache.dart';
 
@@ -26,10 +27,11 @@ class ActivityStore extends ChangeNotifier {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
 
   /// Upcoming activities sorted by date, followed by past activities.
+  /// Activities older than [ContentLifetime.activity] are excluded.
   List<Activity> get items {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final all = [..._items];
+    final all = _items.where((activity) => !activity.isExpired()).toList();
 
     final upcoming =
         all.where((activity) => !activity.date.isBefore(today)).toList()
@@ -66,7 +68,9 @@ class ActivityStore extends ChangeNotifier {
     if (cached == null || cached.isEmpty || _items.isNotEmpty) return;
 
     _items.addAll(cached.map(_fromCachedMap));
+    _dropExpired();
     notifyListeners();
+    unawaited(_saveCache());
   }
 
   /// Forces a server read and refreshes the grid plus its Hive cache.
@@ -80,10 +84,13 @@ class ActivityStore extends ChangeNotifier {
   }
 
   void _onSnapshot(QuerySnapshot<Map<String, dynamic>> snapshot) {
-    final server = snapshot.docs
+    final parsed = snapshot.docs
         .where((doc) => !_deletedIds.contains(doc.id))
         .map(_fromDoc)
         .toList();
+    final expired = parsed.where((activity) => activity.isExpired()).toList();
+    _purgeRemote(expired);
+    final server = parsed.where((activity) => !activity.isExpired()).toList();
     final serverIds = server.map((activity) => activity.id).toSet();
     _pendingIds.removeWhere(serverIds.contains);
 
@@ -103,6 +110,7 @@ class ActivityStore extends ChangeNotifier {
     required String title,
     required DateTime date,
     String? authorId,
+    DateTime? createdAt,
   }) {
     final text = title.trim();
     final day = DateTime(date.year, date.month, date.day);
@@ -119,6 +127,7 @@ class ActivityStore extends ChangeNotifier {
       authorId: authorId ?? user?.uid ?? '',
       title: text,
       date: day,
+      createdAt: createdAt ?? DateTime.now(),
     );
 
     _items.add(activity);
@@ -166,6 +175,44 @@ class ActivityStore extends ChangeNotifier {
     }
   }
 
+  /// Removes expired activities from memory, cache and (for the author)
+  /// Firestore. Safe to call repeatedly.
+  void pruneExpired() {
+    if (!_dropExpired()) return;
+    notifyListeners();
+    unawaited(_saveCache());
+  }
+
+  bool _dropExpired() {
+    final expired = _items.where((activity) => activity.isExpired()).toList();
+    if (expired.isEmpty) return false;
+    for (final activity in expired) {
+      _items.remove(activity);
+      _pendingIds.remove(activity.id);
+      _deletedIds.add(activity.id);
+    }
+    _purgeRemote(expired);
+    return true;
+  }
+
+  void _purgeRemote(List<Activity> expired) {
+    if (expired.isEmpty || !AuthService.isAvailable) return;
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    final batch = FirebaseFirestore.instance.batch();
+    var queued = false;
+    for (final activity in expired) {
+      if (activity.id.isEmpty || activity.authorId != uid) continue;
+      batch.delete(
+        FirebaseFirestore.instance.collection(_collection).doc(activity.id),
+      );
+      queued = true;
+    }
+    if (queued) {
+      unawaited(batch.commit().catchError((Object _) {}));
+    }
+  }
+
   /// Drops the activities and stops listening (used by tests).
   void clear() {
     if (_subscription != null) {
@@ -193,6 +240,7 @@ class ActivityStore extends ChangeNotifier {
       authorId: data['authorId'] as String? ?? '',
       title: (data['title'] as String?)?.trim() ?? '',
       date: DateTime(date.year, date.month, date.day),
+      createdAt: _dateFrom(data['createdAt']),
     );
   }
 
@@ -209,7 +257,19 @@ class ActivityStore extends ChangeNotifier {
       authorId: data['authorId'] as String? ?? '',
       title: (data['title'] as String?)?.trim() ?? '',
       date: DateTime(date.year, date.month, date.day),
+      createdAt: data['createdAt'] is int
+          ? DateTime.fromMillisecondsSinceEpoch(data['createdAt'] as int)
+          : null,
     );
+  }
+
+  static DateTime? _dateFrom(Object? value) {
+    return switch (value) {
+      Timestamp timestamp => timestamp.toDate(),
+      DateTime time => time,
+      int millis => DateTime.fromMillisecondsSinceEpoch(millis),
+      _ => null,
+    };
   }
 
   Future<void> _saveCache() {
@@ -224,6 +284,8 @@ class ActivityStore extends ChangeNotifier {
       'authorId': activity.authorId,
       'title': activity.title,
       'date': activity.date.millisecondsSinceEpoch,
+      if (activity.createdAt != null)
+        'createdAt': activity.createdAt!.millisecondsSinceEpoch,
     };
   }
 }

@@ -61,7 +61,7 @@ class ChatBubble extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 11.5,
+            fontSize: 12,
             color: scheme.onSurfaceVariant,
           ),
         ),
@@ -104,7 +104,7 @@ class ChatBubble extends StatelessWidget {
               'edited',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 10,
+                fontSize: 12,
                 fontStyle: FontStyle.italic,
                 color: metaColor.withValues(alpha: 0.75),
               ),
@@ -297,7 +297,7 @@ class ChatBubble extends StatelessWidget {
                                   message.text,
                                   style: TextStyle(
                                     fontFamily: AppTheme.fontFamily,
-                                    fontSize: 14.5,
+                                    fontSize: 15,
                                     height: 1.3,
                                     color: bodyColor,
                                     fontStyle: isDeleted
@@ -350,10 +350,9 @@ class ChatBubble extends StatelessWidget {
             : SpotifyColors.accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(9),
         border: Border.all(
-          color:
-              (isMe ? Colors.white : SpotifyColors.accent).withValues(
-                alpha: 0.25,
-              ),
+          color: (isMe ? Colors.white : SpotifyColors.accent).withValues(
+            alpha: 0.25,
+          ),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -391,7 +390,7 @@ class ChatBubble extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 13.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         height: 1.25,
                         color: foreground,
@@ -405,7 +404,7 @@ class ChatBubble extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: foreground.withValues(alpha: 0.75),
                         ),
                       ),
@@ -415,7 +414,7 @@ class ChatBubble extends StatelessWidget {
                       'Encore Library · Tap to open',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 10.5,
+                        fontSize: 12,
                         color: foreground.withValues(alpha: 0.65),
                       ),
                     ),
@@ -468,7 +467,7 @@ class ChatBubble extends StatelessWidget {
             message.senderName!,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               color: message.isDeleted
                   ? scheme.onSurfaceVariant
@@ -487,7 +486,7 @@ class ChatBubble extends StatelessWidget {
                 'Admin',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurfaceVariant,
                 ),
@@ -536,7 +535,7 @@ class ChatBubble extends StatelessWidget {
           'Anonymous Sender',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: Colors.white.withValues(alpha: 0.85),
           ),
@@ -572,7 +571,7 @@ class _ReplyPreview extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
@@ -584,7 +583,7 @@ class _ReplyPreview extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 11.5,
+              fontSize: 12,
               color: Colors.white.withValues(alpha: 0.9),
             ),
           ),

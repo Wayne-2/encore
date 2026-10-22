@@ -33,40 +33,40 @@ abstract final class AppTheme {
         );
 
     return TextTheme(
-      displayLarge: style(24, FontWeight.w400, height: 30 / 24),
-      displayMedium: style(22, FontWeight.w400, height: 28 / 22),
-      displaySmall: style(20, FontWeight.w700, height: 26 / 20),
-      headlineLarge: style(20, FontWeight.w700, height: 26 / 20),
+      displayLarge: style(18, FontWeight.w700, height: 24 / 18),
+      displayMedium: style(18, FontWeight.w700, height: 24 / 18),
+      displaySmall: style(18, FontWeight.w700, height: 24 / 18),
+      headlineLarge: style(18, FontWeight.w700, height: 24 / 18),
       headlineMedium: style(18, FontWeight.w700, height: 24 / 18),
-      headlineSmall: style(17, FontWeight.w500, height: 22 / 17),
-      titleLarge: style(16, FontWeight.w700, height: 21 / 16),
+      headlineSmall: style(18, FontWeight.w700, height: 24 / 18),
+      titleLarge: style(15, FontWeight.w700, height: 20 / 15),
       titleMedium: style(
         15,
-        FontWeight.w600,
+        FontWeight.w700,
         height: 20 / 15,
       ).copyWith(color: secondary),
       titleSmall: style(
-        14,
+        15,
         FontWeight.w400,
-        height: 19 / 14,
+        height: 20 / 15,
       ).copyWith(color: secondary),
       bodyLarge: style(15, FontWeight.w400, height: 20 / 15),
       bodyMedium: style(15, FontWeight.w400, height: 20 / 15),
       bodySmall: style(
-        13,
+        12,
         FontWeight.w400,
-        height: 18 / 13,
+        height: 17 / 12,
       ).copyWith(color: secondary),
       labelLarge: style(15, FontWeight.w700, height: 20 / 15),
       labelMedium: style(
-        13,
-        FontWeight.w500,
-        height: 16 / 13,
+        12,
+        FontWeight.w400,
+        height: 17 / 12,
       ).copyWith(color: secondary),
       labelSmall: style(
-        11,
-        FontWeight.w500,
-        height: 14 / 11,
+        12,
+        FontWeight.w400,
+        height: 17 / 12,
       ).copyWith(color: secondary),
     ).apply(bodyColor: primary, displayColor: primary);
   }

@@ -183,7 +183,7 @@ class _ForYouCard extends StatelessWidget {
               trend.title,
               style: AppType.sectionTitle(
                 scheme,
-              ).copyWith(fontSize: 22, height: 1.18),
+              ).copyWith(fontSize: 18, height: 1.18),
             ),
             if (preview.isNotEmpty) ...[
               const SizedBox(height: 8),

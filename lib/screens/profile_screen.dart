@@ -4,7 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../navigation/app_route.dart';
+import 'personal_todo_screen.dart';
 import '../services/auth_service.dart';
+import '../services/todo_store.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/cached_profile_image.dart';
@@ -44,6 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _loadFailed = false;
   String? _photoUrl;
   StreamSubscription<Map<String, dynamic>?>? _profileSubscription;
+  final TodoStore _todos = TodoStore.instance;
 
   String _role = 'Student';
   String _registrationNumber = '20241426282';
@@ -56,12 +60,25 @@ class _ProfileScreenState extends State<ProfileScreen>
   void initState() {
     super.initState();
     _listenToProfile();
+    _todos.addListener(_onTodosChanged);
+    _todos.initialize();
   }
 
   @override
   void dispose() {
     _profileSubscription?.cancel();
+    _todos.removeListener(_onTodosChanged);
     super.dispose();
+  }
+
+  void _onTodosChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _openPersonalTodo() {
+    Navigator.of(
+      context,
+    ).push(sharedAxisRoute<void>(const PersonalTodoScreen()));
   }
 
   /// Hive answers first, then Firestore pushes any profile/photo updates.
@@ -316,22 +333,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                         overflow: TextOverflow.ellipsis,
                         style: AppType.sectionTitle(
                           scheme,
-                        ).copyWith(fontSize: 30, height: 1.1),
+                        ).copyWith(fontSize: 18, height: 1.1),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('See profile', style: _profileMetaStyle(scheme)),
-                        const SizedBox(height: 10),
-                        _CircleIcon(
-                          icon: LucideIcons.share2,
-                          color: scheme.onSurface,
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
+                    Text('See profile', style: _profileMetaStyle(scheme)),
                   ],
                 ),
                 const SizedBox(height: 15),
@@ -387,11 +393,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                   subtitle: 'Track and manage your performance as a student',
                 ),
                 const SizedBox(height: 12),
-                const _ProfileActionTile(
+                _ProfileActionTile(
                   icon: LucideIcons.listChecks,
                   title: 'Personal todo',
                   subtitle:
                       'Add todos and schedule personal activities with timer',
+                  badgeCount: _todos.alertCount,
+                  onTap: _openPersonalTodo,
                 ),
                 const SizedBox(height: 12),
                 const _ProfileActionTile(
@@ -499,36 +507,6 @@ class _EditProfileButton extends StatelessWidget {
               scheme,
             ).copyWith(color: scheme.onSurface, fontWeight: FontWeight.w600),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A circular translucent icon button used in the hero.
-class _CircleIcon extends StatelessWidget {
-  const _CircleIcon({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: SpotifyColors.surface.withValues(alpha: 0.85),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: SizedBox(
-          width: 42,
-          height: 42,
-          child: Icon(icon, size: 19, color: color),
         ),
       ),
     );
@@ -646,11 +624,15 @@ class _ProfileActionTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -660,7 +642,7 @@ class _ProfileActionTile extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: onTap,
           child: Row(
             children: [
               Icon(icon, size: 22, color: scheme.primary),
@@ -683,6 +665,29 @@ class _ProfileActionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
+              if (badgeCount > 0) ...[
+                Container(
+                  key: const ValueKey('profile-todo-badge'),
+                  constraints: const BoxConstraints(minWidth: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: SpotifyColors.danger,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    textAlign: TextAlign.center,
+                    style: AppType.functional(scheme).copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               Icon(
                 LucideIcons.chevronRight,
                 size: 14,

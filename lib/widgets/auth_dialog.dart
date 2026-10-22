@@ -60,7 +60,7 @@ class AuthDialog extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.w600,
                         height: 1.25,
                         color: SpotifyColors.textPrimary,
@@ -73,7 +73,7 @@ class AuthDialog extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w400,
                           height: 1.35,
                           color: SpotifyColors.textSubdued,
@@ -172,7 +172,7 @@ class _DialogAction extends StatelessWidget {
           label,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 17,
+            fontSize: 18,
             fontWeight: emphasized ? FontWeight.w600 : FontWeight.w400,
             color: emphasized
                 ? SpotifyColors.accent

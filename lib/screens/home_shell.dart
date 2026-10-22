@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/chat_store.dart';
 import '../services/message_notification_watcher.dart';
 import '../services/notification_service.dart';
+import '../services/todo_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
@@ -43,8 +44,10 @@ class _HomeShellState extends State<HomeShell> {
   final _controller = PageController();
   int _index = 0;
   StreamSubscription<ChatInbox>? _inboxSubscription;
+  Timer? _todoBadgeTimer;
   int _updatesBadge = 0;
   int _messagesBadge = 0;
+  int _todoBadge = 0;
 
   /// Light status-bar icons over the dark header colour.
   static const SystemUiOverlayStyle _overlayStyle = SystemUiOverlayStyle(
@@ -58,13 +61,18 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     AnnouncementStore.instance.addListener(_syncAnnouncementBadge);
     _syncAnnouncementBadge();
+    TodoStore.instance.addListener(_syncTodoBadge);
+    _syncTodoBadge();
+    unawaited(TodoStore.instance.initialize());
+    _todoBadgeTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _syncTodoBadge(),
+    );
     unawaited(AnnouncementStore.instance.listen());
     _inboxSubscription = ChatStore.instance.watchInbox().listen((inbox) {
       if (!mounted) return;
       final uid = AuthService.instance.currentUser?.uid ?? '';
-      unawaited(
-        MessageNotificationWatcher.instance.handleInbox(inbox, uid),
-      );
+      unawaited(MessageNotificationWatcher.instance.handleInbox(inbox, uid));
       NotificationService.instance.handleChatNotificationsInApp(true);
       final unread = [
         for (final chat in inbox.directChats) chat.visibleUnread,
@@ -82,9 +90,18 @@ class _HomeShellState extends State<HomeShell> {
     setState(() => _updatesBadge = unread);
   }
 
+  void _syncTodoBadge() {
+    if (!mounted) return;
+    final alerts = TodoStore.instance.alertCount;
+    if (alerts == _todoBadge) return;
+    setState(() => _todoBadge = alerts);
+  }
+
   @override
   void dispose() {
     AnnouncementStore.instance.removeListener(_syncAnnouncementBadge);
+    TodoStore.instance.removeListener(_syncTodoBadge);
+    _todoBadgeTimer?.cancel();
     NotificationService.instance.handleChatNotificationsInApp(false);
     _inboxSubscription?.cancel();
     _controller.dispose();
@@ -129,7 +146,7 @@ class _HomeShellState extends State<HomeShell> {
               tabs: _tabs,
               page: page,
               onTap: _goTo,
-              badgeCounts: [_updatesBadge, _messagesBadge, 0, 0, 0],
+              badgeCounts: [_updatesBadge, _messagesBadge, 0, _todoBadge, 0],
             );
           },
         ),

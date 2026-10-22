@@ -571,12 +571,12 @@ class _ComposeFields extends StatelessWidget {
             textCapitalization: TextCapitalization.sentences,
             style: AppType.sectionTitle(
               scheme,
-            ).copyWith(fontSize: 20, height: 1.2),
+            ).copyWith(fontSize: 18, height: 1.2),
             decoration: InputDecoration(
               hintText: 'Title',
               hintStyle: AppType.sectionTitle(
                 scheme,
-              ).copyWith(fontSize: 20, color: SpotifyColors.textSubdued),
+              ).copyWith(fontSize: 18, color: SpotifyColors.textSubdued),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -725,7 +725,7 @@ class _MediaSection extends StatelessWidget {
                                 : 'Photo',
                             style: const TextStyle(
                               fontFamily: 'Montserrat',
-                              fontSize: 10,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
@@ -751,7 +751,7 @@ class _MediaSection extends StatelessWidget {
                           '$selectedCount selected',
                           style: const TextStyle(
                             fontFamily: 'Montserrat',
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
                           ),
@@ -982,7 +982,7 @@ class _GalleryTile extends StatelessWidget {
                       _formatDuration(asset.duration),
                       style: const TextStyle(
                         fontFamily: 'Montserrat',
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),

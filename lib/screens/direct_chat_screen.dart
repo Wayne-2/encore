@@ -227,7 +227,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 17,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurface,
                 ),
@@ -238,7 +238,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 13,
+                  fontSize: 12,
                   color: scheme.onSurfaceVariant,
                 ),
               ),
@@ -309,7 +309,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: scheme.onSurface,
                     ),
@@ -402,7 +402,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         'Voice Call',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -426,7 +426,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         'Video Call',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -453,7 +453,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                             : 'Enter Anonymous Mode',
                         style: const TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: SpotifyColors.accent,
                         ),
@@ -478,7 +478,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         'Conversation info',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -502,7 +502,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         'Search',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: scheme.onSurface,
                         ),
@@ -526,7 +526,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                         'Clear chat',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: SpotifyColors.accent,
                         ),
@@ -583,13 +583,13 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                               widget.conversation.title,
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
-                                fontSize: 20,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 color: scheme.onSurface,
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Text('✨', style: TextStyle(fontSize: 16)),
+                            const Text('✨', style: TextStyle(fontSize: 15)),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -598,7 +598,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                               'Joined 11 August 2023',
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 13,
+                            fontSize: 12,
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
@@ -621,7 +621,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                             'View profile',
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -635,7 +635,7 @@ class _DirectChatScreenState extends State<DirectChatScreen> {
                               isWayne ? 'Today 5:43 pm' : 'TODAY',
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: scheme.onSurfaceVariant,
                               ),
@@ -849,7 +849,7 @@ class _FloatingMenuItem extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: scheme.onSurface,
                 ),
@@ -934,7 +934,7 @@ class _AnonymousStatusPill extends StatelessWidget {
                   'Turn Off',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 10.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: SpotifyColors.danger,
                     height: 1.0,
