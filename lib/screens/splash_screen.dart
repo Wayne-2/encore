@@ -5,6 +5,8 @@ import '../services/session_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/spotify_colors.dart';
 import '../widgets/app_loader.dart';
+import 'auth/complete_profile_screen.dart';
+import 'auth/verify_email_screen.dart';
 import 'home_shell.dart';
 import 'welcome_screen.dart';
 
@@ -36,15 +38,16 @@ class _SplashScreenState extends State<SplashScreen>
 
   static const double _logoSize = 104;
 
-  /// Resolved while the logo animates: a valid 24-hour session skips the
-  /// welcome/auth flow and opens the Updates tab directly.
-  late final Future<bool> _hasSession = _checkSession();
+  /// Resolved while the logo animates. Only a verified account with a complete
+  /// profile and a valid 24-hour session opens the app; anything less resumes
+  /// the appropriate auth step.
+  late final Future<SessionStartup> _startup = _resolveStartup();
 
-  Future<bool> _checkSession() async {
+  Future<SessionStartup> _resolveStartup() async {
     try {
-      return await SessionService.instance.hasValidSession();
+      return await SessionService.instance.startupStatus();
     } catch (_) {
-      return false;
+      return SessionStartup.signedOut;
     }
   }
 
@@ -55,13 +58,15 @@ class _SplashScreenState extends State<SplashScreen>
       if (status == AnimationStatus.completed) {
         // Hold on the finished lockup + spinner before revealing the app.
         Future.delayed(const Duration(milliseconds: 1200), () async {
-          final signedIn = await _hasSession;
+          final status = await _startup;
           if (!mounted) return;
-          Navigator.of(context).pushReplacement(
-            fadeRoute<void>(
-              signedIn ? const HomeShell() : const WelcomeScreen(),
-            ),
-          );
+          final destination = switch (status) {
+            SessionStartup.ready => const HomeShell(),
+            SessionStartup.emailUnverified => const VerifyEmailScreen(),
+            SessionStartup.profileIncomplete => const CompleteProfileScreen(),
+            SessionStartup.signedOut => const WelcomeScreen(),
+          };
+          Navigator.of(context).pushReplacement(fadeRoute<void>(destination));
         });
       }
     });

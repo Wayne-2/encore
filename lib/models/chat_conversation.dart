@@ -23,9 +23,13 @@ class ChatMessage {
     this.isEdited = false,
     this.isDeleted = false,
     this.imageUrl,
+    this.stickerUrl,
     this.voiceUrl,
     this.voiceDurationMs = 0,
     this.voiceWaveform = const [],
+    this.libraryId,
+    this.libraryTitle,
+    this.librarySubject,
     this.replyToSender,
     this.replyToText,
   });
@@ -64,10 +68,18 @@ class ChatMessage {
   /// Remote photo attached to the message.
   final String? imageUrl;
 
+  /// Remote sticker attached to the message.
+  final String? stickerUrl;
+
   /// Remote audio attachment and its recorded duration.
   final String? voiceUrl;
   final int voiceDurationMs;
   final List<int> voiceWaveform;
+
+  /// Public library document shared in this message.
+  final String? libraryId;
+  final String? libraryTitle;
+  final String? librarySubject;
 
   /// Reply preview shown above the message copy.
   final String? replyToSender;
@@ -91,9 +103,13 @@ class ChatMessage {
     bool? isEdited,
     bool? isDeleted,
     String? imageUrl,
+    String? stickerUrl,
     String? voiceUrl,
     int? voiceDurationMs,
     List<int>? voiceWaveform,
+    String? libraryId,
+    String? libraryTitle,
+    String? librarySubject,
     String? replyToSender,
     String? replyToText,
   }) {
@@ -115,9 +131,13 @@ class ChatMessage {
       isEdited: isEdited ?? this.isEdited,
       isDeleted: isDeleted ?? this.isDeleted,
       imageUrl: imageUrl ?? this.imageUrl,
+      stickerUrl: stickerUrl ?? this.stickerUrl,
       voiceUrl: voiceUrl ?? this.voiceUrl,
       voiceDurationMs: voiceDurationMs ?? this.voiceDurationMs,
       voiceWaveform: voiceWaveform ?? this.voiceWaveform,
+      libraryId: libraryId ?? this.libraryId,
+      libraryTitle: libraryTitle ?? this.libraryTitle,
+      librarySubject: librarySubject ?? this.librarySubject,
       replyToSender: replyToSender ?? this.replyToSender,
       replyToText: replyToText ?? this.replyToText,
     );

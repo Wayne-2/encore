@@ -49,6 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _department = 'Computer Science';
   String _level = '300 Level';
   String _faculty = 'SICT';
+  bool _privacyMode = false;
 
   @override
   void initState() {
@@ -142,6 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final faculty = read('faculty');
 
     setState(() {
+      _privacyMode = data['privacyMode'] == true;
       if (fullName != null && fullName.trim().isNotEmpty) {
         _fullName = fullName;
       }
@@ -175,6 +177,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _faculty = faculty.trim();
       }
     });
+  }
+
+  Future<void> _setPrivacyMode(bool value) async {
+    final previous = _privacyMode;
+    setState(() => _privacyMode = value);
+    if (!AuthService.isAvailable) return;
+
+    try {
+      final saved = await AuthService.instance.setPrivacyMode(value);
+      if (!saved) throw StateError('No signed-in user.');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              value
+                  ? 'Privacy mode on. Only your username is visible.'
+                  : 'Privacy mode off. Your profile is public.',
+            ),
+          ),
+        );
+    } catch (error) {
+      debugPrint('Privacy update failed: $error');
+      if (!mounted) return;
+      setState(() => _privacyMode = previous);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Couldn’t update privacy mode.')),
+        );
+    }
   }
 
   Future<void> _editProfile() async {
@@ -338,6 +372,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   department: _department,
                   level: _level,
                   faculty: _faculty,
+                  isPrivate: _privacyMode,
+                  onPrivacyChanged: _setPrivacyMode,
                 ),
                 const SizedBox(height: 12),
                 const _ProfileActionTile(
@@ -495,13 +531,15 @@ class _CircleIcon extends StatelessWidget {
 }
 
 /// A bordered banner of profile details plus a privacy toggle.
-class _DetailsBanner extends StatefulWidget {
+class _DetailsBanner extends StatelessWidget {
   const _DetailsBanner({
     required this.role,
     required this.registrationNumber,
     required this.department,
     required this.level,
     required this.faculty,
+    required this.isPrivate,
+    required this.onPrivacyChanged,
   });
 
   final String role;
@@ -509,13 +547,8 @@ class _DetailsBanner extends StatefulWidget {
   final String department;
   final String level;
   final String faculty;
-
-  @override
-  State<_DetailsBanner> createState() => _DetailsBannerState();
-}
-
-class _DetailsBannerState extends State<_DetailsBanner> {
-  bool _isPrivate = false;
+  final bool isPrivate;
+  final ValueChanged<bool> onPrivacyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -526,12 +559,9 @@ class _DetailsBannerState extends State<_DetailsBanner> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DotRow(
-            items: [widget.role, widget.registrationNumber],
-            emphasize: true,
-          ),
+          _DotRow(items: [role, registrationNumber], emphasize: true),
           const SizedBox(height: 10),
-          _DotRow(items: [widget.department, widget.level, widget.faculty]),
+          _DotRow(items: [department, level, faculty]),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -548,7 +578,7 @@ class _DetailsBannerState extends State<_DetailsBanner> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _isPrivate ? 'Profile is private' : 'Profile is public',
+                    isPrivate ? 'Profile is private' : 'Profile is public',
                     style: _profileMetaStyle(scheme),
                   ),
                 ],
@@ -556,8 +586,8 @@ class _DetailsBannerState extends State<_DetailsBanner> {
               const Spacer(),
               Switch(
                 key: const ValueKey('profile-privacy-toggle'),
-                value: _isPrivate,
-                onChanged: (v) => setState(() => _isPrivate = v),
+                value: isPrivate,
+                onChanged: onPrivacyChanged,
               ),
             ],
           ),

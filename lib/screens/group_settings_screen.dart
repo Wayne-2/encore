@@ -325,27 +325,15 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             if (!isMe && _isAdmin)
               ListTile(
                 key: ValueKey('group-member-remove-${member.id}'),
-                leading: const Icon(
-                  LucideIcons.userMinus,
-                  color: SpotifyColors.danger,
-                ),
-                title: const Text(
-                  'Remove from group',
-                  style: TextStyle(color: SpotifyColors.danger),
-                ),
+                leading: const Icon(LucideIcons.userMinus),
+                title: const Text('Remove from group'),
                 onTap: () => Navigator.pop(context, 'remove'),
               ),
             if (isMe)
               ListTile(
                 key: const ValueKey('group-settings-leave-member'),
-                leading: const Icon(
-                  LucideIcons.logOut,
-                  color: SpotifyColors.danger,
-                ),
-                title: const Text(
-                  'Leave group',
-                  style: TextStyle(color: SpotifyColors.danger),
-                ),
+                leading: const Icon(LucideIcons.logOut),
+                title: const Text('Leave group'),
                 onTap: () => Navigator.pop(context, 'leave'),
               ),
           ],
@@ -409,9 +397,6 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: SpotifyColors.danger,
-            ),
             child: Text(confirmLabel),
           ),
         ],
@@ -497,8 +482,6 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                     key: const ValueKey('group-settings-leave'),
                     onPressed: _busy ? null : _leaveGroup,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: SpotifyColors.danger,
-                      side: const BorderSide(color: SpotifyColors.danger),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     icon: const Icon(LucideIcons.logOut, size: 18),

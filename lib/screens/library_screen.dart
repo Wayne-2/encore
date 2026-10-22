@@ -4,13 +4,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../models/direct_chat.dart';
+import '../models/group_chat.dart';
 import '../models/library_material.dart';
 import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
+import '../services/chat_store.dart';
 import '../services/library_import_service.dart';
 import '../services/library_store.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
+import '../widgets/chat_avatar.dart';
 import 'library_preview_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -22,6 +26,7 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   static const List<String> _tabs = [
+    'Public library',
     'Your lists',
     'Highlights',
     'Reading history',
@@ -198,6 +203,150 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
+  Future<void> _showMaterialActions(LibraryMaterial material) async {
+    final scheme = Theme.of(context).colorScheme;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: SpotifyColors.surface,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: Text(
+                  material.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.name(scheme),
+                ),
+              ),
+              const Divider(height: 1, color: SpotifyColors.border),
+              ListTile(
+                key: ValueKey('library-send-${material.id}'),
+                leading: Icon(LucideIcons.send, color: scheme.onSurface),
+                title: Text(
+                  'Send in a chat',
+                  style: AppType.body(
+                    scheme,
+                  ).copyWith(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'Share this document in a direct or group chat.',
+                  style: AppType.meta(scheme),
+                ),
+                onTap: () => Navigator.pop(sheetContext, 'send'),
+              ),
+              if (_store.canDelete(material))
+                ListTile(
+                  key: ValueKey('library-delete-${material.id}'),
+                  leading: Icon(LucideIcons.trash2, color: scheme.onSurface),
+                  title: Text(
+                    'Delete document',
+                    style: AppType.body(
+                      scheme,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Removes it from the public library for everyone.',
+                    style: AppType.meta(scheme),
+                  ),
+                  onTap: () => Navigator.pop(sheetContext, 'delete'),
+                ),
+              ListTile(
+                leading: Icon(LucideIcons.x, color: scheme.onSurfaceVariant),
+                title: Text('Cancel', style: AppType.body(scheme)),
+                onTap: () => Navigator.pop(sheetContext),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'send') {
+      await _showSharePicker(material);
+    } else if (action == 'delete') {
+      await _confirmDelete(material);
+    }
+  }
+
+  Future<void> _showSharePicker(LibraryMaterial material) async {
+    final target = await showModalBottomSheet<_LibraryShareTarget>(
+      context: context,
+      backgroundColor: SpotifyColors.surface,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => _LibraryShareSheet(
+        material: material,
+        inbox: ChatStore.instance.watchInbox(),
+      ),
+    );
+    if (target == null || !mounted) return;
+
+    try {
+      final direct = target.direct;
+      if (direct != null) {
+        await ChatStore.instance.sendLibraryMaterial(
+          peer: direct.peer,
+          materialId: material.id,
+          title: material.title,
+          subject: material.subject,
+        );
+      } else {
+        final group = target.group;
+        if (group == null) return;
+        await ChatStore.instance.sendGroupLibraryMaterial(
+          chatId: group.id,
+          materialId: material.id,
+          title: material.title,
+          subject: material.subject,
+        );
+      }
+      _showSnack('Sent to ${target.title}.');
+    } catch (_) {
+      _showSnack("Couldn't send that document. Try again.");
+    }
+  }
+
+  Future<void> _confirmDelete(LibraryMaterial material) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: SpotifyColors.surface,
+        title: const Text('Delete document?'),
+        content: Text(
+          '"${material.title}" will be removed from the public library.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const ValueKey('library-delete-confirm'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _store.delete(material);
+      _showSnack('Document deleted.');
+    } on LibraryStoreException catch (error) {
+      _showSnack(error.message);
+    } catch (_) {
+      _showSnack("Couldn't delete that document.");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -321,7 +470,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _content(ColorScheme scheme) {
     return switch (_tab) {
-      1 => _HighlightsTab(
+      2 => _HighlightsTab(
         scheme: scheme,
         highlights: _store.highlights,
         onOpen: (highlight) {
@@ -333,7 +482,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _openMaterial(material);
         },
       ),
-      2 => _ReadingHistoryTab(
+      3 => _ReadingHistoryTab(
         scheme: scheme,
         entries: _store.history,
         onOpen: (entry) {
@@ -345,19 +494,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _openMaterial(material);
         },
       ),
-      _ => _YourListsTab(
+      1 => _YourListsTab(
         scheme: scheme,
-        savedCount: _store.savedMaterials.length,
-        materials: _store.materials,
+        savedMaterials: _store.savedMaterials,
         continueReading: _store.continueReading,
-        query: _query,
-        searchController: _search,
-        onQueryChanged: (value) => setState(() => _query = value),
-        onClearQuery: () {
-          _search.clear();
-          setState(() => _query = '');
-        },
-        isSaved: _store.isSaved,
         onOpenSavedList: _showSavedList,
         onOpenMaterial: _openMaterial,
         onToggleSaved: _toggleSaved,
@@ -369,6 +509,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
           }
           _openMaterial(material);
         },
+      ),
+      _ => _PublicLibraryTab(
+        scheme: scheme,
+        materials: _store.materials,
+        query: _query,
+        searchController: _search,
+        onQueryChanged: (value) => setState(() => _query = value),
+        onClearQuery: () {
+          _search.clear();
+          setState(() => _query = '');
+        },
+        isSaved: _store.isSaved,
+        onOpenMaterial: _openMaterial,
+        onToggleSaved: _toggleSaved,
+        onLongPressMaterial: _showMaterialActions,
       ),
     };
   }
@@ -434,36 +589,30 @@ class _LibraryTabs extends StatelessWidget {
   }
 }
 
-class _YourListsTab extends StatelessWidget {
-  const _YourListsTab({
+class _PublicLibraryTab extends StatelessWidget {
+  const _PublicLibraryTab({
     required this.scheme,
-    required this.savedCount,
     required this.materials,
-    required this.continueReading,
     required this.query,
     required this.searchController,
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.isSaved,
-    required this.onOpenSavedList,
     required this.onOpenMaterial,
     required this.onToggleSaved,
-    required this.onContinue,
+    required this.onLongPressMaterial,
   });
 
   final ColorScheme scheme;
-  final int savedCount;
   final List<LibraryMaterial> materials;
-  final LibraryHistoryEntry? continueReading;
   final String query;
   final TextEditingController searchController;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final bool Function(String id) isSaved;
-  final VoidCallback onOpenSavedList;
   final ValueChanged<LibraryMaterial> onOpenMaterial;
   final ValueChanged<String> onToggleSaved;
-  final ValueChanged<LibraryHistoryEntry> onContinue;
+  final ValueChanged<LibraryMaterial> onLongPressMaterial;
 
   @override
   Widget build(BuildContext context) {
@@ -482,20 +631,6 @@ class _YourListsTab extends StatelessWidget {
       key: const ValueKey('library-public-list'),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
       children: [
-        _SavedListCard(
-          scheme: scheme,
-          count: savedCount,
-          onTap: onOpenSavedList,
-        ),
-        if (continueReading != null) ...[
-          const SizedBox(height: 12),
-          _ContinueCard(
-            scheme: scheme,
-            entry: continueReading!,
-            onTap: () => onContinue(continueReading!),
-          ),
-        ],
-        const SizedBox(height: 28),
         Text('Public library', style: AppType.sectionTitle(scheme)),
         const SizedBox(height: 4),
         Text(
@@ -532,6 +667,76 @@ class _YourListsTab extends StatelessWidget {
               saved: isSaved(visible[i].id),
               onTap: () => onOpenMaterial(visible[i]),
               onToggleSaved: () => onToggleSaved(visible[i].id),
+              onLongPress: () => onLongPressMaterial(visible[i]),
+            ),
+          ],
+      ],
+    );
+  }
+}
+
+class _YourListsTab extends StatelessWidget {
+  const _YourListsTab({
+    required this.scheme,
+    required this.savedMaterials,
+    required this.continueReading,
+    required this.onOpenSavedList,
+    required this.onOpenMaterial,
+    required this.onToggleSaved,
+    required this.onContinue,
+  });
+
+  final ColorScheme scheme;
+  final List<LibraryMaterial> savedMaterials;
+  final LibraryHistoryEntry? continueReading;
+  final VoidCallback onOpenSavedList;
+  final ValueChanged<LibraryMaterial> onOpenMaterial;
+  final ValueChanged<String> onToggleSaved;
+  final ValueChanged<LibraryHistoryEntry> onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      key: const ValueKey('library-your-lists'),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+      children: [
+        _SavedListCard(
+          scheme: scheme,
+          count: savedMaterials.length,
+          recent: savedMaterials.take(3).toList(growable: false),
+          onTap: onOpenSavedList,
+        ),
+        if (continueReading != null) ...[
+          const SizedBox(height: 12),
+          _ContinueCard(
+            scheme: scheme,
+            entry: continueReading!,
+            onTap: () => onContinue(continueReading!),
+          ),
+        ],
+        const SizedBox(height: 28),
+        Text('Saved documents', style: AppType.sectionTitle(scheme)),
+        const SizedBox(height: 4),
+        Text(
+          savedMaterials.isEmpty
+              ? 'Save anything from the public library to keep it here.'
+              : 'The documents you bookmarked from the public library.',
+          style: AppType.subtitle(scheme),
+        ),
+        const SizedBox(height: 14),
+        if (savedMaterials.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 28),
+            child: _SavedEmpty(),
+          )
+        else
+          for (var i = 0; i < savedMaterials.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _MaterialTile(
+              material: savedMaterials[i],
+              saved: true,
+              onTap: () => onOpenMaterial(savedMaterials[i]),
+              onToggleSaved: () => onToggleSaved(savedMaterials[i].id),
             ),
           ],
       ],
@@ -705,11 +910,13 @@ class _SavedListCard extends StatelessWidget {
   const _SavedListCard({
     required this.scheme,
     required this.count,
+    required this.recent,
     required this.onTap,
   });
 
   final ColorScheme scheme;
   final int count;
+  final List<LibraryMaterial> recent;
   final VoidCallback onTap;
 
   @override
@@ -722,53 +929,109 @@ class _SavedListCard extends StatelessWidget {
         border: Border.all(color: SpotifyColors.border),
       ),
       child: InkWell(
+        key: const ValueKey('library-saved-banner'),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: SpotifyColors.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  LucideIcons.bookmark,
-                  size: 21,
-                  color: SpotifyColors.accent,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Saved list', style: AppType.name(scheme)),
-                    const SizedBox(height: 3),
-                    Row(
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: SpotifyColors.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      LucideIcons.bookmark,
+                      size: 21,
+                      color: SpotifyColors.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          count == 1 ? '1 material' : '$count materials',
-                          style: AppType.subtitle(scheme),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          LucideIcons.lock,
-                          size: 12,
-                          color: scheme.onSurfaceVariant,
+                        Text('Saved list', style: AppType.name(scheme)),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Text(
+                              count == 1 ? '1 material' : '$count materials',
+                              style: AppType.subtitle(scheme),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              LucideIcons.lock,
+                              size: 12,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ],
                         ),
                       ],
                     ),
+                  ),
+                  Icon(
+                    LucideIcons.chevronRight,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+              if (recent.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'RECENTLY SAVED',
+                  style: AppType.tag(scheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final material in recent)
+                      Container(
+                        key: ValueKey('library-saved-preview-${material.id}'),
+                        constraints: const BoxConstraints(maxWidth: 190),
+                        padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
+                        decoration: BoxDecoration(
+                          color: SpotifyColors.accent.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: SpotifyColors.accent.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              material.isPdf
+                                  ? LucideIcons.fileText
+                                  : LucideIcons.image,
+                              size: 13,
+                              color: SpotifyColors.accent,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                material.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppType.meta(
+                                  scheme,
+                                ).copyWith(color: scheme.onSurface),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              Icon(
-                LucideIcons.chevronRight,
-                size: 18,
-                color: scheme.onSurfaceVariant,
-              ),
+              ],
             ],
           ),
         ),
@@ -783,12 +1046,14 @@ class _MaterialTile extends StatelessWidget {
     required this.saved,
     required this.onTap,
     required this.onToggleSaved,
+    this.onLongPress,
   });
 
   final LibraryMaterial material;
   final bool saved;
   final VoidCallback onTap;
   final VoidCallback onToggleSaved;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -808,6 +1073,7 @@ class _MaterialTile extends StatelessWidget {
       child: InkWell(
         key: ValueKey('library-material-${material.id}'),
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
           child: Row(
@@ -1326,4 +1592,188 @@ String _relativeTime(DateTime? date) {
     'Dec',
   ];
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
+}
+
+/// A direct chat or group selected from the library share sheet.
+class _LibraryShareTarget {
+  const _LibraryShareTarget.direct(DirectChat this.direct) : group = null;
+
+  const _LibraryShareTarget.group(GroupChat this.group) : direct = null;
+
+  final DirectChat? direct;
+  final GroupChat? group;
+
+  String get title => direct?.peer.displayName ?? group?.title ?? 'chat';
+}
+
+/// Bottom sheet listing the signed-in user's direct chats and groups.
+class _LibraryShareSheet extends StatelessWidget {
+  const _LibraryShareSheet({required this.material, required this.inbox});
+
+  final LibraryMaterial material;
+  final Stream<ChatInbox> inbox;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final height = MediaQuery.sizeOf(context).height * 0.68;
+
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: height,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Send to a chat', style: AppType.sectionTitle(scheme)),
+                  const SizedBox(height: 3),
+                  Text(
+                    material.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.meta(scheme),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: SpotifyColors.border),
+            Expanded(
+              child: StreamBuilder<ChatInbox>(
+                stream: inbox,
+                builder: (context, snapshot) {
+                  final data = snapshot.data ?? ChatInbox.empty;
+                  final direct = data.directChats;
+                  final groups = data.groups;
+                  if (direct.isEmpty && groups.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.messagesSquare,
+                              size: 26,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'No chats yet',
+                              style: AppType.name(scheme),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Start a conversation from Messages, then share '
+                              'documents from here.',
+                              textAlign: TextAlign.center,
+                              style: AppType.meta(scheme),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+                    children: [
+                      if (direct.isNotEmpty) ...[
+                        _sectionLabel('Direct messages', scheme),
+                        for (final chat in direct)
+                          _tile(
+                            context,
+                            key: ValueKey('library-share-dm-${chat.id}'),
+                            title: chat.peer.displayName,
+                            subtitle: chat.peer.handle,
+                            avatar: ChatAvatar(
+                              avatarUrl: chat.peer.photoUrl,
+                              avatarColor: chat.peer.avatarColor,
+                              avatarInitials: chat.peer.initials,
+                              size: 38,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            onTap: () => Navigator.pop(
+                              context,
+                              _LibraryShareTarget.direct(chat),
+                            ),
+                          ),
+                      ],
+                      if (groups.isNotEmpty) ...[
+                        _sectionLabel('Group chats', scheme),
+                        for (final group in groups)
+                          _tile(
+                            context,
+                            key: ValueKey('library-share-group-${group.id}'),
+                            title: group.title,
+                            subtitle:
+                                '${group.memberCount} '
+                                '${group.memberCount == 1 ? 'member' : 'members'}',
+                            avatar: ChatAvatar(
+                              avatarUrl: group.photoUrl,
+                              avatarColor: group.avatarColor,
+                              avatarInitials: group.initials,
+                              size: 38,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            onTap: () => Navigator.pop(
+                              context,
+                              _LibraryShareTarget.group(group),
+                            ),
+                          ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String label, ColorScheme scheme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: Text(label, style: AppType.meta(scheme)),
+    );
+  }
+
+  Widget _tile(
+    BuildContext context, {
+    required Key key,
+    required String title,
+    required String subtitle,
+    required Widget avatar,
+    required VoidCallback onTap,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      key: key,
+      leading: avatar,
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppType.body(scheme).copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppType.meta(scheme),
+      ),
+      trailing: Icon(
+        LucideIcons.send,
+        size: 18,
+        color: SpotifyColors.accent,
+      ),
+      onTap: onTap,
+    );
+  }
 }

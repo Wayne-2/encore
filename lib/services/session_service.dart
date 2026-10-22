@@ -2,6 +2,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_service.dart';
 
+/// Where the app should send the user when it launches.
+///
+/// A Firebase session alone is not enough to enter the app: the email must be
+/// verified and onboarding must be finished.
+enum SessionStartup {
+  /// No signed-in user (or the 24-hour session window has expired).
+  signedOut,
+
+  /// Signed in, but the email address still needs to be confirmed.
+  emailUnverified,
+
+  /// Email confirmed, but the profile document is missing or incomplete.
+  profileIncomplete,
+
+  /// Fully signed in and ready for the home shell.
+  ready,
+}
+
 /// Keeps a signed-in user's session alive for [sessionLength] from login.
 ///
 /// Firebase persists the auth session indefinitely on its own, so the login
@@ -27,25 +45,34 @@ class SessionService {
     }
   }
 
-  /// Whether the current session is still inside its 24-hour window.
+  /// Resolves what the splash screen should show.
   ///
-  /// Expired (or untraceable) sessions are signed out. Existing users who
-  /// signed in before this check existed are anchored to Firebase's last
-  /// sign-in time instead of being given a fresh window.
-  Future<bool> hasValidSession() async {
-    if (!AuthService.isAvailable) return false;
+  /// Verification and profile checks happen before the 24-hour window, so an
+  /// interrupted sign-up can never slip into the app even if Firebase still
+  /// holds a session for it.
+  Future<SessionStartup> startupStatus() async {
+    if (!AuthService.isAvailable) return SessionStartup.signedOut;
 
     final user = await AuthService.instance.restoreUser();
-    if (user == null) return false;
+    if (user == null) return SessionStartup.signedOut;
+
+    if (!await AuthService.instance.isEmailVerified()) {
+      return SessionStartup.emailUnverified;
+    }
+
+    final profile = await AuthService.instance.currentUserProfile();
+    if (!AuthService.isProfileComplete(profile)) {
+      return SessionStartup.profileIncomplete;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     var startedAt = prefs.getInt(_loginAtKey);
 
     if (startedAt == null) {
       final lastSignIn = user.metadata.lastSignInTime;
-      if (lastSignIn == null || !await _profileExists()) {
+      if (lastSignIn == null) {
         await endSession();
-        return false;
+        return SessionStartup.signedOut;
       }
       startedAt = lastSignIn.millisecondsSinceEpoch;
       await prefs.setInt(_loginAtKey, startedAt);
@@ -54,21 +81,14 @@ class SessionService {
     final started = DateTime.fromMillisecondsSinceEpoch(startedAt);
     if (DateTime.now().difference(started) >= sessionLength) {
       await endSession();
-      return false;
+      return SessionStartup.signedOut;
     }
-    return true;
+    return SessionStartup.ready;
   }
 
-  /// Whether the user finished onboarding (their profile document exists).
-  ///
-  /// Only used when adopting a session that has no stored login time, so a
-  /// sign-up abandoned midway doesn't skip straight into the app.
-  Future<bool> _profileExists() async {
-    try {
-      return await AuthService.instance.currentUserProfile() != null;
-    } catch (_) {
-      return false;
-    }
+  /// Whether the current session is ready for the home shell.
+  Future<bool> hasValidSession() async {
+    return await startupStatus() == SessionStartup.ready;
   }
 
   /// Signs out and clears the stored login time.

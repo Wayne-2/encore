@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/announcement_store.dart';
+import '../services/auth_service.dart';
 import '../services/chat_store.dart';
+import '../services/message_notification_watcher.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
@@ -58,6 +61,11 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(AnnouncementStore.instance.listen());
     _inboxSubscription = ChatStore.instance.watchInbox().listen((inbox) {
       if (!mounted) return;
+      final uid = AuthService.instance.currentUser?.uid ?? '';
+      unawaited(
+        MessageNotificationWatcher.instance.handleInbox(inbox, uid),
+      );
+      NotificationService.instance.handleChatNotificationsInApp(true);
       final unread = [
         for (final chat in inbox.directChats) chat.visibleUnread,
         for (final group in inbox.groups) group.visibleUnread,
@@ -77,6 +85,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     AnnouncementStore.instance.removeListener(_syncAnnouncementBadge);
+    NotificationService.instance.handleChatNotificationsInApp(false);
     _inboxSubscription?.cancel();
     _controller.dispose();
     super.dispose();

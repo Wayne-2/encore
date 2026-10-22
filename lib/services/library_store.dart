@@ -50,6 +50,78 @@ class LibraryStore extends ChangeNotifier {
 
   bool isSaved(String materialId) => _savedIds.contains(materialId);
 
+  /// Finds a public document locally, falling back to a one-off Firestore read.
+  ///
+  /// Chat messages only carry the document id/title, so a recipient who has
+  /// not opened the Library yet can still open a shared document.
+  Future<LibraryMaterial?> findMaterial(String materialId) async {
+    final id = materialId.trim();
+    if (id.isEmpty) return null;
+    for (final material in _materials) {
+      if (material.id == id) return material;
+    }
+    if (!AuthService.isAvailable) return null;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(_materialsCollection)
+          .doc(id)
+          .get();
+      if (!doc.exists) return null;
+      return LibraryMaterial.fromDoc(doc);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool canDelete(LibraryMaterial material) {
+    if (material.isDemo) return false;
+    if (!AuthService.isAvailable) return true;
+    final uid = AuthService.instance.currentUser?.uid;
+    return uid != null && material.uploaderId == uid;
+  }
+
+  Future<void> delete(LibraryMaterial material) async {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (AuthService.isAvailable) {
+      if (uid == null || material.uploaderId != uid) {
+        throw const LibraryStoreException(
+          'You can only delete documents you uploaded.',
+        );
+      }
+      try {
+        await FirebaseFirestore.instance
+            .collection(_materialsCollection)
+            .doc(material.id)
+            .delete();
+      } catch (_) {
+        throw const LibraryStoreException(
+          'Could not delete that document. Try again.',
+        );
+      }
+    }
+
+    _pendingMaterialIds.remove(material.id);
+    _materials.removeWhere((item) => item.id == material.id);
+    _savedIds.remove(material.id);
+    _history.removeWhere((entry) => entry.materialId == material.id);
+    _highlights.removeWhere((highlight) => highlight.materialId == material.id);
+    notifyListeners();
+
+    if (!AuthService.isAvailable || uid == null) return;
+    unawaited(
+      _userCollection(
+        uid,
+        'savedMaterials',
+      ).doc(material.id).delete().catchError((Object _) {}),
+    );
+    unawaited(
+      _userCollection(
+        uid,
+        'libraryHistory',
+      ).doc(material.id).delete().catchError((Object _) {}),
+    );
+  }
+
   LibraryHistoryEntry? get continueReading {
     for (final entry in _history) {
       if (entry.progress < 0.98) return entry;
@@ -88,10 +160,10 @@ class LibraryStore extends ChangeNotifier {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
 
-    _savedSub = _userCollection(
-      uid,
-      'savedMaterials',
-    ).snapshots().listen(_onSaved, onError: (Object _) {});
+    _savedSub = _userCollection(uid, 'savedMaterials')
+        .orderBy('savedAt', descending: true)
+        .snapshots()
+        .listen(_onSaved, onError: (Object _) {});
     _highlightsSub = _userCollection(
       uid,
       'libraryHighlights',

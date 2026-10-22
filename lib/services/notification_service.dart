@@ -48,6 +48,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  bool _chatNotificationsHandledInApp = false;
 
   /// The Firebase Installation ID returned by `register()`, kept so the
   /// sign-up flow can persist it without waiting on the stream again.
@@ -370,10 +371,51 @@ class NotificationService {
     }
   }
 
+  /// Tells the foreground FCM handler whether the signed-in app shell is
+  /// already watching chats and posting message notifications itself.
+  ///
+  /// While enabled, foreground chat pushes are skipped on Android so the same
+  /// message is not announced twice.
+  void handleChatNotificationsInApp(bool enabled) {
+    _chatNotificationsHandledInApp = enabled;
+  }
+
+  /// Shows an incoming chat message immediately from the in-app chat watcher.
+  ///
+  /// Uses the chat id as the Android tag (and iOS thread id), matching the
+  /// notification sent by the Worker so a later FCM delivery replaces this
+  /// one instead of appearing beside it.
+  Future<void> showIncomingMessage({
+    required String chatId,
+    required String title,
+    required String body,
+  }) async {
+    try {
+      if (!_initialized) await initialize();
+      if (!_initialized) return;
+
+      final android = defaultTargetPlatform == TargetPlatform.android;
+      await _local.show(
+        id: android ? 0 : chatId.hashCode,
+        title: title,
+        body: body,
+        notificationDetails: _messageDetails(chatId),
+        payload: jsonEncode({'type': 'chat_message', 'chatId': chatId}),
+      );
+    } catch (_) {
+      // Local notifications are unavailable in this environment.
+    }
+  }
+
   Future<void> _onForegroundMessage(RemoteMessage message) async {
     // iOS/macOS present foreground pushes natively via the presentation
     // options above; Android needs an explicit local notification.
     if (defaultTargetPlatform != TargetPlatform.android) return;
+    if (_chatNotificationsHandledInApp &&
+        message.data['type'] == 'chat_message') {
+      // Already posted by the in-app watcher, usually well before FCM lands.
+      return;
+    }
     final notification = message.notification;
     if (notification == null) return;
 
@@ -382,6 +424,23 @@ class NotificationService {
       title: notification.title,
       body: notification.body,
       notificationDetails: _details,
+    );
+  }
+
+  static NotificationDetails _messageDetails(String chatId) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDescription,
+        icon: _icon,
+        color: _accent,
+        importance: Importance.max,
+        priority: Priority.high,
+        tag: chatId,
+      ),
+      iOS: DarwinNotificationDetails(threadIdentifier: chatId),
+      macOS: DarwinNotificationDetails(threadIdentifier: chatId),
     );
   }
 

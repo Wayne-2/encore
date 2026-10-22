@@ -128,7 +128,9 @@ service cloud.firestore {
           'textUrl', 'textFileName', 'uploaderId', 'uploaderName',
           'createdAt'
         ]);
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if request.auth != null
+        && resource.data.uploaderId == request.auth.uid;
     }
 
     // Announcements are scoped to a department + level group. Only users in
@@ -549,16 +551,31 @@ service cloud.firestore {
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 4000
-          && request.resource.data.type in ['text', 'image', 'voice']
+          && request.resource.data.type in ['text', 'image', 'voice', 'sticker',
+            'library']
           && request.resource.data.createdAt == request.time
           && (!request.resource.data.keys().hasAny(['imageUrl'])
             || request.resource.data.imageUrl is string)
+          && (!request.resource.data.keys().hasAny(['stickerUrl'])
+            || (request.resource.data.stickerUrl is string
+              && request.resource.data.stickerUrl.size() > 0))
+          && (request.resource.data.type != 'sticker'
+            || (request.resource.data.stickerUrl is string
+              && request.resource.data.stickerUrl.size() > 0))
           && (request.resource.data.type != 'voice'
             || (request.resource.data.voiceUrl is string
               && request.resource.data.voiceUrl.size() > 0
               && request.resource.data.voiceDurationMs is int
               && request.resource.data.voiceDurationMs > 0
               && request.resource.data.voiceDurationMs <= 300000))
+          && (request.resource.data.type != 'library'
+            || (request.resource.data.libraryId is string
+              && request.resource.data.libraryId.size() > 0
+              && request.resource.data.libraryTitle is string
+              && request.resource.data.libraryTitle.size() > 0
+              && request.resource.data.libraryTitle.size() <= 200
+              && request.resource.data.librarySubject is string
+              && request.resource.data.librarySubject.size() <= 100))
           && (!request.resource.data.keys().hasAny(['anonymous'])
             || request.resource.data.anonymous is bool)
           && (request.resource.data.get('anonymous', false) == false

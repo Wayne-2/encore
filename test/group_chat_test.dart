@@ -200,6 +200,55 @@ void main() {
     expect(find.byKey(const ValueKey('group-send-button')), findsOneWidget);
   });
 
+  testWidgets('group composer lets you tag yourself by username', (
+    WidgetTester tester,
+  ) async {
+    final group = _group();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PersistentGroupChatScreen(
+          chatId: group.id,
+          initialGroup: group,
+          groupStream: Stream.value(group),
+          messagesStream: Stream.value(const []),
+          myUid: 'me',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('group-message-input')),
+      'Hello ',
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('group-tag-button')));
+    await tester.pumpAndSettle();
+
+    final selfRow = find.byKey(const ValueKey('group-tag-me'));
+    expect(find.text('Tag someone'), findsOneWidget);
+    expect(selfRow, findsOneWidget);
+    expect(
+      find.descendant(of: selfRow, matching: find.text('Wayne Doe')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: selfRow, matching: find.text('You')),
+      findsOneWidget,
+    );
+
+    await tester.tap(selfRow);
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextField>(
+      find.byKey(const ValueKey('group-message-input')),
+    );
+    expect(field.controller!.text, 'Hello @wayne');
+  });
+
   testWidgets('create group requires a name and at least one member', (
     WidgetTester tester,
   ) async {

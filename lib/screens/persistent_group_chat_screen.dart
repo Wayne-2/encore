@@ -11,7 +11,10 @@ import '../models/group_chat.dart';
 import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
+import '../services/library_store.dart';
 import '../services/media_storage.dart';
+import '../services/message_notification_watcher.dart';
+import '../services/sticker_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
@@ -22,11 +25,13 @@ import '../widgets/chat_emoji_picker.dart';
 import '../widgets/floating_empty_state.dart';
 import '../widgets/hold_to_record_button.dart';
 import 'group_settings_screen.dart';
+import 'library_preview_screen.dart';
 
 /// Telegram-style group chat backed by Firestore.
 ///
 /// Incoming messages show the sender's username above the bubble; the current
-/// user's messages are right-aligned without repeating their own name.
+/// user's messages are right-aligned without repeating their own name. Members
+/// can insert `@username` tags, including their own, from the composer.
 class PersistentGroupChatScreen extends StatefulWidget {
   const PersistentGroupChatScreen({
     super.key,
@@ -34,6 +39,7 @@ class PersistentGroupChatScreen extends StatefulWidget {
     this.initialGroup,
     this.groupStream,
     this.messagesStream,
+    this.myUid,
   });
 
   final String chatId;
@@ -42,6 +48,9 @@ class PersistentGroupChatScreen extends StatefulWidget {
   /// Injectable streams used by widget tests without Firebase.
   final Stream<GroupChat?>? groupStream;
   final Stream<List<DirectMessage>>? messagesStream;
+
+  /// Signed-in uid used by widget tests that run without Firebase.
+  final String? myUid;
 
   @override
   State<PersistentGroupChatScreen> createState() =>
@@ -61,20 +70,24 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
   DirectMessage? _replyTo;
   bool _sendAnonymously = false;
   bool _uploading = false;
+  bool _showComposerPanel = false;
   bool _markingRead = false;
   bool _initialLoad = true;
 
-  String get _myUid => AuthService.instance.currentUser?.uid ?? '';
+  String get _myUid =>
+      widget.myUid ?? AuthService.instance.currentUser?.uid ?? '';
 
   @override
   void initState() {
     super.initState();
+    MessageNotificationWatcher.instance.setActiveChat(widget.chatId);
     if (_group != null) _initialLoad = false;
     _subscribe();
   }
 
   @override
   void dispose() {
+    MessageNotificationWatcher.instance.clearActiveChat(widget.chatId);
     _groupSubscription?.cancel();
     _messagesSubscription?.cancel();
     _textController.dispose();
@@ -179,6 +192,20 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
 
   bool get _canPost => _group?.canPost(_myUid) ?? false;
 
+  void _toggleComposerPanel() {
+    final opening = !_showComposerPanel;
+    if (opening) {
+      FocusScope.of(context).unfocus();
+      _inputFocus.unfocus();
+    }
+    setState(() => _showComposerPanel = opening);
+  }
+
+  void _hideComposerPanel() {
+    if (!_showComposerPanel) return;
+    setState(() => _showComposerPanel = false);
+  }
+
   Future<void> _send() async {
     final text = _textController.text.trim();
     if (text.isEmpty || _uploading) return;
@@ -264,6 +291,48 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
       );
     } catch (_) {
       _showSnack('Could not send that voice note. Check your connection.');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _sendSticker(StickerItem sticker) async {
+    if (_uploading) return;
+    if (_group != null && !_canPost) {
+      _showSnack('Only admins can send messages in this group.');
+      return;
+    }
+
+    final group = _group;
+    final anonymous =
+        _sendAnonymously && (group?.anonymousMessagesEnabled ?? false);
+    final reply = _replyTo;
+    setState(() => _uploading = true);
+    try {
+      await ChatStore.instance.sendGroupSticker(
+        chatId: widget.chatId,
+        filePath: sticker.path,
+        replyTo: reply?.toReplyPreview(),
+        anonymous: anonymous,
+      );
+      if (!mounted) return;
+      setState(() {
+        _replyTo = null;
+        _sendAnonymously = false;
+      });
+      _scrollToBottom();
+    } on StateError catch (error) {
+      _showSnack(error.message);
+    } on MediaStorageException {
+      _showSnack('The sticker could not be uploaded. Try again.');
+    } on FirebaseException catch (error) {
+      _showSnack(
+        error.code == 'permission-denied'
+            ? 'Stickers are not allowed in this chat yet.'
+            : 'The sticker uploaded, but the message could not be sent.',
+      );
+    } catch (_) {
+      _showSnack('Could not send that sticker. Check your connection.');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -358,6 +427,205 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
     _inputFocus.requestFocus();
   }
 
+  Future<void> _openTagSheet() async {
+    final group = _group;
+    if (group == null || group.members.isEmpty) return;
+
+    _hideComposerPanel();
+    _inputFocus.unfocus();
+
+    final entries = <_GroupTagEntry>[];
+    for (final uid in group.members) {
+      final profile = group.profileFor(uid);
+      final username = profile?.username.trim() ?? '';
+      final handle = username.isEmpty
+          ? ''
+          : (username.startsWith('@') ? username : '@$username');
+      if (handle.isEmpty) continue;
+      entries.add(
+        _GroupTagEntry(
+          uid: uid,
+          handle: handle,
+          name: profile?.displayName ?? 'Member',
+          profile: profile,
+          isMe: uid == _myUid,
+        ),
+      );
+    }
+
+    if (entries.isEmpty) {
+      _showSnack('No group members have a username to tag yet.');
+      return;
+    }
+    entries.sort((a, b) {
+      if (a.isMe != b.isMe) return a.isMe ? -1 : 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
+    final handle = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: SpotifyColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.6,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 4),
+                child: Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.atSign,
+                      size: 18,
+                      color: SpotifyColors.accent,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Tag someone',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(LucideIcons.x, size: 20),
+                      color: Colors.white70,
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: entries.length,
+                  itemBuilder: (context, index) {
+                    final entry = entries[index];
+                    final profile = entry.profile;
+                    final initials = profile?.initials.isNotEmpty == true
+                        ? profile!.initials
+                        : entry.name.substring(0, 1).toUpperCase();
+                    return ListTile(
+                      key: ValueKey('group-tag-${entry.uid}'),
+                      leading: ChatAvatar(
+                        avatarUrl: profile?.photoUrl,
+                        avatarColor: profile?.avatarColor,
+                        avatarInitials: initials,
+                        size: 36,
+                      ),
+                      title: Text(
+                        entry.name,
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: Text(
+                        entry.handle,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      trailing: entry.isMe
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: SpotifyColors.accent.withValues(
+                                  alpha: 0.16,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: SpotifyColors.accent.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                ),
+                              ),
+                              child: const Text(
+                                'You',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: SpotifyColors.accent,
+                                ),
+                              ),
+                            )
+                          : null,
+                      onTap: () => Navigator.pop(sheetContext, entry.handle),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || handle == null) return;
+    _insertTag(handle);
+  }
+
+  void _insertTag(String handle) {
+    final value = _textController.value;
+    final text = value.text;
+    final selection = value.selection;
+    final start = selection.isValid
+        ? selection.start.clamp(0, text.length)
+        : text.length;
+    final end = selection.isValid
+        ? selection.end.clamp(start, text.length)
+        : text.length;
+    final before = text.substring(0, start);
+    final after = text.substring(end);
+    final leading = before.isNotEmpty && !RegExp(r'\s$').hasMatch(before)
+        ? ' '
+        : '';
+    final trailing = after.isNotEmpty && !RegExp(r'^\s').hasMatch(after)
+        ? ' '
+        : '';
+    final inserted = '$leading$handle$trailing';
+    _textController.value = TextEditingValue(
+      text: '$before$inserted$after',
+      selection: TextSelection.collapsed(
+        offset: before.length + inserted.length,
+      ),
+    );
+    setState(() {});
+    _inputFocus.requestFocus();
+  }
+
+  Future<void> _openLibraryDocument(DirectMessage message) async {
+    final id = message.libraryId;
+    if (id == null || id.isEmpty) return;
+    final material = await LibraryStore.instance.findMaterial(id);
+    if (!mounted) return;
+    if (material == null) {
+      _showSnack('That document is no longer in the public library.');
+      return;
+    }
+    await Navigator.of(
+      context,
+    ).push(sharedAxisRoute(LibraryPreviewScreen(material: material)));
+  }
+
   Future<void> _showMessageActions(DirectMessage message) async {
     if (message.deleted) return;
     final mine = message.isMine(_myUid);
@@ -390,14 +658,8 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
               ),
             if (mine)
               ListTile(
-                leading: const Icon(
-                  LucideIcons.trash2,
-                  color: SpotifyColors.danger,
-                ),
-                title: const Text(
-                  'Delete for everyone',
-                  style: TextStyle(color: SpotifyColors.danger),
-                ),
+                leading: const Icon(LucideIcons.trash2),
+                title: const Text('Delete for everyone'),
                 onTap: () => Navigator.pop(context, 'delete'),
               ),
           ],
@@ -477,9 +739,6 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: SpotifyColors.danger,
-            ),
             child: const Text('Delete'),
           ),
         ],
@@ -874,6 +1133,9 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                             showSender: true,
                             onLongPress: () => _showMessageActions(message),
                             onReply: () => _startReply(message),
+                            onOpenLibrary: message.libraryId == null
+                                ? null
+                                : () => _openLibraryDocument(message),
                           ),
                         ],
                       );
@@ -881,6 +1143,12 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                   ),
           ),
           _buildInputBar(),
+          if (_showComposerPanel)
+            ChatEmojiStickerPanel(
+              controller: _textController,
+              onStickerSelected: _sendSticker,
+              onMessage: _showSnack,
+            ),
         ],
       ),
     );
@@ -904,7 +1172,8 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
         left: 12,
         right: 12,
         top: 6,
-        bottom: MediaQuery.viewInsetsOf(context).bottom > 0
+        bottom:
+            MediaQuery.viewInsetsOf(context).bottom > 0 || _showComposerPanel
             ? 8
             : 8 + MediaQuery.paddingOf(context).bottom,
       ),
@@ -1037,13 +1306,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                 child: InkWell(
                   key: const ValueKey('group-emoji-button'),
                   borderRadius: BorderRadius.circular(22),
-                  onTap: () async {
-                    await showChatEmojiPicker(
-                      context: context,
-                      controller: _textController,
-                    );
-                    if (mounted) setState(() {});
-                  },
+                  onTap: _toggleComposerPanel,
                   child: Container(
                     width: 40,
                     height: 44,
@@ -1052,8 +1315,12 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      LucideIcons.smile,
-                      color: anonymous
+                      _showComposerPanel
+                          ? LucideIcons.keyboard
+                          : LucideIcons.smile,
+                      color: _showComposerPanel
+                          ? SpotifyColors.accent
+                          : anonymous
                           ? SpotifyColors.tagUrgent
                           : scheme.onSurfaceVariant,
                       size: 22,
@@ -1083,6 +1350,7 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                           key: const ValueKey('group-message-input'),
                           controller: _textController,
                           focusNode: _inputFocus,
+                          onTap: _hideComposerPanel,
                           maxLines: 4,
                           minLines: 1,
                           style: TextStyle(
@@ -1113,6 +1381,23 @@ class _PersistentGroupChatScreenState extends State<PersistentGroupChatScreen> {
                           ),
                         ),
                       ),
+                      if (!anonymous)
+                        IconButton(
+                          key: const ValueKey('group-tag-button'),
+                          icon: Icon(
+                            LucideIcons.atSign,
+                            color: scheme.onSurfaceVariant,
+                            size: 19,
+                          ),
+                          tooltip: 'Tag yourself or a member',
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 30,
+                            height: 30,
+                          ),
+                          padding: EdgeInsets.zero,
+                          onPressed: _openTagSheet,
+                        ),
                       if (canAnonymous)
                         IconButton(
                           key: const ValueKey('group-anonymous-toggle'),
@@ -1381,4 +1666,20 @@ class _DateSeparator extends StatelessWidget {
       ),
     );
   }
+}
+
+class _GroupTagEntry {
+  const _GroupTagEntry({
+    required this.uid,
+    required this.handle,
+    required this.name,
+    required this.profile,
+    required this.isMe,
+  });
+
+  final String uid;
+  final String handle;
+  final String name;
+  final ChatUser? profile;
+  final bool isMe;
 }

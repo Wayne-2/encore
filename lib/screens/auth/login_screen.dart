@@ -11,7 +11,9 @@ import '../home_shell.dart';
 import 'auth_field.dart';
 import 'auth_scaffold.dart';
 import 'auth_top_bar.dart';
+import 'complete_profile_screen.dart';
 import 'create_account_screen.dart';
+import 'verify_email_screen.dart';
 
 /// Log in to Encore.
 class LoginScreen extends StatefulWidget {
@@ -52,6 +54,29 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _password.text,
         adminId: _adminId.text,
       );
+
+      // Credentials are valid, but the account may still be mid-onboarding.
+      // Route to the exact step that is missing instead of opening an empty
+      // profile inside the home shell.
+      if (!await AuthService.instance.isEmailVerified()) {
+        if (!mounted) return;
+        setState(() => _submitting = false);
+        Navigator.of(
+          context,
+        ).pushReplacement(sharedAxisRoute<void>(const VerifyEmailScreen()));
+        return;
+      }
+
+      final profile = await AuthService.instance.currentUserProfile();
+      if (!mounted) return;
+      if (!AuthService.isProfileComplete(profile)) {
+        setState(() => _submitting = false);
+        Navigator.of(
+          context,
+        ).pushReplacement(sharedAxisRoute<void>(const CompleteProfileScreen()));
+        return;
+      }
+
       await SessionService.instance.markLoggedIn();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(fadeRoute<void>(const HomeShell()));

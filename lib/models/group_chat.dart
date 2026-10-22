@@ -108,7 +108,11 @@ class GroupChat {
     if (isCleared) return 'No messages yet';
     return switch (lastMessageType) {
       'image' => 'Photo',
+      'sticker' => 'Sticker',
       'voice' => 'Voice note',
+      'library' => lastMessage.trim().isEmpty
+          ? 'Document'
+          : 'Document: ${lastMessage.trim()}',
       'deleted' => 'This message was deleted',
       _ => lastMessage.trim().isEmpty ? 'No messages yet' : lastMessage,
     };

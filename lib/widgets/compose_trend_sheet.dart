@@ -783,7 +783,6 @@ class _MediaSection extends StatelessWidget {
                 icon: LucideIcons.trash2,
                 label: 'Remove',
                 onTap: onRemove,
-                color: SpotifyColors.danger,
               ),
             ],
           ),
@@ -856,25 +855,18 @@ class _MediaAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.color,
     this.busy = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final Color? color;
   final bool busy;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final enabled = onTap != null;
-    final tint = color != null && enabled
-        ? color!
-        : enabled
-        ? scheme.onSurface
-        : SpotifyColors.textSubdued;
+    final tint = onTap != null ? scheme.onSurface : SpotifyColors.textSubdued;
 
     return Expanded(
       child: InkResponse(

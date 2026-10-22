@@ -11,6 +11,9 @@ class ChatUser {
     required this.username,
     this.photoUrl,
     this.level,
+    this.department,
+    this.faculty,
+    this.privacyMode = false,
     this.lastSeen,
   });
 
@@ -19,6 +22,9 @@ class ChatUser {
   final String username;
   final String? photoUrl;
   final String? level;
+  final String? department;
+  final String? faculty;
+  final bool privacyMode;
   final DateTime? lastSeen;
 
   String get displayName {
@@ -83,6 +89,9 @@ class ChatUser {
       username: username,
       photoUrl: (data['photoUrl'] as String?)?.trim(),
       level: (data['level'] as String?)?.trim(),
+      department: (data['department'] as String?)?.trim(),
+      faculty: (data['faculty'] as String?)?.trim(),
+      privacyMode: data['privacyMode'] == true,
       lastSeen: parseTimestamp(data['lastSeen']),
     );
   }
@@ -97,6 +106,9 @@ class ChatUser {
       'username': username,
       'photoUrl': photoUrl,
       'level': level,
+      'department': department,
+      'faculty': faculty,
+      'privacyMode': privacyMode,
     };
   }
 }
@@ -190,7 +202,11 @@ class DirectChat {
     if (isCleared) return 'No messages yet';
     final text = switch (lastMessageType) {
       'image' => 'Photo',
+      'sticker' => 'Sticker',
       'voice' => 'Voice note',
+      'library' => lastMessage.trim().isEmpty
+          ? 'Document'
+          : 'Document: ${lastMessage.trim()}',
       'deleted' => 'This message was deleted',
       _ => lastMessage.trim().isEmpty ? 'No messages yet' : lastMessage,
     };
@@ -241,7 +257,9 @@ class ReplyPreview {
 
   String get preview => switch (type) {
     'image' => 'Photo',
+    'sticker' => 'Sticker',
     'voice' => 'Voice note',
+    'library' => 'Document',
     'deleted' => 'This message was deleted',
     _ => text,
   };
@@ -280,9 +298,13 @@ class DirectMessage {
     required this.createdAt,
     required this.type,
     this.imageUrl,
+    this.stickerUrl,
     this.voiceUrl,
     this.voiceDurationMs = 0,
     this.voiceWaveform = const [],
+    this.libraryId,
+    this.libraryTitle,
+    this.librarySubject,
     this.editedAt,
     this.deleted = false,
     this.anonymous = false,
@@ -298,9 +320,13 @@ class DirectMessage {
   final DateTime? createdAt;
   final String type;
   final String? imageUrl;
+  final String? stickerUrl;
   final String? voiceUrl;
   final int voiceDurationMs;
   final List<int> voiceWaveform;
+  final String? libraryId;
+  final String? libraryTitle;
+  final String? librarySubject;
   final DateTime? editedAt;
   final bool deleted;
   final bool anonymous;
@@ -320,6 +346,7 @@ class DirectMessage {
     bool? anonymous,
     bool? pending,
     String? imageUrl,
+    String? stickerUrl,
     String? voiceUrl,
     int? voiceDurationMs,
     List<int>? voiceWaveform,
@@ -333,9 +360,13 @@ class DirectMessage {
       createdAt: createdAt,
       type: deleted == true ? 'deleted' : type,
       imageUrl: imageUrl ?? this.imageUrl,
+      stickerUrl: stickerUrl ?? this.stickerUrl,
       voiceUrl: voiceUrl ?? this.voiceUrl,
       voiceDurationMs: voiceDurationMs ?? this.voiceDurationMs,
       voiceWaveform: voiceWaveform ?? this.voiceWaveform,
+      libraryId: libraryId,
+      libraryTitle: libraryTitle,
+      librarySubject: librarySubject,
       editedAt: editedAt ?? this.editedAt,
       deleted: deleted ?? this.deleted,
       anonymous: anonymous ?? this.anonymous,
@@ -372,9 +403,13 @@ class DirectMessage {
           parseTimestamp(data['localCreatedAt']),
       type: data['type'] as String? ?? 'text',
       imageUrl: (data['imageUrl'] as String?)?.trim(),
+      stickerUrl: (data['stickerUrl'] as String?)?.trim(),
       voiceUrl: (data['voiceUrl'] as String?)?.trim(),
       voiceDurationMs: _asInt(data['voiceDurationMs']),
       voiceWaveform: _asIntList(data['voiceWaveform']),
+      libraryId: (data['libraryId'] as String?)?.trim(),
+      libraryTitle: (data['libraryTitle'] as String?)?.trim(),
+      librarySubject: (data['librarySubject'] as String?)?.trim(),
       editedAt: parseTimestamp(data['editedAt']),
       deleted: deleted,
       anonymous: data['anonymous'] == true,
@@ -430,9 +465,13 @@ class DirectMessage {
       isDeleted: deleted,
       isEdited: editedAt != null,
       imageUrl: imageUrl,
+      stickerUrl: stickerUrl,
       voiceUrl: voiceUrl,
       voiceDurationMs: voiceDurationMs,
       voiceWaveform: voiceWaveform,
+      libraryId: libraryId,
+      libraryTitle: libraryTitle,
+      librarySubject: librarySubject,
       replyToSender: deleted
           ? null
           : (replyTo?.senderId == myUid ? 'You' : replyTo?.senderName),

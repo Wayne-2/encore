@@ -7,9 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/direct_chat.dart';
+import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
 import '../services/media_storage.dart';
+import '../services/library_store.dart';
+import '../services/message_notification_watcher.dart';
+import '../services/sticker_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
@@ -19,6 +23,7 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/chat_emoji_picker.dart';
 import '../widgets/floating_empty_state.dart';
 import '../widgets/hold_to_record_button.dart';
+import 'library_preview_screen.dart';
 
 /// Telegram-style direct message screen backed by Firestore.
 ///
@@ -58,6 +63,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
   DateTime? _lastTypingWrite;
   bool _typingActive = false;
   bool _uploading = false;
+  bool _showComposerPanel = false;
   bool _markingRead = false;
   bool _initialLoad = true;
 
@@ -66,6 +72,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
   @override
   void initState() {
     super.initState();
+    MessageNotificationWatcher.instance.setActiveChat(widget.chatId);
     WidgetsBinding.instance.addObserver(this);
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
@@ -86,6 +93,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
 
   @override
   void dispose() {
+    MessageNotificationWatcher.instance.clearActiveChat(widget.chatId);
     WidgetsBinding.instance.removeObserver(this);
     _stopTyping();
     _clock?.cancel();
@@ -212,6 +220,20 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
       ..showSnackBar(SnackBar(content: Text(text)));
   }
 
+  void _toggleComposerPanel() {
+    final opening = !_showComposerPanel;
+    if (opening) {
+      FocusScope.of(context).unfocus();
+      _inputFocus.unfocus();
+    }
+    setState(() => _showComposerPanel = opening);
+  }
+
+  void _hideComposerPanel() {
+    if (!_showComposerPanel) return;
+    setState(() => _showComposerPanel = false);
+  }
+
   void _handleTyping(String value) {
     setState(() {});
     if (value.trim().isEmpty) {
@@ -295,6 +317,36 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
       );
     } catch (_) {
       _showSnack('Could not send that voice note. Check your connection.');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _sendSticker(StickerItem sticker) async {
+    if (_uploading) return;
+    final reply = _replyTo;
+    setState(() => _uploading = true);
+    try {
+      await ChatStore.instance.sendSticker(
+        peer: widget.peer,
+        filePath: sticker.path,
+        replyTo: reply?.toReplyPreview(),
+      );
+      if (!mounted) return;
+      setState(() => _replyTo = null);
+      _scrollToBottom();
+    } on StateError catch (error) {
+      _showSnack(error.message);
+    } on MediaStorageException {
+      _showSnack('The sticker could not be uploaded. Try again.');
+    } on FirebaseException catch (error) {
+      _showSnack(
+        error.code == 'permission-denied'
+            ? 'Stickers are not allowed in this chat yet.'
+            : 'The sticker uploaded, but the message could not be sent.',
+      );
+    } catch (_) {
+      _showSnack('Could not send that sticker. Check your connection.');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -392,6 +444,20 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
     _inputFocus.requestFocus();
   }
 
+  Future<void> _openLibraryDocument(DirectMessage message) async {
+    final id = message.libraryId;
+    if (id == null || id.isEmpty) return;
+    final material = await LibraryStore.instance.findMaterial(id);
+    if (!mounted) return;
+    if (material == null) {
+      _showSnack('That document is no longer in the public library.');
+      return;
+    }
+    await Navigator.of(
+      context,
+    ).push(sharedAxisRoute(LibraryPreviewScreen(material: material)));
+  }
+
   Future<void> _showMessageActions(DirectMessage message) async {
     if (message.deleted) return;
     final mine = message.isMine(_myUid);
@@ -424,14 +490,8 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
               ),
             if (mine)
               ListTile(
-                leading: const Icon(
-                  LucideIcons.trash2,
-                  color: SpotifyColors.danger,
-                ),
-                title: const Text(
-                  'Delete for everyone',
-                  style: TextStyle(color: SpotifyColors.danger),
-                ),
+                leading: const Icon(LucideIcons.trash2),
+                title: const Text('Delete for everyone'),
                 onTap: () => Navigator.pop(context, 'delete'),
               ),
           ],
@@ -511,9 +571,6 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: SpotifyColors.danger,
-            ),
             child: const Text('Delete'),
           ),
         ],
@@ -576,68 +633,12 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
     final peer = chat?.peer ?? widget.peer;
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: SpotifyColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ChatAvatar(
-                avatarUrl: peer.photoUrl,
-                avatarColor: peer.avatarColor,
-                avatarInitials: peer.initials,
-                size: 72,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                peer.displayName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                peer.handle,
-                style: const TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 14,
-                  color: SpotifyColors.accent,
-                ),
-              ),
-              if ((peer.level ?? '').isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  peer.level!,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.65),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                peer.presenceLabel(_now),
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 12.5,
-                  color: peer.isOnlineAt(_now)
-                      ? SpotifyColors.accent
-                      : Colors.white.withValues(alpha: 0.55),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (context) => _ChatProfileSheet(peer: peer, now: _now),
     );
   }
 
@@ -802,6 +803,9 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                             message: uiMessage,
                             onLongPress: () => _showMessageActions(message),
                             onReply: () => _startReply(message),
+                            onOpenLibrary: message.libraryId == null
+                                ? null
+                                : () => _openLibraryDocument(message),
                           ),
                         ],
                       );
@@ -809,6 +813,12 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                   ),
           ),
           _buildInputBar(),
+          if (_showComposerPanel)
+            ChatEmojiStickerPanel(
+              controller: _textController,
+              onStickerSelected: _sendSticker,
+              onMessage: _showSnack,
+            ),
         ],
       ),
     );
@@ -825,7 +835,8 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
         left: 12,
         right: 12,
         top: 6,
-        bottom: MediaQuery.viewInsetsOf(context).bottom > 0
+        bottom:
+            MediaQuery.viewInsetsOf(context).bottom > 0 || _showComposerPanel
             ? 8
             : 8 + MediaQuery.paddingOf(context).bottom,
       ),
@@ -914,13 +925,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                 child: InkWell(
                   key: const ValueKey('persistent-emoji-button'),
                   borderRadius: BorderRadius.circular(22),
-                  onTap: () async {
-                    await showChatEmojiPicker(
-                      context: context,
-                      controller: _textController,
-                    );
-                    if (mounted) setState(() {});
-                  },
+                  onTap: _toggleComposerPanel,
                   child: Container(
                     width: 40,
                     height: 44,
@@ -929,8 +934,12 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      LucideIcons.smile,
-                      color: scheme.onSurfaceVariant,
+                      _showComposerPanel
+                          ? LucideIcons.keyboard
+                          : LucideIcons.smile,
+                      color: _showComposerPanel
+                          ? SpotifyColors.accent
+                          : scheme.onSurfaceVariant,
                       size: 22,
                     ),
                   ),
@@ -953,6 +962,7 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                           key: const ValueKey('persistent-message-input'),
                           controller: _textController,
                           focusNode: _inputFocus,
+                          onTap: _hideComposerPanel,
                           maxLines: 4,
                           minLines: 1,
                           style: TextStyle(
@@ -1014,6 +1024,240 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatProfileSheet extends StatefulWidget {
+  const _ChatProfileSheet({required this.peer, required this.now});
+
+  final ChatUser peer;
+  final DateTime now;
+
+  @override
+  State<_ChatProfileSheet> createState() => _ChatProfileSheetState();
+}
+
+class _ChatProfileSheetState extends State<_ChatProfileSheet> {
+  Map<String, dynamic>? _liveProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLiveProfile();
+  }
+
+  Future<void> _loadLiveProfile() async {
+    if (!AuthService.isAvailable) return;
+    final profile = await AuthService.instance.userProfileFor(widget.peer.id);
+    if (!mounted || profile == null) return;
+    setState(() => _liveProfile = profile);
+  }
+
+  ChatUser get _user {
+    final live = _liveProfile;
+    if (live == null) return widget.peer;
+
+    final resolved = ChatUser.fromMap(widget.peer.id, live);
+    String? pick(String? liveValue, String? cachedValue) {
+      final value = liveValue?.trim();
+      return value == null || value.isEmpty ? cachedValue : value;
+    }
+
+    return ChatUser(
+      id: widget.peer.id,
+      name: pick(resolved.name, widget.peer.name) ?? widget.peer.name,
+      username:
+          pick(resolved.username, widget.peer.username) ?? widget.peer.username,
+      photoUrl: pick(resolved.photoUrl, widget.peer.photoUrl),
+      level: pick(resolved.level, widget.peer.level),
+      department: pick(resolved.department, widget.peer.department),
+      faculty: pick(resolved.faculty, widget.peer.faculty),
+      privacyMode: resolved.privacyMode,
+      lastSeen: widget.peer.lastSeen,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = _user;
+    final level = user.level?.trim();
+    final department = user.department?.trim();
+    final faculty = user.faculty?.trim();
+    final hasDetails =
+        user.name.trim().isNotEmpty ||
+        (level != null && level.isNotEmpty) ||
+        (department != null && department.isNotEmpty) ||
+        (faculty != null && faculty.isNotEmpty);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          key: const ValueKey('chat-profile-sheet'),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (user.privacyMode) ...[
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: SpotifyColors.accent.withValues(alpha: 0.14),
+                  ),
+                  child: const Icon(
+                    LucideIcons.lock,
+                    color: SpotifyColors.accent,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  user.handle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This profile is private',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.65),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Only the username is visible.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12.5,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ] else ...[
+                ChatAvatar(
+                  avatarUrl: user.photoUrl,
+                  avatarColor: user.avatarColor,
+                  avatarInitials: user.initials,
+                  size: 72,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  user.displayName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  user.handle,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14,
+                    color: SpotifyColors.accent,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  user.presenceLabel(widget.now),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12.5,
+                    color: user.isOnlineAt(widget.now)
+                        ? SpotifyColors.accent
+                        : Colors.white.withValues(alpha: 0.55),
+                  ),
+                ),
+                if (hasDetails) ...[
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: SpotifyColors.background.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SpotifyColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        _ProfileDetailRow(
+                          label: 'Full name',
+                          value: user.displayName,
+                        ),
+                        if (department != null && department.isNotEmpty)
+                          _ProfileDetailRow(
+                            label: 'Department',
+                            value: department,
+                          ),
+                        if (level != null && level.isNotEmpty)
+                          _ProfileDetailRow(label: 'Level', value: level),
+                        if (faculty != null && faculty.isNotEmpty)
+                          _ProfileDetailRow(label: 'Faculty', value: faculty),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileDetailRow extends StatelessWidget {
+  const _ProfileDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12.5,
+                color: Colors.white.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:encore/models/library_material.dart';
 import 'package:encore/screens/library_screen.dart';
 import 'package:encore/services/library_store.dart';
 
@@ -10,7 +11,7 @@ void main() {
     LibraryStore.instance.resetForTests();
   });
 
-  testWidgets('library shows the saved list and public material', (
+  testWidgets('library opens on the Public library tab', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(360, 800);
@@ -21,6 +22,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Library'), findsOneWidget);
+    expect(find.text('Public library'), findsNWidgets(2));
     expect(find.text('Your lists'), findsOneWidget);
     expect(find.text('Highlights'), findsOneWidget);
     expect(find.text('Reading history'), findsOneWidget);
@@ -28,10 +30,11 @@ void main() {
     expect(find.text('Digest'), findsNothing);
     expect(find.byKey(const ValueKey('library-new-list')), findsNothing);
     expect(find.byKey(const ValueKey('library-promo')), findsNothing);
-    expect(find.text('Saved list'), findsOneWidget);
-    expect(find.text('0 materials'), findsOneWidget);
+    expect(find.byKey(const ValueKey('library-public-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('library-your-lists')), findsNothing);
+    expect(find.text('Saved list'), findsNothing);
+    expect(find.text('0 materials'), findsNothing);
     expect(find.byKey(const ValueKey('library-upload')), findsOneWidget);
-    expect(find.text('Public library'), findsOneWidget);
     expect(
       find.textContaining('Document uploads from the Encore community'),
       findsOneWidget,
@@ -41,6 +44,27 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(LucideIcons.fileText), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Your lists shows the Saved list banner', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('library-tab-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('library-your-lists')), findsOneWidget);
+    expect(find.byKey(const ValueKey('library-public-list')), findsNothing);
+    expect(find.text('Saved list'), findsOneWidget);
+    expect(find.text('0 materials'), findsOneWidget);
+    expect(find.text('Saved documents'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -54,13 +78,15 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('library-tab-1')));
-    await tester.pumpAndSettle();
-    expect(find.text('No highlights yet'), findsOneWidget);
-
     await tester.ensureVisible(find.byKey(const ValueKey('library-tab-2')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('library-tab-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('No highlights yet'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('library-tab-3')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('library-tab-3')));
     await tester.pumpAndSettle();
     expect(find.text('Nothing read yet'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -92,11 +118,14 @@ void main() {
 
     await tester.pageBack();
     await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('library-tab-1')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('library-continue')), findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('library-tab-2')));
+    await tester.ensureVisible(find.byKey(const ValueKey('library-tab-3')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('library-tab-2')));
+    await tester.tap(find.byKey(const ValueKey('library-tab-3')));
     await tester.pumpAndSettle();
     expect(
       find.text('Data Structures & Algorithms Lecture Notes'),
@@ -154,7 +183,9 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('library-tab-1')));
+    await tester.ensureVisible(find.byKey(const ValueKey('library-tab-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('library-tab-2')));
     await tester.pumpAndSettle();
     expect(find.text('A stack follows last in, first out.'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -175,6 +206,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(LibraryStore.instance.isSaved('demo-csc200-notes'), isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('library-tab-1')));
+    await tester.pumpAndSettle();
     expect(find.text('1 material'), findsOneWidget);
 
     await tester.tap(find.text('Saved list'));
@@ -188,6 +222,117 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the Saved list banner previews recently saved documents', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('library-material-save-demo-csc200-notes')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey('library-material-save-demo-mth101-problem-set'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('library-tab-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RECENTLY SAVED'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('library-saved-preview-demo-csc200-notes')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('library-saved-preview-demo-mth101-problem-set'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long press gives the uploader a delete option', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await LibraryStore.instance.publish(
+      const LibraryMaterial(
+        id: 'mine',
+        title: 'My Uploaded Notes',
+        fileName: 'my-notes.pdf',
+        kind: LibraryMaterialKind.pdf,
+        subject: 'CSC 200',
+        extractedText: 'My private lecture notes.',
+        uploaderId: 'me',
+        uploaderName: 'Me',
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
+    await tester.pumpAndSettle();
+
+    expect(
+      LibraryStore.instance.canDelete(
+        LibraryStore.instance.materials.firstWhere(
+          (material) => material.id == 'demo-csc200-notes',
+        ),
+      ),
+      isFalse,
+    );
+    expect(find.text('My Uploaded Notes'), findsOneWidget);
+
+    await tester.longPress(find.byKey(const ValueKey('library-material-mine')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete document'), findsOneWidget);
+
+    await tester.tap(find.text('Delete document'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete document?'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('library-delete-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Uploaded Notes'), findsNothing);
+    expect(
+      LibraryStore.instance.materials.any((material) => material.id == 'mine'),
+      isFalse,
+    );
+    expect(find.text('Document deleted.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long press lets anyone share but only uploaders delete', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(
+      find.byKey(const ValueKey('library-material-demo-csc200-notes')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Send in a chat'), findsOneWidget);
+    expect(find.text('Delete document'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

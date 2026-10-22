@@ -94,6 +94,49 @@ class AuthService {
 
   Future<void> signOut() => _auth.signOut();
 
+  /// Reloads the signed-in user and reports whether their email is verified.
+  ///
+  /// The reload picks up a link that was opened in another app, so callers can
+  /// trust this result even after the user left Encore to check their inbox.
+  /// When the device is offline the last known value is used.
+  Future<bool> isEmailVerified() async {
+    final user = currentUser;
+    if (user == null) return false;
+    try {
+      await user.reload();
+    } catch (_) {
+      // Offline — fall back to the cached flag below.
+    }
+    return currentUser?.emailVerified ?? false;
+  }
+
+  /// Fields that must be present before an account is considered onboarded.
+  static const List<String> _requiredProfileFields = [
+    'fullName',
+    'username',
+    'email',
+    'registrationNumber',
+    'department',
+    'role',
+    'level',
+  ];
+
+  /// Whether a `users/{uid}` document represents a finished profile.
+  ///
+  /// Missing documents, half-written sign-ups (`onboardingComplete: false`)
+  /// and documents without the core details are all rejected. Documents from
+  /// before `onboardingComplete` existed are treated as complete as long as
+  /// they contain the required details.
+  static bool isProfileComplete(Map<String, dynamic>? data) {
+    if (data == null || data.isEmpty) return false;
+    if (data['onboardingComplete'] == false) return false;
+    for (final key in _requiredProfileFields) {
+      final value = data[key];
+      if (value is! String || value.trim().isEmpty) return false;
+    }
+    return true;
+  }
+
   Future<void> updateDisplayName(String name) async {
     if (name.isEmpty) return;
     await _auth.currentUser?.updateDisplayName(name);
@@ -108,13 +151,17 @@ class AuthService {
   /// Tries, in order: the Cloudflare Worker (Brevo HTTP API), the Firebase
   /// `sendVerificationEmail` Cloud Function (Admin SDK + Brevo SMTP), then
   /// Firebase's own verification email — so sign-up always gets an email.
-  Future<void> sendVerificationEmail() async {
+  ///
+  /// Returns whether an email was dispatched. Throws only when the final
+  /// Firebase fallback fails, so callers can surface quota/network errors.
+  Future<bool> sendVerificationEmail() async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
 
-    if (await _sendVerificationViaWorker(user)) return;
-    if (await _sendVerificationViaFunction(user)) return;
+    if (await _sendVerificationViaWorker(user)) return true;
+    if (await _sendVerificationViaFunction(user)) return true;
     await user.sendEmailVerification();
+    return true;
   }
 
   Future<bool> _sendVerificationViaWorker(User user) async {
@@ -179,6 +226,11 @@ class AuthService {
   }
 
   /// Persists the details collected during sign-up to `users/{uid}`.
+  ///
+  /// Pass `onboardingComplete: false` to save a checkpoint after the Firebase
+  /// account is created. The final save marks the profile complete, so a
+  /// half-finished sign-up can be resumed instead of being admitted to the
+  /// app with a blank profile.
   Future<void> saveUserDetails({
     required String uid,
     required String fullName,
@@ -191,6 +243,8 @@ class AuthService {
     String? level,
     String? adminId,
     String? photoUrl,
+    bool onboardingComplete = true,
+    bool merge = false,
   }) async {
     final data = <String, dynamic>{
       'fullName': fullName,
@@ -202,14 +256,17 @@ class AuthService {
       'role': role,
       'level': level,
       'adminId': adminId,
-      'photoUrl': photoUrl,
+      'onboardingComplete': onboardingComplete,
+      'photoUrl': ?photoUrl,
+      if (!merge) 'createdAt': FieldValue.serverTimestamp(),
     };
 
-    await _firestore.collection('users').doc(uid).set({
-      ...data,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    unawaited(LocalCache.instance.saveProfile(uid, data));
+    await _firestore
+        .collection('users')
+        .doc(uid)
+        .set(data, merge ? SetOptions(merge: true) : SetOptions());
+    final cached = await LocalCache.instance.profile(uid);
+    unawaited(LocalCache.instance.saveProfile(uid, {...?cached, ...data}));
   }
 
   /// The signed-in user's profile document, or null when unavailable.
@@ -271,6 +328,21 @@ class AuthService {
     }
   }
 
+  /// Reads another user's profile document by uid.
+  ///
+  /// Returns null when the profile is unavailable so callers can fall back to
+  /// cached chat data.
+  Future<Map<String, dynamic>?> userProfileFor(String uid) async {
+    final id = uid.trim();
+    if (!isAvailable || id.isEmpty) return null;
+    try {
+      final snapshot = await _firestore.collection('users').doc(id).get();
+      return snapshot.data();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Streams another user's profile document by uid.
   ///
   /// Used by avatars on authored content so photos stay current after a
@@ -315,6 +387,31 @@ class AuthService {
     if (photoUrl != null) {
       await user.updatePhotoURL(photoUrl);
     }
+
+    try {
+      final cached = await LocalCache.instance.profile(user.uid);
+      unawaited(
+        LocalCache.instance.saveProfile(user.uid, {...?cached, ...updates}),
+      );
+    } catch (_) {
+      // The Firestore update already succeeded; a cache problem must not turn
+      // it into a failed save.
+    }
+    return true;
+  }
+
+  /// Persists whether other users may see profile details.
+  ///
+  /// Returns `false` when there is no signed-in user to update.
+  Future<bool> setPrivacyMode(bool isPrivate) async {
+    final user = currentUser;
+    if (user == null) return false;
+
+    final updates = <String, dynamic>{'privacyMode': isPrivate};
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(updates, SetOptions(merge: true));
 
     try {
       final cached = await LocalCache.instance.profile(user.uid);

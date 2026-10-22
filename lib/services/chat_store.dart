@@ -380,6 +380,28 @@ class ChatStore {
     );
   }
 
+  /// Shares a public library document with a direct conversation.
+  Future<void> sendLibraryMaterial({
+    required ChatUser peer,
+    required String materialId,
+    required String title,
+    String subject = '',
+  }) async {
+    final id = materialId.trim();
+    final name = title.trim();
+    if (id.isEmpty || name.isEmpty) return;
+    final me = await currentChatUser();
+    await _send(
+      me: me,
+      peer: peer,
+      text: '',
+      type: 'library',
+      libraryId: id,
+      libraryTitle: _clip(name, 200),
+      librarySubject: _clip(subject.trim(), 100),
+    );
+  }
+
   Future<void> sendImage({
     required ChatUser peer,
     required Uint8List bytes,
@@ -424,6 +446,37 @@ class ChatStore {
       voiceUrl: url,
       voiceDurationMs: durationMs,
       voiceWaveform: waveform,
+      replyTo: replyTo,
+    );
+  }
+
+  /// Uploads and sends a local WebP sticker as a direct message.
+  Future<void> sendSticker({
+    required ChatUser peer,
+    required String filePath,
+    ReplyPreview? replyTo,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw StateError('That sticker could not be read.');
+    }
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      throw StateError('That sticker could not be read.');
+    }
+    final me = await currentChatUser();
+    final url = await _uploadSticker(bytes);
+    await ChatMediaCache.instance.saveLocalFile(
+      url,
+      filePath,
+      folder: ChatMediaCache.imageFolder,
+    );
+    await _send(
+      me: me,
+      peer: peer,
+      text: '',
+      type: 'sticker',
+      stickerUrl: url,
       replyTo: replyTo,
     );
   }
@@ -532,6 +585,37 @@ class ChatStore {
     );
   }
 
+  /// Shares a public library document with a group conversation.
+  Future<void> sendGroupLibraryMaterial({
+    required String chatId,
+    required String materialId,
+    required String title,
+    String subject = '',
+    ReplyPreview? replyTo,
+  }) async {
+    final id = materialId.trim();
+    final name = title.trim();
+    if (id.isEmpty || name.isEmpty) return;
+
+    final me = await currentChatUser();
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, me.id);
+    if (!group.canPost(me.id)) {
+      throw StateError('Only admins can send messages in this group.');
+    }
+    await _sendToChat(
+      chatRef: chatRef,
+      me: me,
+      recipientIds: group.members.where((uid) => uid != me.id).toList(),
+      text: '',
+      type: 'library',
+      libraryId: id,
+      libraryTitle: _clip(name, 200),
+      librarySubject: _clip(subject.trim(), 100),
+      replyTo: replyTo,
+    );
+  }
+
   Future<void> sendGroupImage({
     required String chatId,
     required Uint8List bytes,
@@ -595,6 +679,48 @@ class ChatStore {
       voiceUrl: url,
       voiceDurationMs: durationMs,
       voiceWaveform: waveform,
+      replyTo: replyTo,
+      anonymous: anonymous,
+    );
+  }
+
+  /// Uploads and sends a local WebP sticker to a group.
+  Future<void> sendGroupSticker({
+    required String chatId,
+    required String filePath,
+    ReplyPreview? replyTo,
+    bool anonymous = false,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw StateError('That sticker could not be read.');
+    }
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      throw StateError('That sticker could not be read.');
+    }
+    final me = await currentChatUser();
+    final chatRef = _firestore.collection(_chats).doc(chatId);
+    final group = await _requireGroup(chatRef, me.id);
+    if (!group.canPost(me.id)) {
+      throw StateError('Only admins can send messages in this group.');
+    }
+    if (anonymous && !group.anonymousMessagesEnabled) {
+      throw StateError('Anonymous messages are not enabled in this group.');
+    }
+    final url = await _uploadSticker(bytes);
+    await ChatMediaCache.instance.saveLocalFile(
+      url,
+      filePath,
+      folder: ChatMediaCache.imageFolder,
+    );
+    await _sendToChat(
+      chatRef: chatRef,
+      me: me,
+      recipientIds: group.members.where((uid) => uid != me.id).toList(),
+      text: '',
+      type: 'sticker',
+      stickerUrl: url,
       replyTo: replyTo,
       anonymous: anonymous,
     );
@@ -818,6 +944,19 @@ class ChatStore {
     return group;
   }
 
+  Future<String> _uploadSticker(Uint8List bytes) async {
+    final storage = MediaStorage(workerUrl: AppConfig.r2WorkerUrl);
+    try {
+      return await storage.upload(
+        bytes: bytes,
+        filename: 'sticker-${DateTime.now().microsecondsSinceEpoch}.webp',
+        contentType: 'image/webp',
+      );
+    } finally {
+      storage.dispose();
+    }
+  }
+
   Future<String> _uploadVoice(Uint8List bytes, int durationMs) async {
     final storage = MediaStorage(workerUrl: AppConfig.r2WorkerUrl);
     try {
@@ -857,9 +996,13 @@ class ChatStore {
     required String text,
     required String type,
     String? imageUrl,
+    String? stickerUrl,
     String? voiceUrl,
     int voiceDurationMs = 0,
     List<int> voiceWaveform = const [],
+    String? libraryId,
+    String? libraryTitle,
+    String? librarySubject,
     ReplyPreview? replyTo,
   }) async {
     final chatRef = await _ensureChat(me: me, peer: peer);
@@ -870,9 +1013,13 @@ class ChatStore {
       text: text,
       type: type,
       imageUrl: imageUrl,
+      stickerUrl: stickerUrl,
       voiceUrl: voiceUrl,
       voiceDurationMs: voiceDurationMs,
       voiceWaveform: voiceWaveform,
+      libraryId: libraryId,
+      libraryTitle: libraryTitle,
+      librarySubject: librarySubject,
       replyTo: replyTo,
     );
   }
@@ -884,9 +1031,13 @@ class ChatStore {
     required String text,
     required String type,
     String? imageUrl,
+    String? stickerUrl,
     String? voiceUrl,
     int voiceDurationMs = 0,
     List<int> voiceWaveform = const [],
+    String? libraryId,
+    String? libraryTitle,
+    String? librarySubject,
     ReplyPreview? replyTo,
     bool anonymous = false,
   }) async {
@@ -904,6 +1055,7 @@ class ChatStore {
       'localCreatedAt': DateTime.now(),
     };
     if (imageUrl != null) message['imageUrl'] = imageUrl;
+    if (stickerUrl != null) message['stickerUrl'] = stickerUrl;
     if (voiceUrl != null) {
       message['voiceUrl'] = voiceUrl;
       message['voiceDurationMs'] = voiceDurationMs;
@@ -911,12 +1063,22 @@ class ChatStore {
         message['voiceWaveform'] = voiceWaveform;
       }
     }
+    if (libraryId != null) {
+      message['libraryId'] = libraryId;
+      message['libraryTitle'] = libraryTitle ?? '';
+      message['librarySubject'] = librarySubject ?? '';
+    }
     if (replyTo != null) message['replyTo'] = replyTo.toMap();
 
     final batch = _firestore.batch();
     batch.set(messageRef, message);
     batch.update(chatRef, {
-      'lastMessage': type == 'voice' ? 'Voice note' : text,
+      'lastMessage': switch (type) {
+        'voice' => 'Voice note',
+        'sticker' => 'Sticker',
+        'library' => libraryTitle ?? 'Document',
+        _ => text,
+      },
       'lastMessageId': messageRef.id,
       'lastMessageType': type,
       'lastMessageAt': now,
@@ -937,6 +1099,10 @@ class ChatStore {
         messageId: messageRef.id,
       ),
     );
+  }
+
+  static String _clip(String value, int max) {
+    return value.length <= max ? value : value.substring(0, max);
   }
 
   /// Marks the chat read and clears the unread badge for the current user.
@@ -1088,6 +1254,9 @@ class ChatStore {
       username: username ?? '',
       photoUrl: (profile?['photoUrl'] as String?)?.trim(),
       level: (profile?['level'] as String?)?.trim(),
+      department: (profile?['department'] as String?)?.trim(),
+      faculty: (profile?['faculty'] as String?)?.trim(),
+      privacyMode: profile?['privacyMode'] == true,
       lastSeen: DateTime.now(),
     );
   }

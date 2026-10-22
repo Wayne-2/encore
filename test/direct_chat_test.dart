@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -6,6 +8,7 @@ import 'package:encore/models/chat_conversation.dart';
 import 'package:encore/models/direct_chat.dart';
 import 'package:encore/screens/persistent_direct_chat_screen.dart';
 import 'package:encore/services/chat_store.dart';
+import 'package:encore/services/sticker_store.dart';
 import 'package:encore/theme/spotify_colors.dart';
 import 'package:encore/widgets/chat_bubble.dart';
 import 'package:encore/widgets/voice_note_player.dart';
@@ -15,6 +18,18 @@ const _peer = ChatUser(
   name: 'Ama Mensah',
   username: 'ama',
   level: 'CSC 200',
+  department: 'Computer Science',
+  faculty: 'SICT',
+);
+
+const _privatePeer = ChatUser(
+  id: 'peer-2',
+  name: 'Yaw Private',
+  username: 'yaw',
+  level: 'CSC 300',
+  department: 'Computer Science',
+  faculty: 'SICT',
+  privacyMode: true,
 );
 
 void main() {
@@ -89,6 +104,36 @@ void main() {
       ).preview(myUid: 'ama'),
       'You: Hello',
     );
+  });
+
+  test('sticker messages parse and preview as stickers', () {
+    final message = DirectMessage.fromMap('sticker-1', {
+      'senderId': 'ama',
+      'senderName': 'Ama Mensah',
+      'senderUsername': 'ama',
+      'text': '',
+      'type': 'sticker',
+      'stickerUrl': 'https://media.example.com/sticker.webp',
+      'createdAt': 1700000000000,
+    });
+
+    expect(message.stickerUrl, 'https://media.example.com/sticker.webp');
+    expect(message.toReplyPreview().preview, 'Sticker');
+    expect(
+      message.toUiMessage(myUid: 'zoe', isSeen: false).stickerUrl,
+      'https://media.example.com/sticker.webp',
+    );
+
+    final chat = DirectChat(
+      id: 'dm_ama_zoe',
+      peer: _peer,
+      members: const ['ama', 'zoe'],
+      lastMessage: '',
+      lastMessageAt: DateTime(2026, 10, 20, 12),
+      lastSenderId: 'ama',
+      lastMessageType: 'sticker',
+    );
+    expect(chat.preview(myUid: 'zoe'), 'Sticker');
   });
 
   test('a cleared DM stays hidden until a newer message arrives', () {
@@ -224,6 +269,92 @@ void main() {
     expect(find.text('Clear chat'), findsOneWidget);
   });
 
+  testWidgets('chat profile sheet shows full name and academic details', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PersistentDirectChatScreen(chatId: 'dm_ama_peer-1', peer: _peer),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('View profile').first);
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const ValueKey('chat-profile-sheet'));
+    expect(sheet, findsOneWidget);
+    expect(
+      find.descendant(of: sheet, matching: find.text('Ama Mensah')),
+      findsAtLeastNWidgets(1),
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('@ama')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('Computer Science')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('CSC 200')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('SICT')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('private chat profile sheet only reveals the username', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PersistentDirectChatScreen(
+          chatId: 'dm_yaw_peer-2',
+          peer: _privatePeer,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('View profile').first);
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const ValueKey('chat-profile-sheet'));
+    expect(sheet, findsOneWidget);
+    expect(
+      find.descendant(of: sheet, matching: find.text('@yaw')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('Yaw Private')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('Department')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('Level')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.text('Faculty')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: sheet,
+        matching: find.text('This profile is private'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('chat bubble renders replies, edited state and seen ticks', (
     WidgetTester tester,
   ) async {
@@ -305,17 +436,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('chat-emoji-picker')), findsOneWidget);
 
+    final inputFinder = find.byKey(const ValueKey('persistent-message-input'));
+    final panel = find.byKey(const ValueKey('chat-emoji-picker'));
+    expect(inputFinder, findsOneWidget);
+    expect(panel, findsOneWidget);
+
+    // The tray sits below the composer instead of covering it.
+    final inputRect = tester.getRect(
+      find.byKey(const ValueKey('persistent-emoji-button')),
+    );
+    final panelRect = tester.getRect(panel);
+    expect(panelRect.top, greaterThanOrEqualTo(inputRect.bottom - 1));
+
     await tester.tap(find.byKey(const ValueKey('emoji-😀')));
     await tester.pump();
-    Navigator.of(
-      tester.element(find.byKey(const ValueKey('chat-emoji-picker'))),
-    ).pop();
+
+    final input = tester.widget<TextField>(inputFinder);
+    expect(input.controller?.text, contains('😀'));
+    expect(panel, findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('persistent-emoji-button')));
+    await tester.pump();
+    expect(panel, findsNothing);
+  });
+
+  testWidgets('sticker tab shows the import empty state', (
+    WidgetTester tester,
+  ) async {
+    final root = Directory.systemTemp.createTempSync('encore_stickers_test_');
+    StickerStore.instance.useRootForTesting(root);
+    addTearDown(() {
+      StickerStore.instance.useRootForTesting(null);
+      if (root.existsSync()) root.deleteSync(recursive: true);
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: PersistentDirectChatScreen(chatId: 'dm_ama_peer-1', peer: _peer),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    final input = tester.widget<TextField>(
-      find.byKey(const ValueKey('persistent-message-input')),
-    );
-    expect(input.controller?.text, contains('😀'));
+    await tester.tap(find.byKey(const ValueKey('persistent-emoji-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-sticker-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('chat-sticker-empty')), findsOneWidget);
+    expect(find.text('No stickers yet'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-sticker-import')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-sticker-files')), findsOneWidget);
   });
 
   testWidgets('swiping a bubble triggers reply in both directions', (

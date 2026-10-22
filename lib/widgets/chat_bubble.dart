@@ -24,6 +24,7 @@ class ChatBubble extends StatelessWidget {
     this.trailingTime,
     this.onLongPress,
     this.onReply,
+    this.onOpenLibrary,
   });
 
   final ChatMessage message;
@@ -39,6 +40,9 @@ class ChatBubble extends StatelessWidget {
 
   /// Starts an inline reply when the bubble is swiped.
   final VoidCallback? onReply;
+
+  /// Opens a document shared from the public library.
+  final VoidCallback? onOpenLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -69,11 +73,22 @@ class ChatBubble extends StatelessWidget {
     final header = _header(context);
     final hasImage =
         message.imageUrl != null && message.imageUrl!.isNotEmpty && !isDeleted;
+    final hasSticker =
+        message.stickerUrl != null &&
+        message.stickerUrl!.isNotEmpty &&
+        !isDeleted;
     final hasVoice =
         message.voiceUrl != null && message.voiceUrl!.isNotEmpty && !isDeleted;
+    final hasLibrary =
+        message.libraryId != null &&
+        message.libraryId!.isNotEmpty &&
+        !isDeleted;
     final hasText = message.text.trim().isNotEmpty;
     final showReply = !isDeleted && message.replyToText != null;
-    final bubbleColor = isDeleted
+    final stickerOnly = hasSticker && !hasText && header == null && !showReply;
+    final bubbleColor = stickerOnly
+        ? Colors.transparent
+        : isDeleted
         ? SpotifyColors.surface
         : (isMe ? SpotifyColors.chatOutgoing : SpotifyColors.surface);
     final bodyColor = isDeleted ? scheme.onSurfaceVariant : Colors.white;
@@ -156,7 +171,25 @@ class ChatBubble extends StatelessWidget {
                 ),
               ),
               clipBehavior: Clip.antiAlias,
-              child: imageOnly
+              child: stickerOnly
+                  ? Stack(
+                      children: [
+                        _stickerWidget(),
+                        Positioned(
+                          right: 4,
+                          bottom: 2,
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(7, 3, 6, 3),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: metaRow(),
+                          ),
+                        ),
+                      ],
+                    )
+                  : imageOnly
                   ? Stack(
                       children: [
                         _imageWidget(),
@@ -213,6 +246,16 @@ class ChatBubble extends StatelessWidget {
                             width: double.infinity,
                             child: _imageWidget(),
                           ),
+                        if (hasSticker)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              8,
+                              header == null && !showReply ? 8 : 4,
+                              8,
+                              0,
+                            ),
+                            child: _stickerWidget(),
+                          ),
                         if (hasVoice)
                           Padding(
                             padding: EdgeInsets.fromLTRB(
@@ -228,10 +271,20 @@ class ChatBubble extends StatelessWidget {
                               isMe: isMe,
                             ),
                           ),
+                        if (hasLibrary)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              8,
+                              header == null && !showReply ? 8 : 4,
+                              8,
+                              0,
+                            ),
+                            child: _libraryWidget(context),
+                          ),
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             12,
-                            hasImage ? 7 : (hasVoice ? 2 : 8),
+                            hasImage || hasSticker ? 7 : (hasVoice ? 2 : 8),
                             12,
                             8,
                           ),
@@ -280,6 +333,118 @@ class ChatBubble extends StatelessWidget {
       child: ChatMediaImage(
         url: message.imageUrl!,
         heroTag: 'chat-image-${message.id}',
+      ),
+    );
+  }
+
+  Widget _libraryWidget(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isMe = message.isMe;
+    final foreground = isMe ? Colors.white : scheme.onSurface;
+    final subject = message.librarySubject?.trim() ?? '';
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 260),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.black.withValues(alpha: 0.16)
+            : SpotifyColors.accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(
+          color:
+              (isMe ? Colors.white : SpotifyColors.accent).withValues(
+                alpha: 0.25,
+              ),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: ValueKey('chat-library-${message.id}'),
+        onTap: onOpenLibrary,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: SpotifyColors.accent.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: const Icon(
+                  LucideIcons.fileText,
+                  size: 19,
+                  color: SpotifyColors.accent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message.libraryTitle?.trim().isNotEmpty == true
+                          ? message.libraryTitle!.trim()
+                          : 'Library document',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                        color: foreground,
+                      ),
+                    ),
+                    if (subject.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subject,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 11.5,
+                          color: foreground.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 3),
+                    Text(
+                      'Encore Library · Tap to open',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 10.5,
+                        color: foreground.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onOpenLibrary != null) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  LucideIcons.chevronRight,
+                  size: 16,
+                  color: foreground.withValues(alpha: 0.6),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stickerWidget() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 168, maxHeight: 168),
+      child: ChatMediaImage(
+        url: message.stickerUrl!,
+        width: 168,
+        fit: BoxFit.contain,
+        heroTag: 'chat-sticker-${message.id}',
       ),
     );
   }

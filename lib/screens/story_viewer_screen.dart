@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:video_player/video_player.dart';
 
+import '../models/direct_chat.dart';
 import '../models/story.dart';
+import '../services/auth_service.dart';
 import '../services/chat_media_cache.dart';
+import '../services/chat_store.dart';
 import '../services/story_store.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
@@ -18,8 +22,9 @@ import '../widgets/story_media.dart';
 ///
 /// Images advance after six seconds; videos play for their real duration.
 /// Tapping the right side advances, the left side goes back, and holding
-/// pauses playback. The signed-in author can see the view count and delete
-/// their own story.
+/// pauses playback. Quick reactions float upward and fade before being sent
+/// as a direct message to the author. The signed-in author can see the view
+/// count and delete their own story.
 class StoryViewerScreen extends StatefulWidget {
   const StoryViewerScreen({
     super.key,
@@ -44,6 +49,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   bool _videoLoading = false;
   bool _paused = false;
   bool _deleting = false;
+  final List<_StoryReactionBurst> _reactionBursts = [];
+  int _nextReactionId = 0;
 
   static const List<String> _quickReactions = [
     '❤️',
@@ -195,22 +202,95 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     if (controller != null) unawaited(controller.dispose());
   }
 
-  void _sendReply(String text) {
-    if (text.trim().isEmpty) return;
+  void _react(String emoji) {
+    final id = _nextReactionId++;
+    setState(() {
+      if (_reactionBursts.length >= 8) _reactionBursts.removeAt(0);
+      _reactionBursts.add(
+        _StoryReactionBurst(id: id, emoji: emoji, column: id % 3),
+      );
+    });
+    unawaited(_sendToAuthor(emoji, reaction: true));
+  }
+
+  void _removeReaction(int id) {
+    if (!mounted) return;
+    setState(() {
+      _reactionBursts.removeWhere((burst) => burst.id == id);
+    });
+  }
+
+  Future<void> _sendReply(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    final username = _story.username;
+    final sent = await _sendToAuthor(trimmed);
+    if (!sent || !mounted) return;
+
     _replyController.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: SpotifyColors.surface,
-        content: Text(
-          'Reply sent to ${_story.username}',
-          style: const TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: Colors.white,
+    setState(() {});
+    _showStorySnack('Reply sent to $username');
+  }
+
+  Future<bool> _sendToAuthor(String message, {bool reaction = false}) async {
+    if (_isMine) return false;
+
+    final store = ChatStore.instance;
+    final authorId = _story.authorId.trim();
+    if (!store.isEnabled || authorId.isEmpty) {
+      _showStorySnack(
+        reaction
+            ? 'Sign in to react to stories.'
+            : 'Sign in to reply to stories.',
+      );
+      return false;
+    }
+
+    try {
+      var author = ChatUser(
+        id: authorId,
+        name: _story.username,
+        username: _story.username,
+        photoUrl: _story.avatarUrl,
+        department: _story.department,
+        level: _story.level,
+      );
+      final profile = await AuthService.instance.userProfileFor(authorId);
+      if (profile != null && profile.isNotEmpty) {
+        author = ChatUser.fromMap(authorId, profile);
+      }
+      await store.sendText(peer: author, text: message);
+      return true;
+    } on StateError catch (error) {
+      _showStorySnack(error.message);
+    } catch (_) {
+      _showStorySnack(
+        reaction
+            ? 'Could not send that reaction. Check your connection.'
+            : 'Could not send your reply. Check your connection.',
+      );
+    }
+    return false;
+  }
+
+  void _showStorySnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: SpotifyColors.surface,
+          content: Text(
+            message,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: Colors.white,
+            ),
           ),
+          duration: const Duration(seconds: 2),
         ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+      );
   }
 
   Future<void> _deleteStory() async {
@@ -322,6 +402,19 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: Colors.white70,
+              ),
+            ),
+
+          for (final burst in _reactionBursts)
+            Positioned(
+              right: 22 + burst.column * 36,
+              bottom: bottomPadding + 132,
+              child: IgnorePointer(
+                child: _FloatingStoryReaction(
+                  key: ValueKey('story-reaction-${burst.id}'),
+                  emoji: burst.emoji,
+                  onFinished: () => _removeReaction(burst.id),
+                ),
               ),
             ),
 
@@ -556,7 +649,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                 return Padding(
                   padding: const EdgeInsets.only(right: 10),
                   child: InkWell(
-                    onTap: () => _sendReply(emoji),
+                    onTap: () => _react(emoji),
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -707,6 +800,83 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StoryReactionBurst {
+  const _StoryReactionBurst({
+    required this.id,
+    required this.emoji,
+    required this.column,
+  });
+
+  final int id;
+  final String emoji;
+  final int column;
+}
+
+/// A single emoji that drifts up the story and fades out.
+class _FloatingStoryReaction extends StatefulWidget {
+  const _FloatingStoryReaction({
+    required this.emoji,
+    required this.onFinished,
+    super.key,
+  });
+
+  final String emoji;
+  final VoidCallback onFinished;
+
+  @override
+  State<_FloatingStoryReaction> createState() => _FloatingStoryReactionState();
+}
+
+class _FloatingStoryReactionState extends State<_FloatingStoryReaction>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _progress = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
+    _controller.addStatusListener((status) {
+      if (status != AnimationStatus.completed) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onFinished();
+      });
+    });
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _progress,
+      child: Text(widget.emoji, style: const TextStyle(fontSize: 34)),
+      builder: (context, child) {
+        final t = _progress.value;
+        return Opacity(
+          opacity: 1.0 - t,
+          child: Transform.translate(
+            offset: Offset(math.sin(t * math.pi * 1.4) * 12, -170 * t),
+            child: Transform.scale(scale: 1 + 0.35 * t, child: child),
+          ),
+        );
+      },
     );
   }
 }

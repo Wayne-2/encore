@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../config/app_config.dart';
+import '../../data/account_options.dart';
 import '../../data/departments.dart';
 import '../../navigation/app_route.dart';
 import '../../services/auth_service.dart';
@@ -23,6 +24,7 @@ import '../../widgets/loading_overlay.dart';
 import '../../widgets/shimmer.dart';
 import '../../widgets/user_avatar.dart';
 import '../getting_ready_screen.dart';
+import '../welcome_screen.dart';
 import 'auth_field.dart';
 import 'auth_scaffold.dart';
 import 'login_screen.dart';
@@ -85,6 +87,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   /// and forward again does not attempt to re-register the same email.
   bool _registered = false;
 
+  /// The email the Firebase account was created with. Used to stop the flow
+  /// from silently continuing under a different address after stepping back.
+  String? _registeredEmail;
+
   /// Step 3 — email verification. Polled while the user is on that step.
   bool _emailVerified = false;
   Timer? _verifyTimer;
@@ -94,26 +100,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   /// Tests run without Firebase, so they fall back to the pre-auth behaviour.
   bool get _verificationComplete => !AuthService.isAvailable || _emailVerified;
 
-  /// Selected roles.
-  static const String _studentRole = 'Student';
-  static const String _adminRole = 'Admin';
-
-  /// Enrolled levels offered to students.
-  static const List<String> _levels = [
-    '100 Level',
-    '200 Level',
-    '300 Level',
-    '400 Level',
-    '500 Level',
-    'Extras',
-    'Alumni',
-  ];
-
   /// Departments offered to students.
   static const List<String> _departments = kDepartments;
-
-  /// The faculty is fixed for now (SICT).
-  static const String _faculty = 'SICT';
 
   @override
   void initState() {
@@ -139,25 +127,70 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     // Leaving the school-details step registers the account with Firebase
-    // (holding the entered details in state) before the verification step.
+    // before the verification step.
     if (_step == 1) {
+      final email = _email.text.trim();
       if (_registered) {
+        if (email.toLowerCase() != _registeredEmail?.toLowerCase()) {
+          await showAuthDialog(
+            context,
+            title: 'Email already used',
+            message:
+                'This account was created with $_registeredEmail. Finish '
+                'verifying that address, or log out to sign up with a '
+                'different one.',
+            actionLabel: 'Log out',
+            onAction: _restartSignUp,
+            secondaryLabel: 'Stay',
+          );
+          return;
+        }
+        // Details may have been edited after stepping back, so refresh the
+        // resumable checkpoint before continuing.
+        await _saveSignupProgress();
+        if (!mounted) return;
         _enterVerificationStep();
         return;
       }
       final registered = await _register();
       if (registered && mounted) {
-        _registered = true;
         _enterVerificationStep();
-        // Confirm the custom (Brevo) email actually went out.
-        if (AuthService.isAvailable) {
-          _showSnack('Verification email sent');
-        }
       }
       return;
     }
 
-    setState(() => _step++);
+    // The verification step is the only gate into the profile step. Guard it
+    // again here in case the UI state ever gets out of sync.
+    if (_step == 2 && !await _canLeaveVerification()) return;
+
+    if (mounted) setState(() => _step++);
+  }
+
+  /// Verifies the account directly with Firebase before allowing the flow to
+  /// continue past the email step.
+  Future<bool> _canLeaveVerification() async {
+    if (!AuthService.isAvailable) return true;
+    if (await AuthService.instance.isEmailVerified()) {
+      if (mounted && !_emailVerified) {
+        setState(() => _emailVerified = true);
+      }
+      return true;
+    }
+    if (!mounted) return false;
+    _showSnack('Verify your email before continuing.');
+    return false;
+  }
+
+  /// Signs out the account created by this flow so the user can start over
+  /// with a different email.
+  Future<void> _restartSignUp() async {
+    _verifyTimer?.cancel();
+    await SessionService.instance.endSession();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      fadeRoute<void>(const WelcomeScreen()),
+      (route) => false,
+    );
   }
 
   /// Moves to the verification step and starts watching for confirmation.
@@ -190,19 +223,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   }
 
   Future<void> _checkVerified() async {
-    final user = AuthService.instance.currentUser;
-    if (user == null) return;
-    try {
-      await user.reload();
-    } catch (_) {
-      return;
-    }
+    if (AuthService.instance.currentUser == null) return;
+    if (!await AuthService.instance.isEmailVerified()) return;
     if (!mounted || _emailVerified) return;
-    if (user.emailVerified) {
-      _verifyTimer?.cancel();
-      setState(() => _emailVerified = true);
-      _showVerifiedSnackBar();
-    }
+    _verifyTimer?.cancel();
+    setState(() => _emailVerified = true);
+    _showVerifiedSnackBar();
   }
 
   void _showVerifiedSnackBar() {
@@ -224,26 +250,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
     }
   }
 
-  /// Creates the Firebase Auth account and sends the verification email.
+  /// Creates the Firebase Auth account, checkpoints the details and sends the
+  /// verification email.
   ///
-  /// The remaining fields stay in this widget's state until the flow finishes;
-  /// nothing is written to Firestore here. Falls back to the pre-Firebase
-  /// behaviour when Firebase is unavailable (e.g. widget tests).
+  /// Once Firebase has created the account it is never created again: failures
+  /// while saving the checkpoint or sending the email are recoverable from the
+  /// verification step. Falls back to the pre-Firebase behaviour when Firebase
+  /// is unavailable (e.g. widget tests).
   Future<bool> _register() async {
     if (!AuthService.isAvailable) return true;
 
+    final email = _email.text.trim();
     setState(() {
       _busy = true;
       _busyLabel = 'Creating your account…';
     });
+
     try {
-      await AuthService.instance.signUp(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
-      await AuthService.instance.updateDisplayName(_fullName.text.trim());
-      await AuthService.instance.sendVerificationEmail();
-      return true;
+      await AuthService.instance.signUp(email: email, password: _password.text);
     } on FirebaseAuthException catch (error) {
       if (mounted) {
         await showAuthDialog(
@@ -262,6 +286,30 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         );
       }
       return false;
+    }
+
+    // The Firebase account now exists. Record it immediately so stepping back
+    // and forward cannot attempt to register the same email twice.
+    _registered = true;
+    _registeredEmail = email;
+
+    var emailSent = false;
+    try {
+      await AuthService.instance.updateDisplayName(_fullName.text.trim());
+    } catch (_) {
+      // Display names are cosmetic; the profile document is authoritative.
+    }
+    try {
+      await _saveSignupProgress();
+    } catch (_) {
+      // The final save will retry; the completion screen can also recover.
+    }
+    try {
+      emailSent = await AuthService.instance.sendVerificationEmail();
+    } on FirebaseAuthException {
+      // Quota/network errors are recoverable via “Resend email”.
+    } catch (_) {
+      // The custom sender and Firebase fallback both failed.
     } finally {
       if (mounted) {
         setState(() {
@@ -270,6 +318,39 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         });
       }
     }
+
+    if (!mounted) return true;
+    _showSnack(
+      emailSent
+          ? 'Verification email sent'
+          : 'Account created. Tap “Resend email” to get the link.',
+    );
+    return true;
+  }
+
+  /// Writes a resumable checkpoint of the sign-up details.
+  ///
+  /// [AuthService.saveUserDetails] is called with `onboardingComplete: false`
+  /// so a restart during verification resumes onboarding instead of treating
+  /// the account as finished.
+  Future<void> _saveSignupProgress() async {
+    if (!AuthService.isAvailable) return;
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    await AuthService.instance.saveUserDetails(
+      uid: uid,
+      fullName: _fullName.text.trim(),
+      username: '_${_username.text.trim().toLowerCase()}',
+      email: _email.text.trim(),
+      registrationNumber: _regNumber.text.trim(),
+      department: _department ?? '',
+      faculty: kFaculty,
+      role: _role ?? '',
+      level: _level,
+      adminId: _role == kAdminRole ? _adminId.text.trim() : null,
+      onboardingComplete: false,
+    );
   }
 
   void _finish() => _complete();
@@ -280,66 +361,87 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
   /// leaves for the final loading screen.
   Future<void> _complete() async {
     if (AuthService.isAvailable) {
-      final uid = AuthService.instance.currentUser?.uid;
-      if (uid != null) {
-        setState(() {
-          _busy = true;
-          _busyLabel = 'Saving your details…';
-        });
-        try {
-          if (_avatarUrl != null) {
-            await AuthService.instance.updatePhotoUrl(_avatarUrl!);
-          }
-          await AuthService.instance.saveUserDetails(
-            uid: uid,
-            fullName: _fullName.text.trim(),
-            username: '_${_username.text.trim().toLowerCase()}',
-            email: _email.text.trim(),
-            registrationNumber: _regNumber.text.trim(),
-            department: _department ?? '',
-            faculty: _faculty,
-            role: _role ?? '',
-            level: _level,
-            adminId: _role == _adminRole ? _adminId.text.trim() : null,
-            photoUrl: _avatarUrl,
-          );
-        } on FirebaseException catch (error) {
-          if (mounted) {
-            setState(() {
-              _busy = false;
-              _busyLabel = null;
-            });
-            await showAuthDialog(
-              context,
-              title: 'Couldn’t save your details',
-              message: error.message ?? 'Please try again in a moment.',
-            );
-          }
-          return;
-        } catch (_) {
-          if (mounted) {
-            setState(() {
-              _busy = false;
-              _busyLabel = null;
-            });
-            await showAuthDialog(
-              context,
-              title: 'Something went wrong',
-              message: 'Please try again in a moment.',
-            );
-          }
-          return;
+      final user = AuthService.instance.currentUser;
+      if (user == null) {
+        await SessionService.instance.endSession();
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          fadeRoute<void>(const WelcomeScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
+      // Never finish onboarding for an unverified account. If the link was
+      // opened somewhere else and the local flag is stale, re-check directly
+      // with Firebase and fall back to the verification step.
+      if (!await AuthService.instance.isEmailVerified()) {
+        if (!mounted) return;
+        setState(() => _step = 2);
+        _startVerificationWatch();
+        _showSnack('Verify your email to finish creating your account.');
+        return;
+      }
+
+      final uid = user.uid;
+      setState(() {
+        _busy = true;
+        _busyLabel = 'Saving your details…';
+      });
+      try {
+        if (_avatarUrl != null) {
+          await AuthService.instance.updatePhotoUrl(_avatarUrl!);
         }
-
-        // Best-effort: register the device for push and greet the new user.
-        await _sendWelcomeNotification(uid);
-
+        await AuthService.instance.saveUserDetails(
+          uid: uid,
+          fullName: _fullName.text.trim(),
+          username: '_${_username.text.trim().toLowerCase()}',
+          email: _email.text.trim(),
+          registrationNumber: _regNumber.text.trim(),
+          department: _department ?? '',
+          faculty: kFaculty,
+          role: _role ?? '',
+          level: _level,
+          adminId: _role == kAdminRole ? _adminId.text.trim() : null,
+          photoUrl: _avatarUrl,
+          merge: true,
+        );
+      } on FirebaseException catch (error) {
         if (mounted) {
           setState(() {
             _busy = false;
             _busyLabel = null;
           });
+          await showAuthDialog(
+            context,
+            title: 'Couldn’t save your details',
+            message: error.message ?? 'Please try again in a moment.',
+          );
         }
+        return;
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _busyLabel = null;
+          });
+          await showAuthDialog(
+            context,
+            title: 'Something went wrong',
+            message: 'Please try again in a moment.',
+          );
+        }
+        return;
+      }
+
+      // Best-effort: register the device for push and greet the new user.
+      await _sendWelcomeNotification(uid);
+
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _busyLabel = null;
+        });
       }
       await SessionService.instance.markLoggedIn();
     }
@@ -673,7 +775,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         const AuthField(
           label: 'Faculty',
           icon: 'faculty',
-          initialValue: _faculty,
+          initialValue: kFaculty,
           enabled: false,
         ),
         const SizedBox(height: 16),
@@ -686,8 +788,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
           style: Theme.of(context).textTheme.bodyLarge,
           decoration: const InputDecoration(hintText: 'Role'),
           items: const [
-            DropdownMenuItem(value: _studentRole, child: Text('Student')),
-            DropdownMenuItem(value: _adminRole, child: Text('Admin')),
+            DropdownMenuItem(value: kStudentRole, child: Text('Student')),
+            DropdownMenuItem(value: kAdminRole, child: Text('Admin')),
           ],
           validator: (v) => v == null ? 'Select a role' : null,
         ),
@@ -714,13 +816,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
                     style: Theme.of(context).textTheme.bodyLarge,
                     decoration: const InputDecoration(hintText: 'Level'),
                     items: [
-                      for (final level in _levels)
+                      for (final level in kLevels)
                         DropdownMenuItem(value: level, child: Text(level)),
                     ],
                     validator: (v) => v == null ? 'Select your level' : null,
                   ),
                 ),
-              if (_role == _adminRole)
+              if (_role == kAdminRole)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: AuthField(
