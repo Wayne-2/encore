@@ -31,6 +31,7 @@ class ComposeFab extends StatefulWidget {
     required this.actions,
     this.onActionSelected,
     this.buttonKey,
+    this.badgeCount = 0,
   });
 
   final List<ComposeAction> actions;
@@ -41,6 +42,9 @@ class ComposeFab extends StatefulWidget {
   /// Optional key for the main add button (useful when a page has more than
   /// one add icon).
   final Key? buttonKey;
+
+  /// Alert count shown on the add button, e.g. incoming message requests.
+  final int badgeCount;
 
   @override
   State<ComposeFab> createState() => _ComposeFabState();
@@ -130,28 +134,39 @@ class _ComposeFabState extends State<ComposeFab>
                   GestureDetector(
                     key: widget.buttonKey,
                     onTap: _toggle,
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: scheme.primary,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Transform.rotate(
-                        angle: _controller.value * math.pi / 4,
-                        child: const Icon(
-                          LucideIcons.plus,
-                          color: Colors.white,
-                          size: 28,
+                          child: Transform.rotate(
+                            angle: _controller.value * math.pi / 4,
+                            child: const Icon(
+                              LucideIcons.plus,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (widget.badgeCount > 0)
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: _FabBadge(count: widget.badgeCount),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -240,6 +255,34 @@ class _ComposeAction extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Small alert badge pinned to the compose button.
+class _FabBadge extends StatelessWidget {
+  const _FabBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('compose-badge'),
+      constraints: const BoxConstraints(minWidth: 19, minHeight: 19),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: SpotifyColors.tagUrgent,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SpotifyColors.background, width: 2),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: AppType.meta(
+          Theme.of(context).colorScheme,
+        ).copyWith(color: Colors.white, fontWeight: FontWeight.w700),
       ),
     );
   }

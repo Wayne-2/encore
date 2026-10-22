@@ -11,6 +11,7 @@ import '../models/group_chat.dart';
 import 'auth_service.dart';
 import 'chat_media_cache.dart';
 import 'local_cache.dart';
+import 'media_compressor.dart';
 import 'media_storage.dart';
 import 'notification_service.dart';
 
@@ -404,10 +405,17 @@ class ChatStore {
     if (!await file.exists() || durationMs <= 0) {
       throw StateError('That voice note could not be read.');
     }
-    final bytes = await file.readAsBytes();
+    final compressedPath = await MediaCompressor.instance.compressVoice(
+      filePath,
+    );
+    final upload = File(compressedPath);
+    if (!await upload.exists()) {
+      throw StateError('That voice note could not be read.');
+    }
+    final bytes = await upload.readAsBytes();
     final me = await currentChatUser();
     final url = await _uploadVoice(bytes, durationMs);
-    await ChatMediaCache.instance.saveLocalFile(url, filePath);
+    await ChatMediaCache.instance.saveLocalFile(url, compressedPath);
     await _send(
       me: me,
       peer: peer,
@@ -559,7 +567,14 @@ class ChatStore {
     if (!await file.exists() || durationMs <= 0) {
       throw StateError('That voice note could not be read.');
     }
-    final bytes = await file.readAsBytes();
+    final compressedPath = await MediaCompressor.instance.compressVoice(
+      filePath,
+    );
+    final upload = File(compressedPath);
+    if (!await upload.exists()) {
+      throw StateError('That voice note could not be read.');
+    }
+    final bytes = await upload.readAsBytes();
     final me = await currentChatUser();
     final chatRef = _firestore.collection(_chats).doc(chatId);
     final group = await _requireGroup(chatRef, me.id);
@@ -570,7 +585,7 @@ class ChatStore {
       throw StateError('Anonymous messages are not enabled in this group.');
     }
     final url = await _uploadVoice(bytes, durationMs);
-    await ChatMediaCache.instance.saveLocalFile(url, filePath);
+    await ChatMediaCache.instance.saveLocalFile(url, compressedPath);
     await _sendToChat(
       chatRef: chatRef,
       me: me,

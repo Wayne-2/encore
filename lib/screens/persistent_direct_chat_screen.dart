@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/direct_chat.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
+import '../services/media_storage.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
@@ -281,6 +283,16 @@ class _PersistentDirectChatScreenState extends State<PersistentDirectChatScreen>
       _scrollToBottom();
     } on StateError catch (error) {
       _showSnack(error.message);
+    } on MediaStorageException {
+      _showSnack(
+        'The voice note could not be uploaded. Try a shorter recording.',
+      );
+    } on FirebaseException catch (error) {
+      _showSnack(
+        error.code == 'permission-denied'
+            ? 'Voice notes are not allowed in this chat yet.'
+            : 'The voice note uploaded, but the message could not be sent.',
+      );
     } catch (_) {
       _showSnack('Could not send that voice note. Check your connection.');
     } finally {

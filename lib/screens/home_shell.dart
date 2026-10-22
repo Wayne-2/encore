@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../services/announcement_store.dart';
+import '../services/chat_store.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_type.dart';
 import '../theme/spotify_colors.dart';
 import 'finance_screen.dart';
 import 'messages_screen.dart';
@@ -34,6 +39,9 @@ class _HomeShellState extends State<HomeShell> {
 
   final _controller = PageController();
   int _index = 0;
+  StreamSubscription<ChatInbox>? _inboxSubscription;
+  int _updatesBadge = 0;
+  int _messagesBadge = 0;
 
   /// Light status-bar icons over the dark header colour.
   static const SystemUiOverlayStyle _overlayStyle = SystemUiOverlayStyle(
@@ -43,7 +51,33 @@ class _HomeShellState extends State<HomeShell> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    AnnouncementStore.instance.addListener(_syncAnnouncementBadge);
+    _syncAnnouncementBadge();
+    unawaited(AnnouncementStore.instance.listen());
+    _inboxSubscription = ChatStore.instance.watchInbox().listen((inbox) {
+      if (!mounted) return;
+      final unread = [
+        for (final chat in inbox.directChats) chat.visibleUnread,
+        for (final group in inbox.groups) group.visibleUnread,
+      ].fold<int>(0, (total, value) => total + value);
+      if (unread == _messagesBadge) return;
+      setState(() => _messagesBadge = unread);
+    }, onError: (Object _) {});
+  }
+
+  void _syncAnnouncementBadge() {
+    if (!mounted) return;
+    final unread = AnnouncementStore.instance.unreadCount;
+    if (unread == _updatesBadge) return;
+    setState(() => _updatesBadge = unread);
+  }
+
+  @override
   void dispose() {
+    AnnouncementStore.instance.removeListener(_syncAnnouncementBadge);
+    _inboxSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -82,7 +116,12 @@ class _HomeShellState extends State<HomeShell> {
             final page = _controller.hasClients
                 ? (_controller.page ?? _index.toDouble())
                 : _index.toDouble();
-            return _BottomNavBar(tabs: _tabs, page: page, onTap: _goTo);
+            return _BottomNavBar(
+              tabs: _tabs,
+              page: page,
+              onTap: _goTo,
+              badgeCounts: [_updatesBadge, _messagesBadge, 0, 0, 0],
+            );
           },
         ),
       ),
@@ -107,11 +146,13 @@ class _BottomNavBar extends StatelessWidget {
     required this.tabs,
     required this.page,
     required this.onTap,
+    required this.badgeCounts,
   });
 
   final List<_NavTab> tabs;
   final double page;
   final ValueChanged<int> onTap;
+  final List<int> badgeCounts;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +174,7 @@ class _BottomNavBar extends StatelessWidget {
                   tab: tabs[i],
                   page: page,
                   index: i,
+                  badgeCount: badgeCounts[i],
                   onTap: () => onTap(i),
                 ),
               ),
@@ -149,12 +191,14 @@ class _NavButton extends StatelessWidget {
     required this.tab,
     required this.page,
     required this.index,
+    required this.badgeCount,
     required this.onTap,
   });
 
   final _NavTab tab;
   final double page;
   final int index;
+  final int badgeCount;
   final VoidCallback onTap;
 
   @override
@@ -176,6 +220,7 @@ class _NavButton extends StatelessWidget {
           children: [
             Stack(
               alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 // Material-style indicator that grows in behind the icon.
                 Opacity(
@@ -198,6 +243,15 @@ class _NavButton extends StatelessWidget {
                   height: 24,
                   colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                 ),
+                if (badgeCount > 0)
+                  Positioned(
+                    top: -3,
+                    right: 1,
+                    child: _NavBadge(
+                      key: ValueKey('nav-badge-${tab.label}'),
+                      count: badgeCount,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 4),
@@ -256,6 +310,36 @@ class _TabPlaceholder extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small green unread badge on a bottom-navigation icon.
+class _NavBadge extends StatelessWidget {
+  const _NavBadge({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: SpotifyColors.accent,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SpotifyColors.surface, width: 1.5),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: AppType.meta(Theme.of(context).colorScheme).copyWith(
+          color: Colors.white,
+          fontSize: 9,
+          height: 1,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

@@ -66,6 +66,9 @@ dependencies:
   path_provider: ^2.1.6
   record: ^7.1.2
   just_audio: ^0.10.6
+  ffmpeg_kit_flutter_new: ^4.6.7
+  video_player: ^2.14.1
+  camera: ^0.12.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

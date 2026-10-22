@@ -17,6 +17,7 @@ class ChatMediaCache {
   static const String _rootFolder = 'encore_chat_media';
   static const String voiceFolder = 'voice';
   static const String imageFolder = 'images';
+  static const String storyFolder = 'stories';
   static const int _maxCacheBytes = 300 * 1024 * 1024;
 
   final Map<String, Future<File?>> _inFlight = {};

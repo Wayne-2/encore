@@ -114,6 +114,41 @@ class LocalCache {
   }
 
   // -------------------------------------------------------------------------
+  // Stories (scoped to the user's department + level)
+  // -------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>?> stories(
+    String department,
+    String level,
+  ) async {
+    final value = await read(_storiesKey(department, level));
+    return _mapList(value);
+  }
+
+  Future<void> saveStories(
+    String department,
+    String level,
+    List<Map<String, dynamic>> items,
+  ) {
+    return write(_storiesKey(department, level), items);
+  }
+
+  static String _storiesKey(String department, String level) {
+    return 'stories:${department.trim().toLowerCase()}:'
+        '${level.trim().toLowerCase()}';
+  }
+
+  Future<Set<String>> seenStoryIds(String viewerId) async {
+    final value = await read('storySeen:$viewerId');
+    if (value is! List) return <String>{};
+    return value.whereType<String>().toSet();
+  }
+
+  Future<void> saveSeenStoryIds(String viewerId, Set<String> ids) {
+    return write('storySeen:$viewerId', ids.toList());
+  }
+
+  // -------------------------------------------------------------------------
   // Trends
   // -------------------------------------------------------------------------
 

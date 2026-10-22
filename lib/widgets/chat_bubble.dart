@@ -277,7 +277,10 @@ class ChatBubble extends StatelessWidget {
   Widget _imageWidget() {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 260, maxHeight: 260),
-      child: ChatMediaImage(url: message.imageUrl!),
+      child: ChatMediaImage(
+        url: message.imageUrl!,
+        heroTag: 'chat-image-${message.id}',
+      ),
     );
   }
 

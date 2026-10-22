@@ -3,13 +3,51 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:encore/models/contact_request.dart';
+import 'package:encore/models/direct_chat.dart';
 import 'package:encore/screens/direct_chat_screen.dart';
 import 'package:encore/screens/group_chat_screen.dart';
 import 'package:encore/screens/home_shell.dart';
 import 'package:encore/screens/messages_screen.dart';
+import 'package:encore/screens/add_story_screen.dart';
 import 'package:encore/screens/story_viewer_screen.dart';
 
 void main() {
+  testWidgets('Messages add button shows incoming request alerts', (
+    WidgetTester tester,
+  ) async {
+    const me = ChatUser(id: 'me', name: 'Me', username: 'me');
+    const peer = ChatUser(id: 'peer', name: 'Ama', username: 'ama');
+    final request = ContactRequest(
+      id: 'request-1',
+      fromUid: peer.id,
+      toUid: me.id,
+      participants: const ['peer', 'me'],
+      fromUser: peer,
+      toUser: me,
+      status: ContactRequestStatus.pending,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MessagesScreen(
+            viewerId: me.id,
+            requestStream: Stream.value([request]),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final badge = find.byKey(const ValueKey('compose-badge'));
+    expect(badge, findsOneWidget);
+    expect(
+      find.descendant(of: badge, matching: find.text('1')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('MessagesScreen renders Story reel and Conversations list', (
     WidgetTester tester,
   ) async {
@@ -37,6 +75,22 @@ void main() {
 
     // Group sender prefix
     expect(find.textContaining('_cypher:'), findsOneWidget);
+  });
+
+  testWidgets('Your Story opens the Snapchat-style composer', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: MessagesScreen())),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('add-story-tile')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(AddStoryScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('story-shutter')), findsOneWidget);
+    expect(find.byKey(const ValueKey('story-gallery')), findsOneWidget);
   });
 
   testWidgets('Tapping a story opens the StoryViewerScreen', (

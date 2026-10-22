@@ -38,6 +38,9 @@ class AnnouncementStore extends ChangeNotifier {
 
   List<Announcement> get items => List.unmodifiable(_items);
 
+  /// Number of announcements that arrived but have not been opened yet.
+  int get unreadCount => _unreadIds.length;
+
   /// Starts the live Firestore listener for the signed-in user's group.
   /// Cached posts appear immediately, then Firestore reconciles them.
   Future<void> listen() async {
@@ -88,7 +91,12 @@ class AnnouncementStore extends ChangeNotifier {
     final cached = await LocalCache.instance.announcements(_department, _level);
     if (cached == null || cached.isEmpty || _items.isNotEmpty) return;
 
-    _items.addAll(cached.map(_fromCachedMap));
+    for (final data in cached) {
+      final item = _fromCachedMap(data);
+      final unread = data['unread'] == true;
+      if (unread) _unreadIds.add(item.id);
+      _items.add(item.copyWith(unread: unread));
+    }
     _hasLoaded = true;
     notifyListeners();
   }
@@ -110,13 +118,19 @@ class AnnouncementStore extends ChangeNotifier {
         .where((doc) => !_deletedIds.contains(doc.id))
         .toList();
 
+    final visibleIds = docs.map((doc) => doc.id).toSet();
+    _unreadIds.removeWhere((id) => !visibleIds.contains(id));
+
     // Announcements that appear after the first snapshot are new arrivals, so
     // they stay unread until the user opens them. The initial batch is treated
     // as already read.
     if (_hasLoaded) {
       final existingIds = _items.map((item) => item.id).toSet();
+      final myUid = AuthService.instance.currentUser?.uid;
       for (final doc in docs) {
-        if (!existingIds.contains(doc.id)) _unreadIds.add(doc.id);
+        if (existingIds.contains(doc.id)) continue;
+        if (myUid != null && doc.data()['authorId'] == myUid) continue;
+        _unreadIds.add(doc.id);
       }
     }
 
@@ -131,8 +145,10 @@ class AnnouncementStore extends ChangeNotifier {
     unawaited(_saveCache());
   }
 
-  /// Publishes a new announcement for the signed-in user's department and
-  /// level, and writes it to Firestore.
+  /// Adds an announcement to the in-memory feed immediately.
+  ///
+  /// Production code should use [publish], which waits for Firestore and
+  /// only shows the post once the server has accepted it.
   Announcement post({
     required String author,
     required String authorId,
@@ -145,14 +161,117 @@ class AnnouncementStore extends ChangeNotifier {
   }) {
     final firestore = Firebase.apps.isEmpty ? null : FirebaseFirestore.instance;
     final doc = firestore?.collection(_collection).doc();
-    final groupDepartment = normalizeDepartment(department ?? _department);
-    final groupLevel = (level ?? _level).trim();
-    final now = DateTime.now();
-
-    final announcement = Announcement(
+    final mine =
+        AuthService.isAvailable &&
+        AuthService.instance.currentUser?.uid == authorId;
+    final announcement = _buildAnnouncement(
       id:
           doc?.id ??
           'ann-${DateTime.now().microsecondsSinceEpoch}-${_nextId++}',
+      author: author,
+      authorId: authorId,
+      photoUrl: photoUrl,
+      tag: tag,
+      tagColor: tagColor,
+      body: body,
+      unread: !mine,
+    );
+    _insertAnnouncement(announcement, unread: !mine);
+    return announcement;
+  }
+
+  /// Publishes an announcement and shows it only after Firestore accepts it.
+  ///
+  /// This avoids the old phantom-post behaviour: if the session has expired or
+  /// the group no longer matches, nothing is inserted locally and the composer
+  /// can offer a retry instead of losing the post after the next sign-in.
+  Future<Announcement> publish({
+    required String author,
+    required String authorId,
+    required String tag,
+    required Color tagColor,
+    required String body,
+    String? photoUrl,
+    String? department,
+    String? level,
+  }) async {
+    if (Firebase.apps.isEmpty) {
+      return post(
+        author: author,
+        authorId: authorId,
+        tag: tag,
+        tagColor: tagColor,
+        body: body,
+        photoUrl: photoUrl,
+        department: department,
+        level: level,
+      );
+    }
+
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) {
+      throw StateError('Your session expired. Sign in again to post.');
+    }
+    if (!await _ensureGroup()) {
+      throw StateError(
+        'Add your department and level to your profile before posting.',
+      );
+    }
+
+    final resolvedAuthorId = authorId.trim().isEmpty ? uid : authorId.trim();
+    if (resolvedAuthorId != uid) {
+      throw StateError('Your session expired. Sign in again to post.');
+    }
+    final groupDepartment = normalizeDepartment(
+      (department ?? '').trim().isEmpty ? _department : department!,
+    );
+    final groupLevel = (level ?? '').trim().isEmpty ? _level : level!.trim();
+    if (groupDepartment.isEmpty || groupLevel.isEmpty) {
+      throw StateError(
+        'Add your department and level to your profile before posting.',
+      );
+    }
+
+    final doc = FirebaseFirestore.instance.collection(_collection).doc();
+    final announcement = _buildAnnouncement(
+      id: doc.id,
+      author: author,
+      authorId: resolvedAuthorId,
+      photoUrl: photoUrl,
+      tag: tag,
+      tagColor: tagColor,
+      body: body,
+      unread: false,
+    );
+
+    await doc.set({
+      'author': author,
+      'authorId': resolvedAuthorId,
+      'photoUrl': photoUrl,
+      'department': groupDepartment,
+      'level': groupLevel,
+      'tag': tag,
+      'tagColor': tagColor.toARGB32(),
+      'body': body,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    _insertAnnouncement(announcement, unread: false);
+    return announcement;
+  }
+
+  Announcement _buildAnnouncement({
+    required String id,
+    required String author,
+    required String authorId,
+    required String tag,
+    required Color tagColor,
+    required String body,
+    required bool unread,
+    String? photoUrl,
+  }) {
+    return Announcement(
+      id: id,
       author: author,
       authorId: authorId,
       photoUrl: photoUrl,
@@ -160,38 +279,24 @@ class AnnouncementStore extends ChangeNotifier {
       tag: tag,
       tagColor: tagColor,
       body: body,
-      unread: true,
-      createdAt: now,
+      unread: unread,
+      createdAt: DateTime.now(),
     );
+  }
 
-    // Show the post immediately; the live snapshot reconciles it shortly.
+  void _insertAnnouncement(Announcement announcement, {required bool unread}) {
+    _items.removeWhere((item) => item.id == announcement.id);
     _items.insert(0, announcement);
-    _unreadIds.add(announcement.id);
-    _createdAtMillis[announcement.id] = now.millisecondsSinceEpoch;
+    if (unread) {
+      _unreadIds.add(announcement.id);
+    } else {
+      _unreadIds.remove(announcement.id);
+    }
+    _createdAtMillis[announcement.id] =
+        announcement.createdAt?.millisecondsSinceEpoch ??
+        DateTime.now().millisecondsSinceEpoch;
     notifyListeners();
     unawaited(_saveCache());
-
-    if (doc != null) {
-      unawaited(
-        doc
-            .set({
-              'author': author,
-              'authorId': authorId,
-              'photoUrl': photoUrl,
-              'department': groupDepartment,
-              'level': groupLevel,
-              'tag': tag,
-              'tagColor': tagColor.toARGB32(),
-              'body': body,
-              'createdAt': FieldValue.serverTimestamp(),
-            })
-            .catchError((Object _) {
-              // Keep the optimistic post; a later snapshot will reconcile it.
-            }),
-      );
-    }
-
-    return announcement;
   }
 
   /// Clears the unread dot for [announcement] (when its tile is opened).
@@ -286,6 +391,7 @@ class AnnouncementStore extends ChangeNotifier {
           'tag': item.tag,
           'tagColor': item.tagColor.toARGB32(),
           'body': item.body,
+          'unread': _unreadIds.contains(item.id),
           'createdAt':
               _createdAtMillis[item.id] ??
               DateTime.now().millisecondsSinceEpoch,

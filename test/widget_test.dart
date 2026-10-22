@@ -1289,6 +1289,23 @@ void main() {
     expect(find.text('Add Activity'), findsNothing);
   });
 
+  testWidgets('Home shell shows a green badge for unread announcements', (
+    WidgetTester tester,
+  ) async {
+    seedAnnouncements();
+    addTearDown(AnnouncementStore.instance.clear);
+
+    await tester.pumpWidget(const MaterialApp(home: HomeShell()));
+    await tester.pump();
+
+    final badge = find.byKey(const ValueKey('nav-badge-Updates'));
+    expect(badge, findsOneWidget);
+    expect(
+      find.descendant(of: badge, matching: find.text('3')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Messages compose button reveals quick actions', (
     WidgetTester tester,
   ) async {

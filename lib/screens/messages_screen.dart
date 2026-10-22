@@ -5,11 +5,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/chat_conversation.dart';
+import '../models/story.dart';
+import '../models/contact_request.dart';
 import '../models/direct_chat.dart';
 import '../models/group_chat.dart';
 import '../navigation/app_route.dart';
 import '../services/auth_service.dart';
 import '../services/chat_store.dart';
+import '../services/contact_store.dart';
+import '../services/story_store.dart';
 import '../theme/app_type.dart';
 import '../theme/slack_type.dart';
 import '../utils/active_time.dart';
@@ -21,6 +25,7 @@ import '../widgets/filter_pills.dart';
 import '../widgets/floating_empty_state.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/workspace_app_bar.dart';
+import 'add_story_screen.dart';
 import 'available_contacts_screen.dart';
 import 'create_group_screen.dart';
 import 'direct_chat_screen.dart';
@@ -53,13 +58,31 @@ const List<ComposeAction> _messagesComposeActions = [
 ///   - Tapping a direct chat opens [PersistentDirectChatScreen]. The mock
 ///     [DirectChatScreen] remains for offline/demo use and widget tests.
 class MessagesScreen extends StatefulWidget {
-  const MessagesScreen({super.key});
+  const MessagesScreen({super.key, this.requestStream, this.viewerId});
+
+  /// Injectable request stream used by widget tests without Firebase.
+  final Stream<List<ContactRequest>>? requestStream;
+
+  /// Overrides the signed-in user when counting incoming requests in tests.
+  final String? viewerId;
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
 class _MessagesScreenState extends State<MessagesScreen> {
+  late final Stream<List<ContactRequest>> _requestStream =
+      widget.requestStream ?? ContactStore.instance.watchRequests();
+
+  int _incomingRequestCount(List<ContactRequest>? requests) {
+    if (requests == null || requests.isEmpty) return 0;
+    final uid = widget.viewerId ?? ContactStore.instance.currentUid;
+    if (uid == null || uid.isEmpty) return 0;
+    return requests
+        .where((request) => request.isPending && request.toUid == uid)
+        .length;
+  }
+
   Future<void> _onComposeAction(ComposeAction action) async {
     switch (action.label) {
       case 'New DM':
@@ -67,7 +90,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       case 'New Group':
         await _startNewGroup();
       case 'Add Story':
-        _showSnack('Story creation is coming soon.');
+        await _openAddStory();
     }
   }
 
@@ -100,6 +123,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
     ).push(sharedAxisRoute(const CreateGroupScreen()));
   }
 
+  Future<void> _openAddStory() async {
+    final posted = await Navigator.of(
+      context,
+    ).push<bool>(sharedAxisRoute(const AddStoryScreen()));
+    if (posted == true) _showSnack('Your story is live for 24 hours.');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -121,9 +151,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ],
         ),
         Positioned.fill(
-          child: ComposeFab(
-            actions: _messagesComposeActions,
-            onActionSelected: _onComposeAction,
+          child: StreamBuilder<List<ContactRequest>>(
+            stream: _requestStream,
+            builder: (context, snapshot) {
+              return ComposeFab(
+                actions: _messagesComposeActions,
+                onActionSelected: _onComposeAction,
+                badgeCount: _incomingRequestCount(snapshot.data),
+              );
+            },
           ),
         ),
       ],
@@ -131,46 +167,170 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 }
 
-/// Horizontal story/status row.
-class _StorySection extends StatelessWidget {
+/// Horizontal story/status row backed by [StoryStore].
+class _StorySection extends StatefulWidget {
   const _StorySection();
 
   @override
-  Widget build(BuildContext context) {
-    final stories = MockChatData.stories;
+  State<_StorySection> createState() => _StorySectionState();
+}
 
-    return SizedBox(
-      height: 94,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: stories.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          final story = stories[index];
-          return _StoryTile(
-            story: story,
-            onTap: () {
-              Navigator.of(
-                context,
-              ).push(fadeRoute(StoryViewerScreen(story: story)));
+class _StorySectionState extends State<_StorySection> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(StoryStore.instance.listen());
+  }
+
+  Future<void> _addStory() async {
+    final posted = await Navigator.of(
+      context,
+    ).push<bool>(sharedAxisRoute(const AddStoryScreen()));
+    if (posted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your story is live for 24 hours.')),
+      );
+    }
+  }
+
+  void _openGroup(StoryGroup group) {
+    Navigator.of(
+      context,
+    ).push(fadeRoute(StoryViewerScreen(stories: group.stories)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: StoryStore.instance,
+      builder: (context, _) {
+        final groups = StoryStore.instance.groups;
+        return SizedBox(
+          height: 102,
+          child: ListView.separated(
+            key: const ValueKey('story-reel'),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: groups.length + 1,
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _AddStoryTile(onTap: _addStory);
+              }
+              final group = groups[index - 1];
+              return _StoryTile(group: group, onTap: () => _openGroup(group));
             },
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AddStoryTile extends StatelessWidget {
+  const _AddStoryTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final mine = StoryStore.instance.myGroup;
+
+    return InkWell(
+      key: const ValueKey('add-story-tile'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: mine == null
+                        ? scheme.outlineVariant
+                        : SpotifyColors.accent,
+                    width: 2,
+                  ),
+                ),
+                child: mine != null
+                    ? ChatAvatar(
+                        avatarUrl: mine.latest.avatarUrl,
+                        avatarColor: mine.latest.avatarColor,
+                        avatarInitials: mine.latest.avatarText,
+                        size: 60,
+                        showOnlineDot: true,
+                      )
+                    : Container(
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          LucideIcons.camera,
+                          color: scheme.onSurfaceVariant,
+                          size: 27,
+                        ),
+                      ),
+              ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  width: 23,
+                  height: 23,
+                  decoration: BoxDecoration(
+                    color: SpotifyColors.accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: SpotifyColors.background,
+                      width: 2,
+                    ),
+                  ),
+                  child: const Icon(
+                    LucideIcons.camera,
+                    color: Colors.black,
+                    size: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Your Story',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppType.cardTitle(
+              scheme,
+            ).copyWith(fontWeight: FontWeight.w500, color: scheme.onSurface),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _StoryTile extends StatelessWidget {
-  const _StoryTile({required this.story, required this.onTap});
+  const _StoryTile({required this.group, required this.onTap});
 
-  final StoryItem story;
+  final StoryGroup group;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final story = group.latest;
+    final ring = group.hasUnread
+        ? SpotifyColors.accent
+        : scheme.onSurface.withValues(alpha: 0.16);
 
     return InkWell(
       onTap: onTap,
@@ -178,16 +338,26 @@ class _StoryTile extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ChatAvatar(
-            avatarAsset: story.avatarAsset,
-            avatarColor: story.avatarColor,
-            avatarInitials: story.avatarText,
-            size: 60,
-            showOnlineDot: true,
+          Container(
+            width: 68,
+            height: 68,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: ring, width: 2),
+            ),
+            child: ChatAvatar(
+              avatarAsset: story.avatarAsset,
+              avatarUrl: story.avatarUrl,
+              avatarColor: story.avatarColor,
+              avatarInitials: story.avatarText,
+              size: 60,
+              showOnlineDot: true,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
-            story.username,
+            group.username,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppType.cardTitle(

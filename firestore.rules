@@ -222,6 +222,88 @@ service cloud.firestore {
       }
     }
 
+    // Stories are 24-hour photo/video posts scoped to the author's
+    // department + level group. Only group members may read them; authors
+    // create and delete their own posts. Other members may only append their
+    // own uid to `viewers`.
+    match /stories/{storyId} {
+      function profile() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      }
+      function departmentCode() {
+        let stored = profile().department is string
+          ? profile().department.trim()
+          : '';
+        let key = stored.lower();
+        return key == 'computer science' || key == 'csc' ? 'CSC'
+          : key == 'software engineering' || key == 'soe' ? 'SOE'
+          : key == 'cyber security' || key == 'cybersecurity' || key == 'cyb' ? 'CYB'
+          : key == 'information technology' || key == 'ift' ? 'IFT'
+          : stored;
+      }
+      function groupLevel() {
+        return profile().level is string ? profile().level.trim() : '';
+      }
+      function hasGroup() {
+        return departmentCode() != '' && groupLevel() != '';
+      }
+      function story() {
+        return resource.data;
+      }
+      function inGroup() {
+        return request.auth != null
+          && hasGroup()
+          && story().department == departmentCode()
+          && story().level == groupLevel();
+      }
+      allow read: if request.auth != null
+        && hasGroup()
+        && resource.data.department == departmentCode()
+        && resource.data.level == groupLevel();
+      allow create: if request.auth != null
+        && hasGroup()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.department == departmentCode()
+        && request.resource.data.level == groupLevel()
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() > 0
+        && request.resource.data.authorName.size() <= 100
+        && request.resource.data.username is string
+        && request.resource.data.username.size() > 0
+        && request.resource.data.username.size() <= 100
+        && request.resource.data.mediaUrl is string
+        && request.resource.data.mediaUrl.size() > 0
+        && request.resource.data.mediaUrl.size() <= 2048
+        && request.resource.data.mediaType in ['image', 'video']
+        && (!request.resource.data.keys().hasAny(['photoUrl'])
+          || request.resource.data.photoUrl == null
+          || (request.resource.data.photoUrl is string
+            && request.resource.data.photoUrl.size() <= 2048))
+        && (!request.resource.data.keys().hasAny(['caption'])
+          || request.resource.data.caption == null
+          || (request.resource.data.caption is string
+            && request.resource.data.caption.size() <= 300))
+        && request.resource.data.viewers is list
+        && request.resource.data.viewers.size() == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'authorId', 'authorName', 'username', 'photoUrl', 'department',
+          'level', 'mediaUrl', 'mediaType', 'caption', 'viewers',
+          'createdAt', 'expiresAt'
+        ]);
+      allow update: if inGroup()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['viewers'])
+        && request.resource.data.viewers is list
+        && request.resource.data.viewers.size() == resource.data.viewers.size() + 1
+        && request.resource.data.viewers.hasAll(resource.data.viewers)
+        && request.auth.uid in request.resource.data.viewers
+        && !(request.auth.uid in resource.data.viewers);
+      allow delete: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+    }
+
     // Contact requests gate DMs. A pair has one request document keyed by
     // their sorted UIDs, so reciprocal requests cannot create duplicates.
     // Only the recipient can accept, and accepting also creates the chat.

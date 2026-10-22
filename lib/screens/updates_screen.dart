@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -249,17 +251,53 @@ class _UpdatesScreenState extends State<UpdatesScreen> {
           : null,
     );
     if (draft == null) return;
+    await _publishAnnouncement(draft);
+  }
 
-    AnnouncementStore.instance.post(
-      author: draft.author,
-      authorId: draft.authorId,
-      photoUrl: draft.photoUrl,
-      department: draft.department,
-      level: draft.level,
-      tag: draft.tag,
-      tagColor: draft.tagColor,
-      body: draft.body,
-    );
+  Future<void> _publishAnnouncement(AnnouncementDraft draft) async {
+    final messenger = Scaffold.maybeOf(context) == null
+        ? null
+        : ScaffoldMessenger.of(context);
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Posting announcement…')));
+    try {
+      await AnnouncementStore.instance.publish(
+        author: draft.author,
+        authorId: draft.authorId,
+        photoUrl: draft.photoUrl,
+        department: draft.department,
+        level: draft.level,
+        tag: draft.tag,
+        tagColor: draft.tagColor,
+        body: draft.body,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger?.hideCurrentSnackBar();
+      final message = switch (error) {
+        StateError(:final message) => message,
+        _ when error.toString().contains('permission-denied') =>
+          'Your account does not have permission to post in this group.',
+        _ =>
+          'Your announcement was not posted. Check your connection and try again.',
+      };
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => unawaited(_publishAnnouncement(draft)),
+            ),
+          ),
+        );
+      return;
+    }
+
+    if (!mounted) return;
+    messenger?.hideCurrentSnackBar();
 
     // Reveal the new post at the top of the feed so its entrance animation is
     // visible even when the user had scrolled down.

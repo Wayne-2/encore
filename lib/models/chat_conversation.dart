@@ -1,33 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/spotify_colors.dart';
-
-/// A single story / status item shown in the horizontal `# Story` reel.
-class StoryItem {
-  const StoryItem({
-    required this.id,
-    required this.username,
-    this.avatarAsset,
-    this.avatarColor,
-    this.avatarText,
-    this.hasUnread = true,
-    required this.storyImage,
-    required this.time,
-    this.createdAt,
-    this.caption,
-  });
-
-  final String id;
-  final String username;
-  final String? avatarAsset;
-  final Color? avatarColor;
-  final String? avatarText;
-  final bool hasUnread;
-  final String storyImage;
-  final String time;
-  final DateTime? createdAt;
-  final String? caption;
-}
+import 'story.dart';
 
 /// A chat bubble message within a group or 1-on-1 direct conversation.
 class ChatMessage {
@@ -209,6 +183,7 @@ abstract final class MockChatData {
   static final List<StoryItem> stories = [
     StoryItem(
       id: 'story-cypher',
+      authorId: 'mock-cypher',
       username: '_cypher',
       avatarAsset: 'assets/background-2.jpeg',
       storyImage: 'assets/background-2.jpeg',
@@ -218,6 +193,7 @@ abstract final class MockChatData {
     ),
     StoryItem(
       id: 'story-divine',
+      authorId: 'mock-divine',
       username: '_divine',
       avatarAsset: 'assets/background.jpeg',
       storyImage: 'assets/background.jpeg',
@@ -227,6 +203,7 @@ abstract final class MockChatData {
     ),
     StoryItem(
       id: 'story-wayne',
+      authorId: 'mock-wayne',
       username: '_wayne',
       avatarAsset: 'assets/background-3.jpeg',
       storyImage: 'assets/background-3.jpeg',
@@ -236,6 +213,7 @@ abstract final class MockChatData {
     ),
     StoryItem(
       id: 'story-encore',
+      authorId: 'mock-encore',
       username: '_encore',
       avatarAsset: 'assets/Encore.png',
       storyImage: 'assets/background-2.jpeg',
@@ -245,6 +223,7 @@ abstract final class MockChatData {
     ),
     StoryItem(
       id: 'story-chris',
+      authorId: 'mock-chris',
       username: '_chris',
       avatarAsset: 'assets/launch_icon_foreground.png',
       storyImage: 'assets/background.jpeg',

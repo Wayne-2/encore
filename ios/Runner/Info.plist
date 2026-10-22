@@ -17,11 +17,11 @@
 	<key>CFBundleName</key>
 	<string>Encore</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Encore uses your camera to take a profile photo.</string>
+	<string>Encore uses your camera for profile photos and to capture stories.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Encore uses your microphone to record voice notes in chats.</string>
+	<string>Encore uses your microphone to record voice notes, story videos and calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Encore uses your photo library so you can choose a profile photo, or attach photos and videos to a trend.</string>
+	<string>Encore uses your photo library so you can choose profile photos, attach media to chats, and post stories.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
